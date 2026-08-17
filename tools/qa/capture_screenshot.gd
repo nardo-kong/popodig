@@ -27,7 +27,17 @@ func _capture() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
-	await create_timer(2.2).timeout
+	if _has_user_argument("--wait-for-carry"):
+		var deadline_usec := Time.get_ticks_usec() + 5000000
+		while Time.get_ticks_usec() < deadline_usec and not _has_visible_carrier(scene):
+			await process_frame
+		if not _has_visible_carrier(scene):
+			push_error("Screenshot fixture never reached a visible carrying state")
+			quit(1)
+			return
+		await process_frame
+	else:
+		await create_timer(2.2).timeout
 	RenderingServer.force_draw(false)
 	await process_frame
 	var image := root.get_texture().get_image()
@@ -63,3 +73,17 @@ func _get_target_size() -> Vector2i:
 			if parsed.x >= 640 and parsed.y >= 360:
 				return parsed
 	return TARGET_SIZE
+
+
+func _has_visible_carrier(scene: Node) -> bool:
+	var simulation: Variant = scene.get("colony_simulation")
+	if simulation == null:
+		return false
+	for mouse in simulation.get_mice():
+		if int(mouse.carried_item_count) > 0:
+			return true
+	return false
+
+
+func _has_user_argument(argument_name: String) -> bool:
+	return OS.get_cmdline_user_args().has(argument_name)

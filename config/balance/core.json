@@ -9,7 +9,26 @@
   },
   "mouse": {
     "move_cells_per_second": 4.0,
-    "dig_work_per_second": 1.0
+    "dig_work_per_second": 1.0,
+    "initial_hunger": 0.12,
+    "hunger_per_second": 0.008,
+    "food_restore": 0.75,
+    "hunger_seek_threshold": 0.65,
+    "hunger_critical_threshold": 0.9,
+    "initial_rest": 0.85,
+    "rest_drain_per_second": 0.004,
+    "rest_seek_threshold": 0.25,
+    "rest_critical_threshold": 0.08,
+    "rest_recover_per_second": 0.3,
+    "rest_resume_threshold": 0.9,
+    "need_interrupt_priority_ceiling": 25.0
+  },
+  "jobs": {
+    "dig_priority": 10.0,
+    "haul_priority": 20.0,
+    "emergency_priority": 100.0,
+    "travel_cost_weight": 0.25,
+    "unreachable_retry_seconds": 2.0
   },
   "pathfinding": {
     "max_walkable_water_units": 1

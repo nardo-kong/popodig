@@ -136,6 +136,38 @@ static func validate_document(document_name: String, data: Dictionary) -> String
 				return "mouse.move_cells_per_second must be positive"
 			if float(mouse.get("dig_work_per_second", 0.0)) <= 0.0:
 				return "mouse.dig_work_per_second must be positive"
+			for unit_value: String in [
+				"initial_hunger",
+				"food_restore",
+				"hunger_seek_threshold",
+				"hunger_critical_threshold",
+				"initial_rest",
+				"rest_seek_threshold",
+				"rest_critical_threshold",
+				"rest_resume_threshold",
+			]:
+				var normalized := float(mouse.get(unit_value, -1.0))
+				if normalized < 0.0 or normalized > 1.0:
+					return "mouse.%s must be between zero and one" % unit_value
+			if float(mouse.get("hunger_per_second", -1.0)) < 0.0:
+				return "mouse.hunger_per_second must not be negative"
+			if float(mouse.get("rest_drain_per_second", -1.0)) < 0.0:
+				return "mouse.rest_drain_per_second must not be negative"
+			if float(mouse.get("rest_recover_per_second", 0.0)) <= 0.0:
+				return "mouse.rest_recover_per_second must be positive"
+			if float(mouse.get("hunger_critical_threshold", 0.0)) < float(mouse.get("hunger_seek_threshold", 0.0)):
+				return "mouse hunger thresholds are inverted"
+			if float(mouse.get("rest_critical_threshold", 1.0)) > float(mouse.get("rest_seek_threshold", 0.0)):
+				return "mouse rest thresholds are inverted"
+			if float(mouse.get("rest_resume_threshold", 0.0)) < float(mouse.get("rest_seek_threshold", 0.0)):
+				return "mouse rest resume threshold is too low"
+			var jobs: Dictionary = data.get("jobs", {})
+			if float(jobs.get("unreachable_retry_seconds", 0.0)) <= 0.0:
+				return "jobs.unreachable_retry_seconds must be positive"
+			if float(jobs.get("emergency_priority", 0.0)) <= float(jobs.get("haul_priority", 0.0)):
+				return "jobs.emergency_priority must exceed haul_priority"
+			if float(jobs.get("haul_priority", 0.0)) <= float(jobs.get("dig_priority", 0.0)):
+				return "jobs.haul_priority must exceed dig_priority"
 			var pathfinding: Dictionary = data.get("pathfinding", {})
 			if int(pathfinding.get("max_walkable_water_units", -1)) < 0:
 				return "pathfinding.max_walkable_water_units must not be negative"

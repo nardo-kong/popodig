@@ -3,7 +3,8 @@ extends Node
 const SimpleWorldGeneratorScript = preload("res://src/domain/world/simple_world_generator.gd")
 const GridPathServiceScript = preload("res://src/application/services/grid_path_service.gd")
 const DigSystemScript = preload("res://src/domain/jobs/dig_system.gd")
-const MouseAgentScript = preload("res://src/domain/colony/mouse_agent.gd")
+const ColonySimulationScript = preload("res://src/domain/colony/colony_simulation.gd")
+const ItemSystemScript = preload("res://src/domain/colony/item_system.gd")
 const DesignateDigCommandScript = preload("res://src/application/commands/designate_dig_command.gd")
 const CancelDigCommandScript = preload("res://src/application/commands/cancel_dig_command.gd")
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
@@ -16,12 +17,15 @@ enum PaintAction {
 
 @onready var world_view: WorldView = %WorldView
 @onready var world_camera: WorldCamera = %WorldCamera
-@onready var mouse_view: MouseView = %MouseView
+@onready var colony_view: ColonyView = %ColonyView
+@onready var colony_items_view: ColonyItemsView = %ColonyItemsView
+@onready var colony_debug_overlay: ColonyDebugOverlay = %ColonyDebugOverlay
 @onready var dig_cursor_view: DigCursorView = %DigCursorView
 @onready var seed_label: Label = %SeedLabel
 @onready var stats_label: Label = %StatsLabel
 @onready var inspector_label: Label = %InspectorLabel
 @onready var dig_status_label: Label = %DigStatusLabel
+@onready var colony_status_label: Label = %ColonyStatusLabel
 @onready var dig_feedback_label: Label = %DigFeedbackLabel
 @onready var fps_label: Label = %FpsLabel
 @onready var debug_top_bar: Control = %TopBar
@@ -31,6 +35,7 @@ enum PaintAction {
 var world_grid
 var path_service
 var dig_system
+var colony_simulation
 var mouse_agent
 var _logical_cell_size := 16
 var _simulation_step := 0.05
@@ -61,9 +66,14 @@ func _ready() -> void:
 	path_service.configure(world_grid, balance_config)
 	dig_system = DigSystemScript.new()
 	dig_system.configure(world_grid, path_service, balance_config)
-	mouse_agent = MouseAgentScript.new(1, world_grid.metadata.start_cell)
-	mouse_agent.configure(world_grid, path_service, dig_system, balance_config)
-	mouse_view.configure(mouse_agent, _logical_cell_size)
+	colony_simulation = ColonySimulationScript.new()
+	colony_simulation.configure(world_grid, path_service, dig_system, balance_config)
+	_seed_initial_supplies()
+	var mice: Array = colony_simulation.get_mice()
+	mouse_agent = mice[0] if not mice.is_empty() else null
+	colony_view.configure(colony_simulation, _logical_cell_size)
+	colony_items_view.configure(colony_simulation.get_item_system(), _logical_cell_size)
+	colony_debug_overlay.configure(colony_simulation, _logical_cell_size)
 	dig_cursor_view.configure(_logical_cell_size)
 	seed_label.text = "Seed %d · worldgen v%d" % [seed_value, world_grid.metadata.worldgen_version]
 	stats_label.text = "%d×%d cells · %d chunks · %.1f KiB logical grid" % [
@@ -76,19 +86,22 @@ func _ready() -> void:
 	debug_top_bar.visible = debug_visible
 	debug_inspector.visible = debug_visible
 	debug_footer.visible = debug_visible
-	if _has_user_argument("--qa-phase2-demo") and AppConfig.cheats_enabled():
+	colony_debug_overlay.visible = debug_visible
+	if (_has_user_argument("--qa-phase2-demo") or _has_user_argument("--qa-phase3-demo")) and AppConfig.cheats_enabled():
 		_designate_qa_demo_path()
+	if _has_user_argument("--qa-phase3-demo") and AppConfig.cheats_enabled():
+		_setup_qa_colony_demo()
 	_update_hud()
-	GameLog.info("WORLDGEN", "Phase 2 world generated seed=%d checksum=%d" % [seed_value, world_grid.checksum()])
+	GameLog.info("WORLDGEN", "Phase 3 colony world generated seed=%d checksum=%d mice=%d" % [seed_value, world_grid.checksum(), mice.size()])
 
 
 func _process(delta: float) -> void:
-	if world_grid == null or mouse_agent == null:
+	if world_grid == null or colony_simulation == null:
 		return
 	_simulation_accumulator = minf(_simulation_accumulator + delta, 0.4)
 	var ticks := 0
 	while _simulation_accumulator >= _simulation_step and ticks < 8:
-		mouse_agent.fixed_tick(_simulation_step)
+		colony_simulation.fixed_tick(_simulation_step)
 		_simulation_accumulator -= _simulation_step
 		ticks += 1
 	_feedback_seconds_remaining = maxf(0.0, _feedback_seconds_remaining - delta)
@@ -111,6 +124,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key_event := event as InputEventKey
 		if key_event.keycode == KEY_F2:
 			world_view.set_grid_visible(not world_view.is_grid_visible())
+			get_viewport().set_input_as_handled()
+		elif key_event.keycode == KEY_F3:
+			colony_debug_overlay.visible = not colony_debug_overlay.visible
 			get_viewport().set_input_as_handled()
 
 
@@ -224,11 +240,34 @@ func _update_cursor() -> void:
 
 
 func _update_hud() -> void:
-	dig_status_label.text = "DIG · LMB paint path · RMB cancel  |  queued %d  |  mouse %s" % [
-		dig_system.get_designated_count(),
-		mouse_agent.get_state_name(),
+	dig_status_label.text = "DIG · LMB paint path · RMB cancel  |  queued %d" % dig_system.get_designated_count()
+	var mice: Array = colony_simulation.get_mice()
+	var active_count := 0
+	var carrying_count := 0
+	var highest_hunger := 0.0
+	var lowest_rest := 100.0
+	for agent in mice:
+		if String(agent.get_state_name()) != "IDLE":
+			active_count += 1
+		if int(agent.carried_item_count) > 0:
+			carrying_count += 1
+		highest_hunger = maxf(highest_hunger, _need_percent(float(agent.hunger)))
+		lowest_rest = minf(lowest_rest, _need_percent(float(agent.rest)))
+	var item_system = colony_simulation.get_item_system()
+	colony_status_label.text = "MICE %d · active %d · carrying %d  |  Food %d · Material %d  |  Hunger %.0f%% · Rest %.0f%%" % [
+		mice.size(),
+		active_count,
+		carrying_count,
+		item_system.get_total_count(ItemSystemScript.FOOD),
+		item_system.get_total_count(ItemSystemScript.GENERAL_MATERIAL),
+		highest_hunger,
+		lowest_rest,
 	]
 	dig_feedback_label.text = _last_feedback if _feedback_seconds_remaining > 0.0 else _hover_feedback
+
+
+func _need_percent(value: float) -> float:
+	return clampf(value * 100.0 if value <= 1.0 else value, 0.0, 100.0)
 
 
 func _update_inspector() -> void:
@@ -270,6 +309,32 @@ func _designate_qa_demo_path() -> void:
 		cells.append(cursor)
 	var result: Dictionary = DesignateDigCommandScript.new(dig_system, cells).execute()
 	_set_command_feedback(result)
+
+
+func _seed_initial_supplies() -> void:
+	var home: Vector2i = world_grid.metadata.start_cell
+	var food_cell := _find_excavated_cell(home, [Vector2i(-4, 0), Vector2i(-3, 0), Vector2i(-2, 0), Vector2i.LEFT])
+	var material_cell := _find_excavated_cell(home, [Vector2i(4, 0), Vector2i(3, 0), Vector2i(2, 0), Vector2i.RIGHT])
+	colony_simulation.add_item_pile(ItemSystemScript.FOOD, food_cell, 8)
+	colony_simulation.add_item_pile(ItemSystemScript.GENERAL_MATERIAL, material_cell, 10)
+
+
+func _setup_qa_colony_demo() -> void:
+	var home: Vector2i = world_grid.metadata.start_cell
+	var food_cell := _find_excavated_cell(home, [Vector2i(-4, 0), Vector2i(-3, 0), Vector2i.LEFT])
+	var material_cell := _find_excavated_cell(home, [Vector2i(4, 0), Vector2i(3, 0), Vector2i.RIGHT])
+	# Route the QA haul across the whole start room so capture timing visibly proves carrying.
+	var result: Dictionary = colony_simulation.setup_qa_demo(food_cell, material_cell, food_cell)
+	if not bool(result.get("ok", false)):
+		GameLog.failure("QA", "Phase 3 colony demo setup failed: %s" % result.get("reason_code", "UNKNOWN"))
+
+
+func _find_excavated_cell(anchor: Vector2i, offsets: Array[Vector2i]) -> Vector2i:
+	for offset: Vector2i in offsets:
+		var candidate := anchor + offset
+		if world_grid.is_in_bounds(candidate) and world_grid.is_excavated(candidate) and path_service.is_reachable(anchor, candidate):
+			return candidate
+	return anchor
 
 
 func _dig_state_name(state: int) -> String:

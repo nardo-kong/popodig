@@ -30,9 +30,9 @@ func is_walkable(cell_coord: Vector2i) -> bool:
 	return index >= 0 and _walkable[index] == 1
 
 
-func find_path(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
+func find_path(start: Vector2i, goal: Vector2i, forbidden_cells: Dictionary = {}) -> Array[Vector2i]:
 	var empty_path: Array[Vector2i] = []
-	if _world == null or not is_walkable(start) or not is_walkable(goal):
+	if _world == null or not is_walkable(start) or not is_walkable(goal) or forbidden_cells.has(goal):
 		return empty_path
 	if start == goal:
 		return [start]
@@ -51,7 +51,7 @@ func find_path(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
 		var current: Vector2i = _world.index_to_cell(current_index)
 		for neighbor: Vector2i in _world.get_cardinal_neighbors(current):
 			var neighbor_index: int = _world.cell_to_index(neighbor)
-			if previous[neighbor_index] != -2 or _walkable[neighbor_index] == 0:
+			if previous[neighbor_index] != -2 or _walkable[neighbor_index] == 0 or forbidden_cells.has(neighbor):
 				continue
 			previous[neighbor_index] = current_index
 			if neighbor_index == goal_index:
@@ -64,7 +64,7 @@ func is_reachable(start: Vector2i, goal: Vector2i) -> bool:
 	return not find_path(start, goal).is_empty()
 
 
-func build_distance_field(start: Vector2i) -> PackedInt32Array:
+func build_distance_field(start: Vector2i, forbidden_cells: Dictionary = {}) -> PackedInt32Array:
 	var distances := PackedInt32Array()
 	if _world == null:
 		return distances
@@ -82,7 +82,7 @@ func build_distance_field(start: Vector2i) -> PackedInt32Array:
 		var current: Vector2i = _world.index_to_cell(current_index)
 		for neighbor: Vector2i in _world.get_cardinal_neighbors(current):
 			var neighbor_index: int = _world.cell_to_index(neighbor)
-			if distances[neighbor_index] >= 0 or _walkable[neighbor_index] == 0:
+			if distances[neighbor_index] >= 0 or _walkable[neighbor_index] == 0 or forbidden_cells.has(neighbor):
 				continue
 			distances[neighbor_index] = distances[current_index] + 1
 			queue.append(neighbor_index)

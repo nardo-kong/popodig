@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_phase": 2,
+  "current_phase": 3,
   "checks": [
     {"id": "project_import", "status": "PASS", "evidence": "tools/validate.ps1 import step"},
     {"id": "main_scene_launch", "status": "PASS", "evidence": "scenes/app/game_app.tscn"},
@@ -10,6 +10,8 @@
     {"id": "seeded_world_generation", "status": "PASS", "evidence": "tests/unit/test_world_grid.gd"},
     {"id": "mouse_spawn_idle", "status": "PASS", "evidence": "tests/phase2_playable_smoke.gd"},
     {"id": "dig_and_path_update", "status": "PASS", "evidence": "tests/phase2_playable_smoke.gd"},
+    {"id": "colony_autonomy", "status": "PASS", "evidence": "tests/phase3_colony_smoke.gd"},
+    {"id": "colony_soak", "status": "PASS", "evidence": "tests/integration/test_colony_simulation.gd"},
     {"id": "save_load", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 10}
   ]
 }

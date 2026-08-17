@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://src/presentation/app/game_app.gd" id="1_app"]
 [ext_resource type="Script" path="res://src/presentation/world/world_view.gd" id="2_world"]
 [ext_resource type="Script" path="res://src/presentation/world/world_camera.gd" id="3_camera"]
-[ext_resource type="Script" path="res://src/presentation/entities/mouse_view.gd" id="4_mouse"]
+[ext_resource type="Script" path="res://src/presentation/entities/colony_view.gd" id="4_colony"]
 [ext_resource type="Script" path="res://src/presentation/world/dig_cursor_view.gd" id="5_cursor"]
+[ext_resource type="Script" path="res://src/presentation/entities/colony_items_view.gd" id="6_items"]
+[ext_resource type="Script" path="res://src/presentation/debug/colony_debug_overlay.gd" id="7_colony_debug"]
 
 [node name="GameApp" type="Node"]
 script = ExtResource("1_app")
@@ -25,10 +27,20 @@ color = Color(0.0627451, 0.0509804, 0.0431373, 1)
 unique_name_in_owner = true
 script = ExtResource("2_world")
 
-[node name="MouseView" type="Node2D" parent="."]
+[node name="ColonyItemsView" type="Node2D" parent="."]
+unique_name_in_owner = true
+z_index = 15
+script = ExtResource("6_items")
+
+[node name="ColonyView" type="Node2D" parent="."]
 unique_name_in_owner = true
 z_index = 20
-script = ExtResource("4_mouse")
+script = ExtResource("4_colony")
+
+[node name="ColonyDebugOverlay" type="Node2D" parent="."]
+unique_name_in_owner = true
+z_index = 25
+script = ExtResource("7_colony_debug")
 
 [node name="DigCursorView" type="Node2D" parent="."]
 unique_name_in_owner = true
@@ -71,7 +83,7 @@ layout_mode = 2
 
 [node name="Title" type="Label" parent="UI/Root/TopBar/Margin/Rows"]
 layout_mode = 2
-text = "DIG DOWN / 地下鼠鼠 · DIGGING FOUNDATION"
+text = "DIG DOWN / 地下鼠鼠 · COLONY FOUNDATION"
 
 [node name="SeedLabel" type="Label" parent="UI/Root/TopBar/Margin/Rows"]
 unique_name_in_owner = true
@@ -116,7 +128,7 @@ anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -330.0
-offset_top = -126.0
+offset_top = -144.0
 offset_right = 330.0
 offset_bottom = -72.0
 grow_horizontal = 2
@@ -140,6 +152,13 @@ unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
 text = "DIG · LMB paint path · RMB cancel"
+horizontal_alignment = 1
+
+[node name="ColonyStatusLabel" type="Label" parent="UI/Root/GameplayHud/Margin/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+text = "MICE 3 · Food 8 · Material 10"
 horizontal_alignment = 1
 
 [node name="DigFeedbackLabel" type="Label" parent="UI/Root/GameplayHud/Margin/Rows"]
@@ -182,7 +201,7 @@ modulate = Color(0.921569, 0.713726, 0.431373, 1)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "WASD/Arrows Pan · Wheel Zoom · LMB Dig · RMB Cancel · F2 Grid"
+text = "WASD/Arrows Pan · Wheel Zoom · LMB Dig · RMB Cancel · F2 Grid · F3 Paths"
 horizontal_alignment = 1
 
 [node name="FpsLabel" type="Label" parent="UI/Root/Footer/Margin/Row"]
