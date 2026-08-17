@@ -1,6 +1,6 @@
 extends SceneTree
 
-const DEFAULT_INPUT := "res://art/qa/screenshots/phase_1_grid_world.png"
+const DEFAULT_INPUT := "res://art/qa/screenshots/phase_2_digging.png"
 const TARGET_SIZE := Vector2i(1280, 720)
 
 

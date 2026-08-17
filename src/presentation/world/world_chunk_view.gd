@@ -3,6 +3,7 @@ extends Node2D
 
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const WorldChunkScript = preload("res://src/domain/world/world_chunk.gd")
+const DigOverlayChunkViewScript = preload("res://src/presentation/world/dig_overlay_chunk_view.gd")
 
 var world_grid
 var world_chunk
@@ -10,6 +11,7 @@ var cell_size := 16
 var show_cell_grid := false
 var redraw_request_count := 0
 var draw_count := 0
+var dig_overlay_view: DigOverlayChunkView
 
 
 func configure(grid, chunk, logical_cell_size: int) -> void:
@@ -17,6 +19,11 @@ func configure(grid, chunk, logical_cell_size: int) -> void:
 	world_chunk = chunk
 	cell_size = logical_cell_size
 	position = Vector2(world_chunk.origin * cell_size)
+	dig_overlay_view = DigOverlayChunkViewScript.new()
+	dig_overlay_view.name = "DigOverlay"
+	dig_overlay_view.z_index = 5
+	add_child(dig_overlay_view)
+	dig_overlay_view.configure(world_grid, world_chunk, cell_size)
 	queue_redraw()
 
 
@@ -30,6 +37,11 @@ func set_grid_visible(value: bool) -> void:
 func request_terrain_redraw() -> void:
 	redraw_request_count += 1
 	queue_redraw()
+
+
+func request_dig_redraw() -> void:
+	if dig_overlay_view != null:
+		dig_overlay_view.request_overlay_redraw()
 
 
 func _draw() -> void:

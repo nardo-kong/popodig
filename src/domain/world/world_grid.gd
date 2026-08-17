@@ -12,6 +12,7 @@ const CHANGE_SIGNALS := 2
 const CHANGE_WATER := 4
 const CHANGE_STABILITY := 8
 const CHANGE_PATHING := 16
+const CHANGE_DIG := 32
 
 var width: int
 var height: int
@@ -114,6 +115,35 @@ func is_protected(cell_coord: Vector2i) -> bool:
 	return index >= 0 and _protected[index] == 1
 
 
+func get_hardness(cell_coord: Vector2i) -> float:
+	var index := cell_to_index(cell_coord)
+	return 0.0 if index < 0 else _hardness[index]
+
+
+func get_dig_state(cell_coord: Vector2i) -> int:
+	var index := cell_to_index(cell_coord)
+	return CellDataScript.DigState.NONE if index < 0 else _dig_state[index]
+
+
+func get_dig_progress(cell_coord: Vector2i) -> float:
+	var index := cell_to_index(cell_coord)
+	return 0.0 if index < 0 else _dig_progress[index]
+
+
+func get_water_units(cell_coord: Vector2i) -> int:
+	var index := cell_to_index(cell_coord)
+	return 0 if index < 0 else _water_units[index]
+
+
+func get_cardinal_neighbors(cell_coord: Vector2i, in_bounds_only: bool = true) -> Array[Vector2i]:
+	var neighbors: Array[Vector2i] = []
+	for direction: Vector2i in [Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.DOWN]:
+		var neighbor := cell_coord + direction
+		if not in_bounds_only or is_in_bounds(neighbor):
+			neighbors.append(neighbor)
+	return neighbors
+
+
 func set_material(cell_coord: Vector2i, material: int) -> bool:
 	var index := cell_to_index(cell_coord)
 	if index < 0 or _terrain[index] == material:
@@ -145,6 +175,62 @@ func set_protected(cell_coord: Vector2i, value: bool) -> bool:
 		return false
 	_protected[index] = encoded
 	_mark_cell_changed(cell_coord, CHANGE_TERRAIN)
+	return true
+
+
+func set_dig_state(cell_coord: Vector2i, state: int) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or state < CellDataScript.DigState.NONE or state > CellDataScript.DigState.ACTIVE:
+		return false
+	if _dig_state[index] == state and (state != CellDataScript.DigState.NONE or is_zero_approx(_dig_progress[index])):
+		return false
+	_dig_state[index] = state
+	if state == CellDataScript.DigState.NONE:
+		_dig_progress[index] = 0.0
+	_mark_cell_changed(cell_coord, CHANGE_DIG)
+	return true
+
+
+func set_dig_progress(cell_coord: Vector2i, progress: float) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or _dig_state[index] == CellDataScript.DigState.NONE:
+		return false
+	var normalized := clampf(progress, 0.0, 1.0)
+	if is_equal_approx(_dig_progress[index], normalized):
+		return false
+	_dig_progress[index] = normalized
+	_mark_cell_changed(cell_coord, CHANGE_DIG)
+	return true
+
+
+func clear_dig(cell_coord: Vector2i) -> bool:
+	return set_dig_state(cell_coord, CellDataScript.DigState.NONE)
+
+
+func set_water_units(cell_coord: Vector2i, units: int) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0:
+		return false
+	var encoded := clampi(units, 0, 255)
+	if _water_units[index] == encoded:
+		return false
+	_water_units[index] = encoded
+	_mark_cell_changed(cell_coord, CHANGE_WATER | CHANGE_PATHING)
+	return true
+
+
+func complete_excavation_atomic(cell_coord: Vector2i) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or _protected[index] == 1 or _excavated[index] == 1:
+		return false
+	if _terrain[index] == CellDataScript.TerrainMaterial.EMPTY:
+		return false
+	if _dig_state[index] == CellDataScript.DigState.NONE:
+		return false
+	_excavated[index] = 1
+	_dig_state[index] = CellDataScript.DigState.NONE
+	_dig_progress[index] = 0.0
+	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_PATHING | CHANGE_STABILITY | CHANGE_DIG)
 	return true
 
 
@@ -248,4 +334,6 @@ func _changes_to_dirty(change_flags: int) -> int:
 		dirty |= WorldChunkScript.DIRTY_STABILITY
 	if change_flags & CHANGE_PATHING:
 		dirty |= WorldChunkScript.DIRTY_PATHING
+	if change_flags & CHANGE_DIG:
+		dirty |= WorldChunkScript.DIRTY_JOBS
 	return dirty

@@ -33,6 +33,15 @@ func _test_invalid_configuration_rejection() -> void:
 	assert_true(not missing.ok, "Missing config is rejected")
 	assert_true(not AppConfigScript.validate_document("worldgen", {"schema_version": 1, "world_size": [96]}).is_empty(), "Invalid world size contract is rejected")
 	assert_true(not AppConfigScript.validate_document("worldgen", {"schema_version": 1, "world_size": [96, 72], "chunk_size": 0}).is_empty(), "Invalid chunk size contract is rejected")
+	var invalid_balance := {
+		"schema_version": 1,
+		"logical_cell_size": 16,
+		"initial_mouse_count": 3,
+		"digging": {"base_dig_seconds": 0.0},
+		"mouse": {"move_cells_per_second": 4.0, "dig_work_per_second": 1.0},
+		"pathfinding": {"max_walkable_water_units": 1},
+	}
+	assert_true(not AppConfigScript.validate_document("balance", invalid_balance).is_empty(), "Invalid digging balance is rejected")
 
 
 func document_name_for_path(path: String) -> String:

@@ -124,6 +124,21 @@ static func validate_document(document_name: String, data: Dictionary) -> String
 		"balance":
 			if int(data.get("logical_cell_size", 0)) <= 0:
 				return "logical_cell_size must be positive"
+			if int(data.get("initial_mouse_count", 0)) <= 0:
+				return "initial_mouse_count must be positive"
+			var digging: Dictionary = data.get("digging", {})
+			if float(digging.get("base_dig_seconds", 0.0)) <= 0.0:
+				return "digging.base_dig_seconds must be positive"
+			if float(digging.get("simulation_step_seconds", 0.0)) <= 0.0:
+				return "digging.simulation_step_seconds must be positive"
+			var mouse: Dictionary = data.get("mouse", {})
+			if float(mouse.get("move_cells_per_second", 0.0)) <= 0.0:
+				return "mouse.move_cells_per_second must be positive"
+			if float(mouse.get("dig_work_per_second", 0.0)) <= 0.0:
+				return "mouse.dig_work_per_second must be positive"
+			var pathfinding: Dictionary = data.get("pathfinding", {})
+			if int(pathfinding.get("max_walkable_water_units", -1)) < 0:
+				return "pathfinding.max_walkable_water_units must not be negative"
 		"worldgen":
 			var size_value: Variant = data.get("world_size")
 			if not size_value is Array or size_value.size() != 2:

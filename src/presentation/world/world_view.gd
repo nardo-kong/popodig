@@ -65,8 +65,10 @@ func _clear_chunk_views() -> void:
 
 
 func _on_chunk_dirtied(chunk_coord: Vector2i, dirty_flags: int) -> void:
-	if (dirty_flags & WorldChunkScript.DIRTY_TERRAIN) == 0:
-		return
 	var chunk_view: WorldChunkView = _chunk_views.get(chunk_coord)
-	if chunk_view != null:
+	if chunk_view == null:
+		return
+	if (dirty_flags & WorldChunkScript.DIRTY_TERRAIN) != 0:
 		chunk_view.request_terrain_redraw()
+	if (dirty_flags & WorldChunkScript.DIRTY_JOBS) != 0:
+		chunk_view.request_dig_redraw()

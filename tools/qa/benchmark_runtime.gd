@@ -14,6 +14,8 @@ func _initialize() -> void:
 
 
 func _benchmark() -> void:
+	# Measure renderer/simulation capacity rather than the host display's current refresh divisor.
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	root.size = Vector2i(1280, 720)
 	var world = GeneratorScript.new().generate({"world_size": [240, 260], "chunk_size": 16}, 9001)
 	var host := Node2D.new()
@@ -46,7 +48,7 @@ func _benchmark() -> void:
 	var average_fps := frame_times_ms.size() / elapsed_seconds
 	var p95_index := clampi(ceili(frame_times_ms.size() * 0.95) - 1, 0, frame_times_ms.size() - 1)
 	var p95_frame_ms := frame_times_ms[p95_index]
-	print("RUNTIME_BENCHMARK world=240x260 chunk_views=%d average_fps=%.2f p95_frame_ms=%.2f edit_burst_ms=%.2f frames=%d viewport=1280x720" % [
+	print("RUNTIME_BENCHMARK world=240x260 chunk_views=%d average_fps=%.2f p95_frame_ms=%.2f edit_burst_ms=%.2f frames=%d viewport=1280x720 vsync=disabled" % [
 		world_view.get_chunk_view_count(),
 		average_fps,
 		p95_frame_ms,

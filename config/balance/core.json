@@ -2,5 +2,16 @@
   "schema_version": 1,
   "status": "PROVISIONAL",
   "logical_cell_size": 16,
-  "initial_mouse_count": 3
+  "initial_mouse_count": 3,
+  "digging": {
+    "base_dig_seconds": 0.8,
+    "simulation_step_seconds": 0.05
+  },
+  "mouse": {
+    "move_cells_per_second": 4.0,
+    "dig_work_per_second": 1.0
+  },
+  "pathfinding": {
+    "max_walkable_water_units": 1
+  }
 }
