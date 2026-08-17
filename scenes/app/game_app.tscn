@@ -1,85 +1,138 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://src/presentation/app/game_app.gd" id="1_app"]
+[ext_resource type="Script" path="res://src/presentation/world/world_view.gd" id="2_world"]
+[ext_resource type="Script" path="res://src/presentation/world/world_camera.gd" id="3_camera"]
 
 [node name="GameApp" type="Node"]
 script = ExtResource("1_app")
 
-[node name="FoundationScreen" type="Control" parent="."]
+[node name="Backdrop" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="WorldBackdrop" type="ColorRect" parent="Backdrop"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0627451, 0.0509804, 0.0431373, 1)
+
+[node name="WorldView" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_world")
+
+[node name="WorldCamera" type="Camera2D" parent="."]
+unique_name_in_owner = true
+zoom = Vector2(1.2, 1.2)
+script = ExtResource("3_camera")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Root" type="Control" parent="UI"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
-[node name="Background" type="ColorRect" parent="FoundationScreen"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.105882, 0.0784314, 0.0627451, 1)
+[node name="TopBar" type="PanelContainer" parent="UI/Root"]
+unique_name_in_owner = true
+offset_left = 14.0
+offset_top = 14.0
+offset_right = 566.0
+offset_bottom = 89.0
 
-[node name="Center" type="CenterContainer" parent="FoundationScreen"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Margin" type="MarginContainer" parent="UI/Root/TopBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 9
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 9
 
-[node name="Panel" type="PanelContainer" parent="FoundationScreen/Center"]
-custom_minimum_size = Vector2(520, 260)
+[node name="Rows" type="VBoxContainer" parent="UI/Root/TopBar/Margin"]
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="FoundationScreen/Center/Panel"]
+[node name="Title" type="Label" parent="UI/Root/TopBar/Margin/Rows"]
 layout_mode = 2
-theme_override_constants/margin_left = 36
-theme_override_constants/margin_top = 30
-theme_override_constants/margin_right = 36
-theme_override_constants/margin_bottom = 30
+text = "DIG DOWN / 地下鼠鼠 · GRID FOUNDATION"
 
-[node name="Content" type="VBoxContainer" parent="FoundationScreen/Center/Panel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 14
-alignment = 1
-
-[node name="Title" type="Label" parent="FoundationScreen/Center/Panel/Margin/Content"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 36
-text = "DIG DOWN / 地下鼠鼠"
-horizontal_alignment = 1
-
-[node name="Status" type="Label" parent="FoundationScreen/Center/Panel/Margin/Content"]
-layout_mode = 2
-text = "Phase 0 · Engineering Foundation"
-horizontal_alignment = 1
-
-[node name="VersionLabel" type="Label" parent="FoundationScreen/Center/Panel/Margin/Content"]
+[node name="SeedLabel" type="Label" parent="UI/Root/TopBar/Margin/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "工程基线"
-horizontal_alignment = 1
+text = "Seed"
 
-[node name="ProfileLabel" type="Label" parent="FoundationScreen/Center/Panel/Margin/Content"]
+[node name="StatsLabel" type="Label" parent="UI/Root/TopBar/Margin/Rows"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Build profile"
-horizontal_alignment = 1
+text = "Grid stats"
 
-[node name="PlaceholderNotice" type="Label" parent="FoundationScreen/Center/Panel/Margin/Content"]
+[node name="Inspector" type="PanelContainer" parent="UI/Root"]
+unique_name_in_owner = true
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -275.0
+offset_top = 14.0
+offset_right = -14.0
+offset_bottom = 145.0
+grow_horizontal = 0
+
+[node name="Margin" type="MarginContainer" parent="UI/Root/Inspector"]
 layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="InspectorLabel" type="Label" parent="UI/Root/Inspector/Margin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(230, 100)
+layout_mode = 2
+text = "Move over the world to inspect a cell."
+autowrap_mode = 2
+
+[node name="Footer" type="PanelContainer" parent="UI/Root"]
+unique_name_in_owner = true
+anchors_preset = 12
+anchor_right = 1.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 14.0
+offset_top = -63.0
+offset_right = -14.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="UI/Root/Footer"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 8
+
+[node name="Row" type="HBoxContainer" parent="UI/Root/Footer/Margin"]
+layout_mode = 2
+
+[node name="Placeholder" type="Label" parent="UI/Root/Footer/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "ENGINEERING PLACEHOLDER · 非正式美术"
-horizontal_alignment = 1
 modulate = Color(0.921569, 0.713726, 0.431373, 1)
 
-[node name="DebugBadge" type="Label" parent="FoundationScreen"]
+[node name="DebugHelp" type="Label" parent="UI/Root/Footer/Margin/Row"]
 unique_name_in_owner = true
-layout_mode = 0
-offset_left = 16.0
-offset_top = 14.0
-offset_right = 144.0
-offset_bottom = 40.0
-text = "DEV TOOLS ON"
+layout_mode = 2
+size_flags_horizontal = 3
+text = "WASD/Arrows Pan · Wheel Zoom · F2 Grid · E Debug Edit"
+horizontal_alignment = 1
+
+[node name="FpsLabel" type="Label" parent="UI/Root/Footer/Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0 FPS"
+horizontal_alignment = 2

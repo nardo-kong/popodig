@@ -3,6 +3,8 @@
   "status": "PROVISIONAL",
   "default_seed": 137042,
   "worldgen_version": 1,
+  "world_size": [96, 72],
+  "chunk_size": 16,
   "max_repair_passes": 4,
   "max_generation_attempts": 3
 }

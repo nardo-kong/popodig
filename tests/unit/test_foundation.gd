@@ -9,6 +9,7 @@ var results: Array[Dictionary] = []
 
 func run() -> Array[Dictionary]:
 	_test_required_config_documents()
+	_test_invalid_configuration_rejection()
 	_test_build_profiles()
 	_test_deterministic_rng()
 	_test_logging_contract()
@@ -22,6 +23,23 @@ func _test_required_config_documents() -> void:
 		assert_true(result.ok, "Config parses: %s" % path)
 		if result.ok:
 			assert_equal(result.data.get("schema_version"), 1, "Config schema is v1: %s" % path)
+			assert_equal(AppConfigScript.validate_document(document_name_for_path(path), result.data), "", "Config contract validates: %s" % path)
+
+
+func _test_invalid_configuration_rejection() -> void:
+	var malformed := AppConfigScript.load_json_document("res://tests/fixtures/invalid_json.json")
+	assert_true(not malformed.ok, "Malformed JSON is rejected")
+	var missing := AppConfigScript.load_json_document("res://tests/fixtures/does_not_exist.json")
+	assert_true(not missing.ok, "Missing config is rejected")
+	assert_true(not AppConfigScript.validate_document("worldgen", {"schema_version": 1, "world_size": [96]}).is_empty(), "Invalid world size contract is rejected")
+	assert_true(not AppConfigScript.validate_document("worldgen", {"schema_version": 1, "world_size": [96, 72], "chunk_size": 0}).is_empty(), "Invalid chunk size contract is rejected")
+
+
+func document_name_for_path(path: String) -> String:
+	for document_name: String in AppConfigScript.CONFIG_PATHS:
+		if AppConfigScript.CONFIG_PATHS[document_name] == path:
+			return document_name
+	return ""
 
 
 func _test_build_profiles() -> void:

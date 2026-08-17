@@ -1,6 +1,6 @@
 extends SceneTree
 
-const DEFAULT_OUTPUT := "res://art/qa/screenshots/phase_0_foundation.png"
+const DEFAULT_OUTPUT := "res://art/qa/screenshots/phase_1_grid_world.png"
 const TARGET_SIZE := Vector2i(1280, 720)
 
 
@@ -10,13 +10,14 @@ func _initialize() -> void:
 
 func _capture() -> void:
 	var output_path := _get_output_path()
+	var target_size := _get_target_size()
 	var absolute_directory := ProjectSettings.globalize_path(output_path.get_base_dir())
 	var directory_error := DirAccess.make_dir_recursive_absolute(absolute_directory)
 	if directory_error != OK:
 		push_error("Unable to create screenshot directory: %s" % error_string(directory_error))
 		quit(1)
 		return
-	root.size = TARGET_SIZE
+	root.size = target_size
 	var packed := load(ProjectSettings.get_setting("application/run/main_scene")) as PackedScene
 	if packed == null:
 		push_error("Main scene could not be loaded")
@@ -26,6 +27,7 @@ func _capture() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
+	await create_timer(2.2).timeout
 	RenderingServer.force_draw(false)
 	await process_frame
 	var image := root.get_texture().get_image()
@@ -49,3 +51,15 @@ func _get_output_path() -> String:
 			if candidate.begins_with("res://"):
 				return candidate
 	return DEFAULT_OUTPUT
+
+
+func _get_target_size() -> Vector2i:
+	for argument: String in OS.get_cmdline_user_args():
+		if not argument.begins_with("--size="):
+			continue
+		var parts := argument.trim_prefix("--size=").to_lower().split("x")
+		if parts.size() == 2:
+			var parsed := Vector2i(int(parts[0]), int(parts[1]))
+			if parsed.x >= 640 and parsed.y >= 360:
+				return parsed
+	return TARGET_SIZE

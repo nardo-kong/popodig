@@ -26,6 +26,10 @@ func reload_all() -> bool:
 		if not result.ok:
 			_load_errors.append("%s: %s" % [document_name, result.error])
 			continue
+		var validation_error := validate_document(document_name, result.data)
+		if not validation_error.is_empty():
+			_load_errors.append("%s: %s" % [document_name, validation_error])
+			continue
 		_documents[document_name] = result.data
 	_resolve_profile()
 	return _load_errors.is_empty()
@@ -103,3 +107,29 @@ static func load_json_document(path: String) -> Dictionary:
 	if not json.data is Dictionary:
 		return {"ok": false, "data": {}, "error": "Root value must be an object: %s" % path}
 	return {"ok": true, "data": json.data, "error": ""}
+
+
+static func validate_document(document_name: String, data: Dictionary) -> String:
+	if int(data.get("schema_version", 0)) < 1:
+		return "schema_version must be a positive integer"
+	match document_name:
+		"app":
+			if String(data.get("game_version", "")).is_empty():
+				return "game_version is required"
+		"build_profiles":
+			var profiles: Dictionary = data.get("profiles", {})
+			for required_profile: String in ["development", "qa", "release"]:
+				if not profiles.has(required_profile):
+					return "missing build profile: %s" % required_profile
+		"balance":
+			if int(data.get("logical_cell_size", 0)) <= 0:
+				return "logical_cell_size must be positive"
+		"worldgen":
+			var size_value: Variant = data.get("world_size")
+			if not size_value is Array or size_value.size() != 2:
+				return "world_size must contain exactly two values"
+			if int(size_value[0]) < 32 or int(size_value[1]) < 24:
+				return "world_size is below the Phase 1 safe minimum"
+			if int(data.get("chunk_size", 0)) <= 0:
+				return "chunk_size must be positive"
+	return ""
