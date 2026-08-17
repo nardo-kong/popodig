@@ -47,15 +47,15 @@
 - [x] Zone edit/reassign
 
 ## Phase 5 — World Generation
-- [ ] Skeleton
-- [ ] Strata
-- [ ] Landmarks
-- [ ] Features
-- [ ] Terrain fill
-- [ ] Signals hook
-- [ ] Validate
-- [ ] Repair
-- [ ] Batch seed report
+- [x] Skeleton
+- [x] Strata
+- [x] Landmarks
+- [x] Features
+- [x] Terrain fill
+- [x] Signals hook
+- [x] Validate
+- [x] Repair
+- [x] Batch seed report
 
 ## Phase 6 — Root
 - [ ] Root geometry

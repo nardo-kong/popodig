@@ -15,7 +15,7 @@ Minimum:
 {
   "save_schema_version": 1,
   "game_version": "...",
-  "worldgen_version": 1,
+  "worldgen_version": 2,
   "seed": 12345,
   "created_at": "...",
   "last_saved_at": "..."
