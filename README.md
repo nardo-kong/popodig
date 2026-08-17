@@ -1,6 +1,6 @@
 # Dig Down / 地下鼠鼠 — Project Documentation Pack v1.0
 
-> **Implementation status (2026-08-18):** Phase 0 Engineering Foundation PASS. The repository now boots in Godot 4.7 and has deterministic tests, build profiles, validation tooling, and screenshot QA. Gameplay implementation begins at Phase 1; the current launch screen is explicitly engineering-only placeholder presentation.
+> **Implementation status (2026-08-18):** Phase 1 Grid World PASS. The repository now boots in Godot 4.7 with a deterministic finite/chunked logical world, bounded camera, chunk-level rendering and redraw, debug inspection, automated tests, GUI performance baselines, and screenshot QA. Player digging and autonomous mice begin in Phase 2; the current terrain presentation is explicitly an engineering placeholder.
 
 This repository is the implementation authority for a 2D underground mouse-colony systemic sandbox built around one dominant verb: **DIG**.
 

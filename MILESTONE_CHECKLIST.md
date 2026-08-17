@@ -10,13 +10,13 @@
 - [x] Smoke tests PASS
 
 ## Phase 1 — Grid World
-- [ ] WorldGrid/CellData
-- [ ] Chunk model
-- [ ] Terrain rendering
-- [ ] Camera
-- [ ] Seeded simple world
-- [ ] Debug inspector
-- [ ] Performance baseline
+- [x] WorldGrid/CellData
+- [x] Chunk model
+- [x] Terrain rendering
+- [x] Camera
+- [x] Seeded simple world
+- [x] Debug inspector
+- [x] Performance baseline
 
 ## Phase 2 — Digging
 - [ ] Dig paint/click
