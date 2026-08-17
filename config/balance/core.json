@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "status": "PROVISIONAL",
+  "logical_cell_size": 16,
+  "chunk_size": 16,
+  "vertical_slice_world_size": [96, 72],
+  "initial_mouse_count": 3
+}

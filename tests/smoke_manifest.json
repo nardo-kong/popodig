@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "current_phase": 0,
+  "checks": [
+    {"id": "project_import", "status": "PASS", "evidence": "tools/validate.ps1 import step"},
+    {"id": "main_scene_launch", "status": "PASS", "evidence": "scenes/app/game_app.tscn"},
+    {"id": "deterministic_harness", "status": "PASS", "evidence": "tests/unit/test_foundation.gd"},
+    {"id": "profile_flags", "status": "PASS", "evidence": "tests/profile_smoke.gd"},
+    {"id": "screenshot_helper", "status": "PASS", "evidence": "tools/qa/capture_screenshot.gd"},
+    {"id": "seeded_world_generation", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 1},
+    {"id": "mouse_spawn_idle", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 3},
+    {"id": "dig_and_path_update", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 2},
+    {"id": "save_load", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 10}
+  ]
+}

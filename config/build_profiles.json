@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "default_profile": "development",
+  "profiles": {
+    "development": {
+      "debug_tools": true,
+      "verbose_logging": true,
+      "allow_cheats": true
+    },
+    "qa": {
+      "debug_tools": true,
+      "verbose_logging": false,
+      "allow_cheats": true
+    },
+    "release": {
+      "debug_tools": false,
+      "verbose_logging": false,
+      "allow_cheats": false
+    }
+  }
+}

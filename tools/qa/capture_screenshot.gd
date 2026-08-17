@@ -1,0 +1,51 @@
+extends SceneTree
+
+const DEFAULT_OUTPUT := "res://art/qa/screenshots/phase_0_foundation.png"
+const TARGET_SIZE := Vector2i(1280, 720)
+
+
+func _initialize() -> void:
+	call_deferred("_capture")
+
+
+func _capture() -> void:
+	var output_path := _get_output_path()
+	var absolute_directory := ProjectSettings.globalize_path(output_path.get_base_dir())
+	var directory_error := DirAccess.make_dir_recursive_absolute(absolute_directory)
+	if directory_error != OK:
+		push_error("Unable to create screenshot directory: %s" % error_string(directory_error))
+		quit(1)
+		return
+	root.size = TARGET_SIZE
+	var packed := load(ProjectSettings.get_setting("application/run/main_scene")) as PackedScene
+	if packed == null:
+		push_error("Main scene could not be loaded")
+		quit(1)
+		return
+	var scene := packed.instantiate()
+	root.add_child(scene)
+	await process_frame
+	await process_frame
+	RenderingServer.force_draw(false)
+	await process_frame
+	var image := root.get_texture().get_image()
+	if image == null or image.is_empty():
+		push_error("Viewport did not produce an image")
+		quit(1)
+		return
+	var save_error := image.save_png(ProjectSettings.globalize_path(output_path))
+	if save_error != OK:
+		push_error("Screenshot save failed: %s" % error_string(save_error))
+		quit(1)
+		return
+	print("SCREENSHOT_SAVED path=%s width=%d height=%d" % [output_path, image.get_width(), image.get_height()])
+	quit(0)
+
+
+func _get_output_path() -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--output="):
+			var candidate := argument.trim_prefix("--output=")
+			if candidate.begins_with("res://"):
+				return candidate
+	return DEFAULT_OUTPUT

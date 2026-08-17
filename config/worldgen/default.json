@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "status": "PROVISIONAL",
+  "default_seed": 137042,
+  "worldgen_version": 1,
+  "max_repair_passes": 4,
+  "max_generation_attempts": 3
+}
