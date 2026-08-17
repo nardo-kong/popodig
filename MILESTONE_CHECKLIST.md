@@ -29,14 +29,14 @@
 - [x] Dig QA PASS
 
 ## Phase 3 — Colony
-- [ ] 3 mice
-- [ ] Hunger
-- [ ] Rest
-- [ ] Safety interruption
-- [ ] Job reservations
-- [ ] Hauling
-- [ ] Food + Material
-- [ ] Soak test PASS
+- [x] 3 mice
+- [x] Hunger
+- [x] Rest
+- [x] Safety interruption
+- [x] Job reservations
+- [x] Hauling
+- [x] Food + Material
+- [x] Soak test PASS
 
 ## Phase 4 — Zones
 - [ ] Sleeping

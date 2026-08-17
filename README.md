@@ -1,6 +1,6 @@
 # Dig Down / 地下鼠鼠 — Project Documentation Pack v1.0
 
-> **Implementation status (2026-08-18):** Phase 2 Digging PASS. A player can now click or freely paint a legal excavation path in the continuous finite world, cancel work, and watch an autonomous mouse path to frontier jobs and excavate hardness-scaled terrain while topology updates immediately. Development/release gameplay smokes, 176 automated assertions, performance gates, and visual QA pass. Colony needs, hauling, zones, discoveries, hazards, structured world generation, persistence, and production art remain later milestones; current visuals are explicitly engineering placeholders.
+> **Implementation status (2026-08-18):** Phase 3 Colony PASS. Three autonomous mice now arbitrate digging, hauling, hunger, rest, and safety work through deterministic reservations; they recover from cancelled, unreachable, invalidated, or hazardous work without direct unit control or resource loss. Development/release gameplay smokes, 270 automated assertions, a 100-second deterministic simulation soak, concurrent-colony performance gates, and visual QA pass. Player-painted zones, discoveries, hazards, structured world generation, persistence, and production art remain later milestones; current visuals are explicitly engineering placeholders.
 
 This repository is the implementation authority for a 2D underground mouse-colony systemic sandbox built around one dominant verb: **DIG**.
 
