@@ -19,14 +19,14 @@
 - [x] Performance baseline
 
 ## Phase 2 — Digging
-- [ ] Dig paint/click
-- [ ] Cancel
-- [ ] Legality/frontier
-- [ ] Dig jobs
-- [ ] Mouse excavation
-- [ ] Topology update
-- [ ] Path update
-- [ ] Dig QA PASS
+- [x] Dig paint/click
+- [x] Cancel
+- [x] Legality/frontier
+- [x] Dig jobs
+- [x] Mouse excavation
+- [x] Topology update
+- [x] Path update
+- [x] Dig QA PASS
 
 ## Phase 3 — Colony
 - [ ] 3 mice
