@@ -24,16 +24,27 @@ var hardness := 0.0
 var dig_state: int = DigState.NONE
 var dig_progress := 0.0
 var feature_id := -1
+var stratum_id := 0
+var landmark := false
 var stability_base := 0
 var water_units := 0
 var moisture_signal := 0
 var root_signal := 0
 var zone_id := -1
 var protected_cell := false
+var exterior := false
 
 
 func is_solid() -> bool:
 	return terrain_material != TerrainMaterial.EMPTY and not excavated
+
+
+func is_exterior() -> bool:
+	return exterior
+
+
+func is_traversable() -> bool:
+	return excavated and not exterior
 
 
 static func material_name(material: int) -> String:

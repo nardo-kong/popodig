@@ -81,7 +81,7 @@ func inspect_cell(zone_type: int, cell: Vector2i) -> Dictionary:
 		return _inspection(false, REASON_INVALID_ZONE_TYPE, cell)
 	if _world == null or not _world.is_in_bounds(cell):
 		return _inspection(false, REASON_OUT_OF_BOUNDS, cell)
-	if not _world.is_excavated(cell):
+	if not _world.is_traversable(cell):
 		return _inspection(false, REASON_NOT_EXCAVATED, cell)
 	var water_units: int = _world.get_water_units(cell)
 	if water_units > _max_walkable_water_units:
@@ -279,7 +279,7 @@ func flush_world_changes() -> void:
 		return
 	var invalidated: Array[Vector2i] = []
 	for cell: Vector2i in _pending_invalidated_cells:
-		if _cell_types.has(cell) and not _world.is_excavated(cell):
+		if _cell_types.has(cell) and not _world.is_traversable(cell):
 			_cell_types.erase(cell)
 			invalidated.append(cell)
 	_pending_invalidated_cells.clear()
@@ -568,7 +568,7 @@ func _evaluate_zone(zone: Zone) -> void:
 	var shallow_water_cells := 0
 	var reachable_cells := 0
 	for cell: Vector2i in zone.cells:
-		if not _world.is_excavated(cell):
+		if not _world.is_traversable(cell):
 			_append_unique(zone.invalid_reasons, REASON_NOT_EXCAVATED)
 		var water_units: int = _world.get_water_units(cell)
 		if water_units > _max_walkable_water_units:
@@ -637,7 +637,7 @@ func _on_world_cell_changed(cell: Vector2i, change_flags: int) -> void:
 	if (change_flags & relevant) == 0:
 		return
 	_pending_refresh_all = true
-	if _cell_types.has(cell) and not _world.is_excavated(cell):
+	if _cell_types.has(cell) and not _world.is_traversable(cell):
 		_pending_invalidated_cells[cell] = true
 
 

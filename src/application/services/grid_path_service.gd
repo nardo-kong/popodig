@@ -118,7 +118,7 @@ func _rebuild_all() -> void:
 
 func _refresh_cell(index: int) -> void:
 	var cell_coord: Vector2i = _world.index_to_cell(index)
-	_walkable[index] = 1 if _world.is_excavated(cell_coord) and _world.get_water_units(cell_coord) <= _max_walkable_water_units else 0
+	_walkable[index] = 1 if _world.is_traversable(cell_coord) and _world.get_water_units(cell_coord) <= _max_walkable_water_units else 0
 
 
 func _on_cell_changed(cell_coord: Vector2i, change_flags: int) -> void:

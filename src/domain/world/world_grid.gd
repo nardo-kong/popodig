@@ -15,6 +15,12 @@ const CHANGE_PATHING := 16
 const CHANGE_DIG := 32
 const CHANGE_ZONE := 64
 
+const CELL_FLAG_PROTECTED := 1
+const CELL_FLAG_EXTERIOR := 2
+const CELL_FLAG_LANDMARK := 4
+const CELL_FLAG_STRATUM_SHIFT := 3
+const CELL_FLAG_STRATUM_MASK := 24
+
 var width: int
 var height: int
 var chunk_size: int
@@ -31,7 +37,7 @@ var _water_units := PackedByteArray()
 var _moisture_signal := PackedByteArray()
 var _root_signal := PackedByteArray()
 var _zone_ids := PackedInt32Array()
-var _protected := PackedByteArray()
+var _cell_flags := PackedByteArray()
 var _chunks: Dictionary = {}
 
 
@@ -77,23 +83,32 @@ func get_cell(cell_coord: Vector2i) -> CellData:
 	cell.dig_state = _dig_state[index]
 	cell.dig_progress = _dig_progress[index]
 	cell.feature_id = _feature_ids[index]
+	cell.stratum_id = (_cell_flags[index] & CELL_FLAG_STRATUM_MASK) >> CELL_FLAG_STRATUM_SHIFT
+	cell.landmark = (_cell_flags[index] & CELL_FLAG_LANDMARK) != 0
 	cell.stability_base = _stability_base[index]
 	cell.water_units = _water_units[index]
 	cell.moisture_signal = _moisture_signal[index]
 	cell.root_signal = _root_signal[index]
 	cell.zone_id = _zone_ids[index]
-	cell.protected_cell = _protected[index] == 1
+	cell.protected_cell = (_cell_flags[index] & CELL_FLAG_PROTECTED) != 0
+	cell.exterior = (_cell_flags[index] & CELL_FLAG_EXTERIOR) != 0
 	return cell
 
 
-func initialize_cell(cell_coord: Vector2i, material: int, is_excavated: bool, is_protected: bool = false) -> void:
+func initialize_cell(
+	cell_coord: Vector2i,
+	material: int,
+	is_excavated: bool,
+	is_protected: bool = false,
+	is_exterior_cell: bool = false
+) -> void:
 	var index := cell_to_index(cell_coord)
 	if index < 0:
 		return
 	_terrain[index] = material
 	_excavated[index] = 1 if is_excavated else 0
 	_hardness[index] = CellDataScript.default_hardness(material)
-	_protected[index] = 1 if is_protected else 0
+	_cell_flags[index] = (CELL_FLAG_PROTECTED if is_protected else 0) | (CELL_FLAG_EXTERIOR if is_exterior_cell else 0)
 
 
 func get_material(cell_coord: Vector2i) -> int:
@@ -106,6 +121,16 @@ func is_excavated(cell_coord: Vector2i) -> bool:
 	return index >= 0 and _excavated[index] == 1
 
 
+func is_exterior(cell_coord: Vector2i) -> bool:
+	var index := cell_to_index(cell_coord)
+	return index >= 0 and (_cell_flags[index] & CELL_FLAG_EXTERIOR) != 0
+
+
+func is_traversable(cell_coord: Vector2i) -> bool:
+	var index := cell_to_index(cell_coord)
+	return index >= 0 and _excavated[index] == 1 and (_cell_flags[index] & CELL_FLAG_EXTERIOR) == 0
+
+
 func is_solid(cell_coord: Vector2i) -> bool:
 	var index := cell_to_index(cell_coord)
 	return index >= 0 and _terrain[index] != CellDataScript.TerrainMaterial.EMPTY and _excavated[index] == 0
@@ -113,7 +138,7 @@ func is_solid(cell_coord: Vector2i) -> bool:
 
 func is_protected(cell_coord: Vector2i) -> bool:
 	var index := cell_to_index(cell_coord)
-	return index >= 0 and _protected[index] == 1
+	return index >= 0 and (_cell_flags[index] & CELL_FLAG_PROTECTED) != 0
 
 
 func get_hardness(cell_coord: Vector2i) -> float:
@@ -134,6 +159,36 @@ func get_dig_progress(cell_coord: Vector2i) -> float:
 func get_water_units(cell_coord: Vector2i) -> int:
 	var index := cell_to_index(cell_coord)
 	return 0 if index < 0 else _water_units[index]
+
+
+func get_feature_id(cell_coord: Vector2i) -> int:
+	var index := cell_to_index(cell_coord)
+	return -1 if index < 0 else _feature_ids[index]
+
+
+func get_stratum_id(cell_coord: Vector2i) -> int:
+	var index := cell_to_index(cell_coord)
+	return -1 if index < 0 else ((_cell_flags[index] & CELL_FLAG_STRATUM_MASK) >> CELL_FLAG_STRATUM_SHIFT)
+
+
+func is_landmark(cell_coord: Vector2i) -> bool:
+	var index := cell_to_index(cell_coord)
+	return index >= 0 and (_cell_flags[index] & CELL_FLAG_LANDMARK) != 0
+
+
+func get_stability_base(cell_coord: Vector2i) -> int:
+	var index := cell_to_index(cell_coord)
+	return 0 if index < 0 else _stability_base[index]
+
+
+func get_moisture_signal(cell_coord: Vector2i) -> int:
+	var index := cell_to_index(cell_coord)
+	return 0 if index < 0 else _moisture_signal[index]
+
+
+func get_root_signal(cell_coord: Vector2i) -> int:
+	var index := cell_to_index(cell_coord)
+	return 0 if index < 0 else _root_signal[index]
 
 
 func get_zone_id(cell_coord: Vector2i) -> int:
@@ -162,7 +217,7 @@ func set_material(cell_coord: Vector2i, material: int) -> bool:
 
 func set_excavated(cell_coord: Vector2i, value: bool, allow_protected: bool = false) -> bool:
 	var index := cell_to_index(cell_coord)
-	if index < 0 or (_protected[index] == 1 and not allow_protected):
+	if index < 0 or ((_cell_flags[index] & CELL_FLAG_PROTECTED) != 0 and not allow_protected):
 		return false
 	var encoded := 1 if value else 0
 	if _excavated[index] == encoded:
@@ -176,11 +231,29 @@ func set_protected(cell_coord: Vector2i, value: bool) -> bool:
 	var index := cell_to_index(cell_coord)
 	if index < 0:
 		return false
-	var encoded := 1 if value else 0
-	if _protected[index] == encoded:
+	var current := (_cell_flags[index] & CELL_FLAG_PROTECTED) != 0
+	if current == value:
 		return false
-	_protected[index] = encoded
+	if value:
+		_cell_flags[index] |= CELL_FLAG_PROTECTED
+	else:
+		_cell_flags[index] &= ~CELL_FLAG_PROTECTED
 	_mark_cell_changed(cell_coord, CHANGE_TERRAIN)
+	return true
+
+
+func set_exterior(cell_coord: Vector2i, value: bool) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0:
+		return false
+	var current := (_cell_flags[index] & CELL_FLAG_EXTERIOR) != 0
+	if current == value:
+		return false
+	if value:
+		_cell_flags[index] |= CELL_FLAG_EXTERIOR
+	else:
+		_cell_flags[index] &= ~CELL_FLAG_EXTERIOR
+	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_PATHING)
 	return true
 
 
@@ -225,6 +298,78 @@ func set_water_units(cell_coord: Vector2i, units: int) -> bool:
 	return true
 
 
+func set_feature_id(cell_coord: Vector2i, feature_id: int) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or feature_id < -1 or _feature_ids[index] == feature_id:
+		return false
+	_feature_ids[index] = feature_id
+	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_SIGNALS)
+	return true
+
+
+func set_stratum_id(cell_coord: Vector2i, stratum_id: int) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or stratum_id < 0 or stratum_id > 3:
+		return false
+	var current := (_cell_flags[index] & CELL_FLAG_STRATUM_MASK) >> CELL_FLAG_STRATUM_SHIFT
+	if current == stratum_id:
+		return false
+	_cell_flags[index] = (_cell_flags[index] & ~CELL_FLAG_STRATUM_MASK) | (stratum_id << CELL_FLAG_STRATUM_SHIFT)
+	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_SIGNALS)
+	return true
+
+
+func set_landmark(cell_coord: Vector2i, value: bool) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0:
+		return false
+	var current := (_cell_flags[index] & CELL_FLAG_LANDMARK) != 0
+	if current == value:
+		return false
+	if value:
+		_cell_flags[index] |= CELL_FLAG_LANDMARK
+	else:
+		_cell_flags[index] &= ~CELL_FLAG_LANDMARK
+	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_SIGNALS)
+	return true
+
+
+func set_stability_base(cell_coord: Vector2i, value: int) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0:
+		return false
+	var encoded := clampi(value, 0, 255)
+	if _stability_base[index] == encoded:
+		return false
+	_stability_base[index] = encoded
+	_mark_cell_changed(cell_coord, CHANGE_STABILITY)
+	return true
+
+
+func set_moisture_signal(cell_coord: Vector2i, value: int) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0:
+		return false
+	var encoded := clampi(value, 0, 255)
+	if _moisture_signal[index] == encoded:
+		return false
+	_moisture_signal[index] = encoded
+	_mark_cell_changed(cell_coord, CHANGE_SIGNALS)
+	return true
+
+
+func set_root_signal(cell_coord: Vector2i, value: int) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0:
+		return false
+	var encoded := clampi(value, 0, 255)
+	if _root_signal[index] == encoded:
+		return false
+	_root_signal[index] = encoded
+	_mark_cell_changed(cell_coord, CHANGE_SIGNALS)
+	return true
+
+
 func set_zone_id(cell_coord: Vector2i, zone_id: int) -> bool:
 	var index := cell_to_index(cell_coord)
 	if index < 0 or zone_id < -1 or _zone_ids[index] == zone_id:
@@ -236,7 +381,7 @@ func set_zone_id(cell_coord: Vector2i, zone_id: int) -> bool:
 
 func complete_excavation_atomic(cell_coord: Vector2i) -> bool:
 	var index := cell_to_index(cell_coord)
-	if index < 0 or _protected[index] == 1 or _excavated[index] == 1:
+	if index < 0 or (_cell_flags[index] & (CELL_FLAG_PROTECTED | CELL_FLAG_EXTERIOR)) != 0 or _excavated[index] == 1:
 		return false
 	if _terrain[index] == CellDataScript.TerrainMaterial.EMPTY:
 		return false
@@ -278,7 +423,40 @@ func checksum() -> int:
 	for index: int in range(width * height):
 		value = (value * 31 + _terrain[index]) % 2147483647
 		value = (value * 31 + _excavated[index]) % 2147483647
-		value = (value * 31 + _protected[index]) % 2147483647
+		value = (value * 31 + _cell_flags[index]) % 2147483647
+	return value
+
+
+func content_checksum() -> int:
+	var value := 29
+	value = _checksum_mix(value, width)
+	value = _checksum_mix(value, height)
+	value = _checksum_mix(value, chunk_size)
+	value = _checksum_mix(value, int(metadata.get("worldgen_version", 0)))
+	var start_cell: Vector2i = metadata.get("start_cell", Vector2i(-1, -1))
+	value = _checksum_mix(value, start_cell.x)
+	value = _checksum_mix(value, start_cell.y)
+	for index: int in range(width * height):
+		value = _checksum_mix(value, _terrain[index])
+		value = _checksum_mix(value, _excavated[index])
+		value = _checksum_mix(value, roundi(_hardness[index] * 1000.0))
+		value = _checksum_mix(value, _dig_state[index])
+		value = _checksum_mix(value, roundi(_dig_progress[index] * 1000.0))
+		value = _checksum_mix(value, _feature_ids[index])
+		value = _checksum_mix(value, _stability_base[index])
+		value = _checksum_mix(value, _water_units[index])
+		value = _checksum_mix(value, _moisture_signal[index])
+		value = _checksum_mix(value, _root_signal[index])
+		value = _checksum_mix(value, _zone_ids[index])
+		value = _checksum_mix(value, _cell_flags[index])
+	for surface_y: int in metadata.get("surface_heights", PackedInt32Array()):
+		value = _checksum_mix(value, surface_y)
+	var depth_targets: Dictionary = metadata.get("depth_targets", {})
+	var target_names: Array = depth_targets.keys()
+	target_names.sort()
+	for target_name: Variant in target_names:
+		value = _checksum_mix_string(value, String(target_name))
+		value = _checksum_mix(value, int(depth_targets[target_name]))
 	return value
 
 
@@ -295,7 +473,7 @@ func estimate_storage_bytes() -> int:
 		+ _moisture_signal.size()
 		+ _root_signal.size()
 		+ _zone_ids.size() * 4
-		+ _protected.size()
+		+ _cell_flags.size()
 	)
 
 
@@ -311,9 +489,20 @@ func _initialize_storage(cell_count: int) -> void:
 	_moisture_signal.resize(cell_count)
 	_root_signal.resize(cell_count)
 	_zone_ids.resize(cell_count)
-	_protected.resize(cell_count)
+	_cell_flags.resize(cell_count)
 	_feature_ids.fill(-1)
 	_zone_ids.fill(-1)
+
+
+func _checksum_mix(value: int, addition: int) -> int:
+	return int((value * 65599 + addition + 2147483647) % 2147483647)
+
+
+func _checksum_mix_string(value: int, text: String) -> int:
+	var mixed := value
+	for byte: int in text.to_utf8_buffer():
+		mixed = _checksum_mix(mixed, byte)
+	return mixed
 
 
 func _initialize_chunks() -> void:

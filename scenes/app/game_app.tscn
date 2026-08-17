@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://src/presentation/app/game_app.gd" id="1_app"]
 [ext_resource type="Script" path="res://src/presentation/world/world_view.gd" id="2_world"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://src/presentation/entities/colony_items_view.gd" id="6_items"]
 [ext_resource type="Script" path="res://src/presentation/debug/colony_debug_overlay.gd" id="7_colony_debug"]
 [ext_resource type="Script" path="res://src/presentation/world/zone_overlay_view.gd" id="8_zones"]
+[ext_resource type="Script" path="res://src/presentation/debug/worldgen_debug_overlay.gd" id="9_worldgen_debug"]
 
 [node name="GameApp" type="Node"]
 script = ExtResource("1_app")
@@ -32,6 +33,11 @@ script = ExtResource("2_world")
 unique_name_in_owner = true
 z_index = 10
 script = ExtResource("8_zones")
+
+[node name="WorldgenDebugOverlay" type="Node2D" parent="."]
+unique_name_in_owner = true
+z_index = 11
+script = ExtResource("9_worldgen_debug")
 
 [node name="ColonyItemsView" type="Node2D" parent="."]
 unique_name_in_owner = true
@@ -89,7 +95,7 @@ layout_mode = 2
 
 [node name="Title" type="Label" parent="UI/Root/TopBar/Margin/Rows"]
 layout_mode = 2
-text = "DIG DOWN / 地下鼠鼠 · ZONED BURROW"
+text = "DIG DOWN / 地下鼠鼠 · STRUCTURED UNDERWORLD"
 
 [node name="SeedLabel" type="Label" parent="UI/Root/TopBar/Margin/Rows"]
 unique_name_in_owner = true
@@ -214,7 +220,7 @@ modulate = Color(0.921569, 0.713726, 0.431373, 1)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "WASD/Arrows Pan · Wheel Zoom · 1 Dig · 2 Sleep · 3 Storage · 4 Food · RMB Clear · F2 Grid · F3 Paths"
+text = "Pan/Zoom · 1–4 Tools · F2 Grid · F3 Paths · F4 Copy Seed · F5 Replay · F6 Next Seed · F7 Worldgen"
 horizontal_alignment = 1
 
 [node name="FpsLabel" type="Label" parent="UI/Root/Footer/Margin/Row"]

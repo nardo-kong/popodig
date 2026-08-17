@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_phase": 4,
+  "current_phase": 5,
   "checks": [
     {"id": "project_import", "status": "PASS", "evidence": "tools/validate.ps1 import step"},
     {"id": "main_scene_launch", "status": "PASS", "evidence": "scenes/app/game_app.tscn"},
@@ -14,6 +14,8 @@
     {"id": "colony_soak", "status": "PASS", "evidence": "tests/integration/test_colony_simulation.gd"},
     {"id": "zone_lifecycle", "status": "PASS", "evidence": "tests/unit/test_zone_system.gd"},
     {"id": "zone_colony_life", "status": "PASS", "evidence": "tests/integration/test_zone_colony_flow.gd and tests/phase4_zones_smoke.gd"},
+    {"id": "structured_worldgen", "status": "PASS", "evidence": "tests/unit/test_structured_worldgen.gd and tests/phase5_worldgen_smoke.gd"},
+    {"id": "worldgen_seed_batch", "status": "PASS", "evidence": "art/qa/reports/phase_5_seed_batch.json"},
     {"id": "save_load", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 10}
   ]
 }

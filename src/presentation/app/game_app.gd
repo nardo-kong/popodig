@@ -1,6 +1,6 @@
 extends Node
 
-const SimpleWorldGeneratorScript = preload("res://src/domain/world/simple_world_generator.gd")
+const StructuredWorldGeneratorScript = preload("res://src/domain/worldgen/structured_world_generator.gd")
 const GridPathServiceScript = preload("res://src/application/services/grid_path_service.gd")
 const DigSystemScript = preload("res://src/domain/jobs/dig_system.gd")
 const ColonySimulationScript = preload("res://src/domain/colony/colony_simulation.gd")
@@ -31,6 +31,7 @@ enum Tool {
 @onready var colony_view: ColonyView = %ColonyView
 @onready var colony_items_view: ColonyItemsView = %ColonyItemsView
 @onready var colony_debug_overlay: ColonyDebugOverlay = %ColonyDebugOverlay
+@onready var worldgen_debug_overlay = %WorldgenDebugOverlay
 @onready var dig_cursor_view: DigCursorView = %DigCursorView
 @onready var seed_label: Label = %SeedLabel
 @onready var stats_label: Label = %StatsLabel
@@ -49,6 +50,7 @@ var path_service
 var dig_system
 var colony_simulation
 var mouse_agent
+var worldgen_result
 var _logical_cell_size := 16
 var _simulation_step := 0.05
 var _simulation_accumulator := 0.0
@@ -60,6 +62,10 @@ var _last_feedback := "Choose any legal frontier cell."
 var _hover_feedback := "Choose any legal frontier cell."
 var _feedback_seconds_remaining := 0.0
 var _qa_inspector_cell := Vector2i(-1, -1)
+var _current_seed := 0
+
+static var _debug_seed_override_set := false
+static var _debug_seed_override := 0
 
 
 func _ready() -> void:
@@ -69,8 +75,13 @@ func _ready() -> void:
 	var worldgen_config := AppConfig.get_document("worldgen")
 	var balance_config := AppConfig.get_document("balance")
 	var digging_balance: Dictionary = balance_config.get("digging", {})
-	var seed_value := int(worldgen_config.get("default_seed", 137042))
-	world_grid = SimpleWorldGeneratorScript.new().generate(worldgen_config, seed_value)
+	var seed_value := _debug_seed_override if _debug_seed_override_set else int(worldgen_config.get("default_seed", 137042))
+	_current_seed = seed_value
+	worldgen_result = StructuredWorldGeneratorScript.new().generate_result(worldgen_config, seed_value)
+	world_grid = worldgen_result.world
+	if not worldgen_result.success:
+		GameLog.failure("WORLDGEN", "Structured generation rejected seed=%d failures=%s" % [seed_value, worldgen_result.report.get("validation", {}).get("failure_codes", [])])
+		return
 	_logical_cell_size = int(balance_config.get("logical_cell_size", 16))
 	_simulation_step = float(digging_balance.get("simulation_step_seconds", 0.05))
 	world_view.configure(world_grid, _logical_cell_size)
@@ -89,19 +100,27 @@ func _ready() -> void:
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
 	colony_items_view.configure(colony_simulation.get_item_system(), _logical_cell_size)
 	colony_debug_overlay.configure(colony_simulation, _logical_cell_size)
+	worldgen_debug_overlay.configure(world_grid, worldgen_result.feature_registry, _logical_cell_size)
 	dig_cursor_view.configure(_logical_cell_size)
-	seed_label.text = "Seed %d · worldgen v%d" % [seed_value, world_grid.metadata.worldgen_version]
-	stats_label.text = "%d×%d cells · %d chunks · %.1f KiB logical grid" % [
+	seed_label.text = "Seed %d · worldgen v%d · VALID · repairs %d" % [seed_value, world_grid.metadata.worldgen_version, world_grid.metadata.repairs.size()]
+	stats_label.text = "%d×%d cells · %d chunks · %.1f KiB · %d features · hash %d" % [
 		world_grid.width,
 		world_grid.height,
 		world_grid.get_chunk_count(),
 		world_grid.estimate_storage_bytes() / 1024.0,
+		worldgen_result.feature_registry.count(),
+		worldgen_result.get_content_hash(),
 	]
+	if AppConfig.cheats_enabled():
+		var requested_overlay := _user_argument_value("--qa-phase5-overlay=")
+		if not requested_overlay.is_empty() and worldgen_debug_overlay.set_mode_by_name(requested_overlay):
+			stats_label.text += " · overlay %s" % worldgen_debug_overlay.get_mode_name()
 	var debug_visible := AppConfig.debug_tools_enabled()
 	debug_top_bar.visible = debug_visible
 	debug_inspector.visible = debug_visible
 	debug_footer.visible = debug_visible
 	colony_debug_overlay.visible = debug_visible
+	worldgen_debug_overlay.visible = debug_visible
 	_set_tool(Tool.DIG)
 	if (_has_user_argument("--qa-phase2-demo") or _has_user_argument("--qa-phase3-demo")) and AppConfig.cheats_enabled():
 		_designate_qa_demo_path()
@@ -110,7 +129,7 @@ func _ready() -> void:
 	if _has_user_argument("--qa-phase4-demo") and AppConfig.cheats_enabled():
 		_setup_qa_zone_demo()
 	_update_hud()
-	GameLog.info("WORLDGEN", "Phase 4 zone world generated seed=%d checksum=%d mice=%d" % [seed_value, world_grid.checksum(), mice.size()])
+	GameLog.info("WORLDGEN", "Phase 5 structured world generated seed=%d content_hash=%d features=%d repairs=%d mice=%d" % [seed_value, worldgen_result.get_content_hash(), worldgen_result.feature_registry.count(), world_grid.metadata.repairs.size(), mice.size()])
 
 
 func _process(delta: float) -> void:
@@ -149,6 +168,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif key_event.keycode == KEY_F3:
 			colony_debug_overlay.visible = not colony_debug_overlay.visible
+			get_viewport().set_input_as_handled()
+		elif key_event.keycode == KEY_F4:
+			DisplayServer.clipboard_set(str(_current_seed))
+			_last_feedback = "Copied replay seed %d." % _current_seed
+			_feedback_seconds_remaining = 2.0
+			get_viewport().set_input_as_handled()
+		elif key_event.keycode == KEY_F5:
+			_reload_debug_seed(_current_seed)
+			get_viewport().set_input_as_handled()
+		elif key_event.keycode == KEY_F6:
+			_reload_debug_seed(_current_seed + 1)
+			get_viewport().set_input_as_handled()
+		elif key_event.keycode == KEY_F7:
+			_last_feedback = "Worldgen overlay: %s" % worldgen_debug_overlay.cycle_mode()
+			_feedback_seconds_remaining = 2.0
 			get_viewport().set_input_as_handled()
 
 
@@ -373,15 +407,18 @@ func _update_inspector() -> void:
 			zone.get_setup_state_name().replace("_", " ").capitalize(),
 			zone_details,
 		]
-	inspector_label.text = "Cell (%d, %d)\n%s · hardness %.2f\n%s · dig %s %.0f%%%s\n%s" % [
+	inspector_label.text = "Cell (%d, %d) · stratum %d\n%s · hardness %.2f\n%s · dig %s %.0f%%%s\nfeature %d%s · %s" % [
 		cell.coord.x,
 		cell.coord.y,
+		cell.stratum_id,
 		cell.material_name(cell.terrain_material),
 		cell.hardness,
-		"Excavated" if cell.excavated else "Solid",
+		"EXTERIOR" if cell.is_exterior() else ("Excavated" if cell.is_traversable() else "Solid"),
 		_dig_state_name(cell.dig_state),
 		cell.dig_progress * 100.0,
 		" · PROTECTED" if cell.protected_cell else "",
+		cell.feature_id,
+		" · LANDMARK" if cell.landmark else "",
 		zone_text,
 	]
 
@@ -408,7 +445,7 @@ func _viewport_position_to_cell(viewport_position: Vector2) -> Vector2i:
 
 func _designate_qa_demo_path() -> void:
 	var cursor: Vector2i = world_grid.metadata.start_cell
-	while world_grid.is_in_bounds(cursor + Vector2i.DOWN) and world_grid.is_excavated(cursor + Vector2i.DOWN):
+	while world_grid.is_in_bounds(cursor + Vector2i.DOWN) and world_grid.is_traversable(cursor + Vector2i.DOWN):
 		cursor += Vector2i.DOWN
 	var cells: Array[Vector2i] = []
 	for _index: int in range(9):
@@ -423,16 +460,16 @@ func _designate_qa_demo_path() -> void:
 
 func _seed_initial_supplies() -> void:
 	var home: Vector2i = world_grid.metadata.start_cell
-	var food_cell := _find_excavated_cell(home, [Vector2i(-4, 0), Vector2i(-3, 0), Vector2i(-2, 0), Vector2i.LEFT])
-	var material_cell := _find_excavated_cell(home, [Vector2i(4, 0), Vector2i(3, 0), Vector2i(2, 0), Vector2i.RIGHT])
+	var food_cell := _find_traversable_cell(home, [Vector2i(-4, 0), Vector2i(-3, 0), Vector2i(-2, 0), Vector2i.LEFT])
+	var material_cell := _find_traversable_cell(home, [Vector2i(4, 0), Vector2i(3, 0), Vector2i(2, 0), Vector2i.RIGHT])
 	colony_simulation.add_item_pile(ItemSystemScript.FOOD, food_cell, 8)
 	colony_simulation.add_item_pile(ItemSystemScript.GENERAL_MATERIAL, material_cell, 10)
 
 
 func _setup_qa_colony_demo() -> void:
 	var home: Vector2i = world_grid.metadata.start_cell
-	var food_cell := _find_excavated_cell(home, [Vector2i(-4, 0), Vector2i(-3, 0), Vector2i.LEFT])
-	var material_cell := _find_excavated_cell(home, [Vector2i(4, 0), Vector2i(3, 0), Vector2i.RIGHT])
+	var food_cell := _find_traversable_cell(home, [Vector2i(-4, 0), Vector2i(-3, 0), Vector2i.LEFT])
+	var material_cell := _find_traversable_cell(home, [Vector2i(4, 0), Vector2i(3, 0), Vector2i.RIGHT])
 	# Route the QA haul across the whole start room so capture timing visibly proves carrying.
 	var result: Dictionary = colony_simulation.setup_qa_demo(food_cell, material_cell, food_cell)
 	if not bool(result.get("ok", false)):
@@ -456,10 +493,10 @@ func _setup_qa_zone_demo() -> void:
 	_set_tool(Tool.STORAGE)
 
 
-func _find_excavated_cell(anchor: Vector2i, offsets: Array[Vector2i]) -> Vector2i:
+func _find_traversable_cell(anchor: Vector2i, offsets: Array[Vector2i]) -> Vector2i:
 	for offset: Vector2i in offsets:
 		var candidate := anchor + offset
-		if world_grid.is_in_bounds(candidate) and world_grid.is_excavated(candidate) and path_service.is_reachable(anchor, candidate):
+		if world_grid.is_traversable(candidate) and path_service.is_reachable(anchor, candidate):
 			return candidate
 	return anchor
 
@@ -504,8 +541,23 @@ func _reason_text(reason_code: String) -> String:
 			return reason_code.replace("_", " ").capitalize()
 
 
+func _reload_debug_seed(seed_value: int) -> void:
+	if not AppConfig.debug_tools_enabled():
+		return
+	_debug_seed_override_set = true
+	_debug_seed_override = seed_value
+	get_tree().reload_current_scene()
+
+
 func _has_user_argument(argument_name: String) -> bool:
 	return OS.get_cmdline_user_args().has(argument_name)
+
+
+func _user_argument_value(prefix: String) -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with(prefix):
+			return argument.trim_prefix(prefix)
+	return ""
 
 
 func _current_zone_type() -> int:

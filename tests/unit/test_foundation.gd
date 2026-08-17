@@ -22,7 +22,8 @@ func _test_required_config_documents() -> void:
 		var result := AppConfigScript.load_json_document(path)
 		assert_true(result.ok, "Config parses: %s" % path)
 		if result.ok:
-			assert_equal(result.data.get("schema_version"), 1, "Config schema is v1: %s" % path)
+			var expected_schema := 2 if path == "res://config/worldgen/default.json" else 1
+			assert_equal(result.data.get("schema_version"), expected_schema, "Config schema is v%d: %s" % [expected_schema, path])
 			assert_equal(AppConfigScript.validate_document(document_name_for_path(path), result.data), "", "Config contract validates: %s" % path)
 
 
@@ -69,6 +70,9 @@ func _test_build_profiles() -> void:
 		assert_true(profiles.has(profile_name), "Build profile exists: %s" % profile_name)
 	assert_equal(profiles.get("release", {}).get("debug_tools"), false, "Release hides debug tools")
 	assert_equal(profiles.get("release", {}).get("allow_cheats"), false, "Release disables cheats")
+	assert_equal(AppConfigScript.profile_for_build("qa", false), "release", "Non-debug exports force QA requests to the release profile")
+	assert_equal(AppConfigScript.profile_for_build("unknown", false), "release", "Non-debug exports cannot fall back to a cheat-enabled unknown profile")
+	assert_equal(AppConfigScript.profile_for_build("qa", true), "qa", "Debug builds retain the explicit QA profile")
 
 
 func _test_deterministic_rng() -> void:

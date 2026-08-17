@@ -2,7 +2,7 @@
   "schema_version": 1,
   "game_version": "0.1.0-dev",
   "save_schema_version": 1,
-  "worldgen_version": 1,
+  "worldgen_version": 2,
   "simulation_tick_hz": 5,
   "default_viewport": [1280, 720]
 }

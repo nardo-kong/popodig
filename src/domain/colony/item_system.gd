@@ -36,7 +36,7 @@ func configure(world_grid, path_service) -> void:
 func add_pile(item_type: String, cell: Vector2i, count: int, excluded_dropoff_reservation_id: int = -1) -> int:
 	if not _is_known_type(item_type) or count <= 0:
 		return -1
-	if _world == null or not _world.is_in_bounds(cell) or not _world.is_excavated(cell):
+	if _world == null or not _world.is_traversable(cell):
 		return -1
 	var capacity: int = get_cell_capacity(cell)
 	if capacity > 0 and get_count_at(cell) + get_reserved_dropoff_count(cell, excluded_dropoff_reservation_id) + count > capacity:
@@ -194,7 +194,7 @@ func dropoff(
 func reserve_dropoff(owner_id: String, cell: Vector2i, count: int, capacity: int) -> Dictionary:
 	if owner_id.is_empty() or count <= 0 or capacity <= 0:
 		return _result(false, "INVALID_DROPOFF_RESERVATION")
-	if _world == null or not _world.is_in_bounds(cell) or not _world.is_excavated(cell):
+	if _world == null or not _world.is_traversable(cell):
 		return _result(false, "INVALID_DROPOFF_CELL")
 	var configured_capacity: int = get_cell_capacity(cell)
 	var effective_capacity: int = mini(capacity, configured_capacity) if configured_capacity > 0 else capacity
@@ -277,7 +277,7 @@ func get_cell_capacity(cell: Vector2i) -> int:
 
 
 func can_accept_unreserved_dropoff(cell: Vector2i, count: int) -> bool:
-	if count <= 0 or _world == null or not _world.is_in_bounds(cell) or not _world.is_excavated(cell):
+	if count <= 0 or _world == null or not _world.is_traversable(cell):
 		return false
 	var capacity: int = get_cell_capacity(cell)
 	return capacity <= 0 or get_count_at(cell) + get_reserved_dropoff_count(cell) + count <= capacity

@@ -53,6 +53,8 @@ func configure(world_grid, path_service, balance: Dictionary = {}) -> void:
 func inspect_designation(cell: Vector2i) -> Dictionary:
 	if _world == null or not _world.is_in_bounds(cell):
 		return {"ok": false, "reason_code": REASON_OUT_OF_BOUNDS, "cell": cell}
+	if _world.is_exterior(cell):
+		return {"ok": false, "reason_code": REASON_NOT_EXCAVATABLE, "cell": cell}
 	if _world.is_protected(cell):
 		return {"ok": false, "reason_code": REASON_PROTECTED_FEATURE, "cell": cell}
 	if not _world.is_solid(cell):
@@ -187,7 +189,7 @@ func advance_job(worker_id: String, job_id: int, work_amount: float) -> Dictiona
 	if not _world.is_solid(job.cell) or _world.get_dig_state(job.cell) != CellDataScript.DigState.ACTIVE:
 		_remove_job(job.cell, true)
 		return _job_result(false, REASON_STALE_JOB)
-	if not _world.is_excavated(job.work_cell) or _manhattan(job.work_cell, job.cell) != 1:
+	if not _world.is_traversable(job.work_cell) or _manhattan(job.work_cell, job.cell) != 1:
 		release_worker(worker_id)
 		return _job_result(false, REASON_NOT_FRONTIER, job)
 	job.completed_work = minf(job.required_work, job.completed_work + work_amount)
@@ -238,6 +240,8 @@ func get_job(job_id: int):
 func _validate_excavatable(cell: Vector2i) -> String:
 	if _world == null or not _world.is_in_bounds(cell):
 		return REASON_OUT_OF_BOUNDS
+	if _world.is_exterior(cell):
+		return REASON_NOT_EXCAVATABLE
 	if _world.is_protected(cell):
 		return REASON_PROTECTED_FEATURE
 	if not _world.is_solid(cell):

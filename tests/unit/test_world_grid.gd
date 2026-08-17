@@ -50,6 +50,18 @@ func _test_compact_cell_state() -> void:
 	grid.initialize_cell(Vector2i(0, 0), CellDataScript.TerrainMaterial.STONE, false, true)
 	_assert_true(not grid.set_excavated(Vector2i(0, 0), true), "Protected cell rejects normal mutation")
 	_assert_true(grid.set_excavated(Vector2i(0, 0), true, true), "Explicit generator/debug override can mutate protected cell")
+	var exterior_coord := Vector2i(1, 0)
+	grid.initialize_cell(exterior_coord, CellDataScript.TerrainMaterial.EMPTY, true, true, true)
+	var exterior_cell = grid.get_cell(exterior_coord)
+	_assert_true(exterior_cell.is_exterior() and grid.is_exterior(exterior_coord), "Exterior flag roundtrips through compact cell storage")
+	_assert_true(exterior_cell.protected_cell and grid.is_protected(exterior_coord), "Packed exterior and protected flags coexist")
+	_assert_true(not exterior_cell.is_traversable() and not grid.is_traversable(exterior_coord), "Excavated exterior air is not underground-traversable")
+	_assert_true(grid.set_exterior(exterior_coord, false), "Exterior classification can be cleared through the grid API")
+	_assert_true(grid.is_protected(exterior_coord), "Changing exterior classification preserves the packed protected flag")
+	_assert_true(grid.is_traversable(exterior_coord), "Clearing exterior exposes the already-excavated interior cavity")
+	var interior_checksum := grid.checksum()
+	_assert_true(grid.set_exterior(exterior_coord, true), "Exterior classification can be restored")
+	_assert_true(grid.checksum() != interior_checksum, "World checksum includes exterior classification")
 
 
 func _test_dirty_chunk_updates() -> void:
@@ -91,7 +103,7 @@ func _test_large_grid_budget() -> void:
 	var cell_count: int = world.width * world.height
 	var bytes_per_cell := float(world.estimate_storage_bytes()) / cell_count
 	_assert_equal(cell_count, 62400, "Full-size stress grid contains expected cells")
-	_assert_true(bytes_per_cell <= 24.0, "Logical grid stays at or below 24 bytes per cell")
+	_assert_true(bytes_per_cell <= 24.0, "Bit-packed cell flags keep exterior-aware logical storage at or below 24 bytes per cell")
 	_assert_true(world.get_chunk_count() == 255, "Full-size stress grid uses bounded chunk records")
 	_assert_true(elapsed_ms < 3000.0, "Full-size simple generation stays below 3 seconds")
 	print("PERF_PHASE1 generation_ms=%.2f bytes_per_cell=%.2f cells=%d chunks=%d" % [elapsed_ms, bytes_per_cell, cell_count, world.get_chunk_count()])

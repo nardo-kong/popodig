@@ -607,7 +607,7 @@ func _stash_carried_if_possible() -> bool:
 	if _item_system == null:
 		return false
 	var drop_cell := current_cell
-	if not _world.is_in_bounds(drop_cell) or not _world.is_excavated(drop_cell):
+	if not _world.is_traversable(drop_cell):
 		drop_cell = _find_carried_drop_cell()
 	if drop_cell.x < 0 or drop_cell != current_cell:
 		return false
@@ -649,7 +649,7 @@ func _find_carried_drop_cell() -> Vector2i:
 
 
 func _can_accept_carried_at(cell: Vector2i) -> bool:
-	if _item_system == null or not _world.is_in_bounds(cell) or not _world.is_excavated(cell):
+	if _item_system == null or not _world.is_traversable(cell):
 		return false
 	return _item_system.can_accept_unreserved_dropoff(cell, carried_item_count)
 

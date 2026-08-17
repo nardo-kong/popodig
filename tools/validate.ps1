@@ -102,6 +102,26 @@ if ($LASTEXITCODE -ne 0) {
     throw "Phase 4 large-zone churn benchmark failed with exit code $LASTEXITCODE"
 }
 
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase5_worldgen_development.log --script res://tests/phase5_worldgen_smoke.gd -- --profile=development --expect-debug=true --qa-phase5-overlay=features
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 5 development structured-worldgen smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase5_worldgen_release.log --script res://tests/phase5_worldgen_smoke.gd -- --profile=release --expect-debug=false --qa-phase5-overlay=features
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 5 release-clean structured-worldgen smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase5_seed_batch.log --script res://tools/qa/batch_phase5_worldgen.gd
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 5 structured-worldgen seed batch failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase5_fresh_replay.log --script res://tools/qa/verify_phase5_batch_replay.gd
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 5 fresh-process seed replay failed with exit code $LASTEXITCODE"
+}
+
 if (-not $SkipScreenshot) {
     & $Godot --path $ProjectRoot --disable-vsync --log-file .godot/phase1_benchmark.log --script res://tools/qa/benchmark_runtime.gd --rendering-driver opengl3
     if ($LASTEXITCODE -ne 0) {
@@ -194,6 +214,36 @@ if (-not $SkipScreenshot) {
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 4 release-clean screenshot validation failed with exit code $LASTEXITCODE"
     }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase5_features.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase5-overlay=features --output=res://art/qa/screenshots/phase_5_worldgen_features.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 5 feature-overlay screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase5_features.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_5_worldgen_features.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 5 feature-overlay screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase5_strata.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase5-overlay=strata --output=res://art/qa/screenshots/phase_5_worldgen_strata_1920x1080.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 5 strata-overlay 1920x1080 screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase5_strata.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_5_worldgen_strata_1920x1080.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 5 strata-overlay 1920x1080 screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase5_release.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=release --qa-phase5-overlay=features --output=res://art/qa/screenshots/phase_5_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 5 release-clean screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase5_release.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_5_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 5 release-clean screenshot validation failed with exit code $LASTEXITCODE"
+    }
 }
 
 $ValidationLogs = @(
@@ -211,7 +261,11 @@ $ValidationLogs = @(
     "phase3_colony_release.log",
     "phase4_zones_development.log",
     "phase4_zones_release.log",
-    "phase4_zone_churn_benchmark.log"
+    "phase4_zone_churn_benchmark.log",
+    "phase5_worldgen_development.log",
+    "phase5_worldgen_release.log",
+    "phase5_seed_batch.log",
+    "phase5_fresh_replay.log"
 )
 if (-not $SkipScreenshot) {
     $ValidationLogs += @(
@@ -232,7 +286,13 @@ if (-not $SkipScreenshot) {
         "capture_phase4_wet_storage.log",
         "screenshot_validation_phase4_wet_storage.log",
         "capture_phase4_release.log",
-        "screenshot_validation_phase4_release.log"
+        "screenshot_validation_phase4_release.log",
+        "capture_phase5_features.log",
+        "screenshot_validation_phase5_features.log",
+        "capture_phase5_strata.log",
+        "screenshot_validation_phase5_strata.log",
+        "capture_phase5_release.log",
+        "screenshot_validation_phase5_release.log"
     )
 }
 

@@ -24,7 +24,19 @@ func run() -> Array[Dictionary]:
 	_test_frontier_reservation_progress_and_atomic_completion()
 	_test_material_hardness_scales_required_work()
 	_test_world_dig_dirty_api()
+	_test_exterior_never_becomes_a_dig_route()
 	return results
+
+
+func _test_exterior_never_becomes_a_dig_route() -> void:
+	var context := _dig_context([Vector2i(1, 3), Vector2i(2, 3), Vector2i(3, 3)])
+	var exterior_cell := Vector2i(4, 3)
+	context.world.set_exterior(exterior_cell, true)
+	var inspection: Dictionary = context.dig_system.inspect_designation(exterior_cell)
+	_assert_true(not inspection.ok, "Solid EXTERIOR cannot become a dig designation")
+	_assert_equal(inspection.reason_code, DigSystemScript.REASON_NOT_EXCAVATABLE, "EXTERIOR dig rejection uses the stable non-excavatable reason")
+	context.world.set_dig_state(exterior_cell, CellDataScript.DigState.QUEUED)
+	_assert_true(not context.world.complete_excavation_atomic(exterior_cell), "Atomic excavation completion explicitly rejects EXTERIOR")
 
 
 func _test_local_path_topology_updates() -> void:

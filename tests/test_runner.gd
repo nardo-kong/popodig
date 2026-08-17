@@ -4,6 +4,8 @@ const TEST_SCRIPTS: PackedStringArray = [
 	"res://tests/unit/test_foundation.gd",
 	"res://tests/unit/test_smoke_manifest.gd",
 	"res://tests/unit/test_world_grid.gd",
+	"res://tests/unit/test_structured_worldgen.gd",
+	"res://tests/integration/test_exterior_semantics.gd",
 	"res://tests/unit/test_dig_system.gd",
 	"res://tests/integration/test_mouse_dig_flow.gd",
 	"res://tests/unit/test_colony_jobs.gd",
@@ -13,6 +15,10 @@ const TEST_SCRIPTS: PackedStringArray = [
 ]
 
 const COMPILE_GATES: PackedStringArray = [
+	"res://src/domain/worldgen/structured_world_generator.gd",
+	"res://src/domain/worldgen/world_validator.gd",
+	"res://src/domain/worldgen/world_repairer.gd",
+	"res://src/presentation/debug/worldgen_debug_overlay.gd",
 	"res://src/domain/zones/zone_system.gd",
 	"res://src/domain/jobs/job_system.gd",
 	"res://src/domain/colony/mouse_agent.gd",

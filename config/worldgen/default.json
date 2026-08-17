@@ -1,10 +1,43 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "status": "PROVISIONAL",
   "default_seed": 137042,
-  "worldgen_version": 1,
+  "worldgen_version": 2,
   "world_size": [96, 72],
   "chunk_size": 16,
+  "protected_margin": 1,
   "max_repair_passes": 4,
-  "max_generation_attempts": 3
+  "max_generation_attempts": 3,
+  "surface": {
+    "minimum_ratio": 0.06,
+    "maximum_ratio": 0.12
+  },
+  "strata": [
+    {"id": 0, "name": "topsoil", "end_ratio": 0.30},
+    {"id": 1, "name": "root_moisture_transition", "end_ratio": 0.54},
+    {"id": 2, "name": "wet_foundation", "end_ratio": 0.78},
+    {"id": 3, "name": "old_burrow", "end_ratio": 1.00}
+  ],
+  "feature_counts": {
+    "additional_root_clusters": 2,
+    "additional_reservoirs": 1,
+    "rock_masses": 5,
+    "natural_cavities": 5,
+    "unstable_pockets": 3
+  },
+  "validation": {
+    "minimum_start_open_cells": 18,
+    "early_food_max_dig_cost": 34,
+    "first_hazard_min_dig_cost": 9,
+    "decision_knot_max_dig_cost": 30,
+    "minimum_decision_knots": 1
+  },
+  "batch_gate": {
+    "curated_seed_count": 32,
+    "random_seed_count": 256,
+    "required_final_valid_rate": 1.0,
+    "minimum_raw_valid_rate": 0.95,
+    "maximum_retry_rate": 0.01,
+    "maximum_repair_rate": 0.05
+  }
 }

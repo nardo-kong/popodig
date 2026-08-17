@@ -31,6 +31,11 @@ func reload_all() -> bool:
 			_load_errors.append("%s: %s" % [document_name, validation_error])
 			continue
 		_documents[document_name] = result.data
+	if _documents.has("app") and _documents.has("worldgen"):
+		var app_worldgen_version := int((_documents.app as Dictionary).get("worldgen_version", 0))
+		var generator_worldgen_version := int((_documents.worldgen as Dictionary).get("worldgen_version", 0))
+		if app_worldgen_version != generator_worldgen_version:
+			_load_errors.append("app/worldgen version mismatch: %d != %d" % [app_worldgen_version, generator_worldgen_version])
 	_resolve_profile()
 	return _load_errors.is_empty()
 
@@ -73,14 +78,17 @@ func _resolve_profile() -> void:
 	var requested := _command_line_profile()
 	if requested.is_empty():
 		requested = String(profiles_document.get("default_profile", "development"))
-	if not OS.is_debug_build() and requested == "development":
-		requested = "release"
+	requested = profile_for_build(requested, OS.is_debug_build())
 	var profiles: Dictionary = profiles_document.get("profiles", {})
 	if not profiles.has(requested):
 		_load_errors.append("Unknown build profile: %s" % requested)
 		requested = "development"
 	_profile_name = requested
 	_profile = profiles.get(requested, {}).duplicate(true)
+
+
+static func profile_for_build(requested: String, debug_build: bool) -> String:
+	return requested if debug_build else "release"
 
 
 func _command_line_profile() -> String:
@@ -194,4 +202,46 @@ static func validate_document(document_name: String, data: Dictionary) -> String
 				return "world_size is below the Phase 1 safe minimum"
 			if int(data.get("chunk_size", 0)) <= 0:
 				return "chunk_size must be positive"
+			if int(data.get("worldgen_version", 0)) < 2:
+				return "worldgen_version must be at least 2 for structured generation"
+			if int(data.get("protected_margin", 0)) <= 0:
+				return "protected_margin must be positive"
+			if int(data.get("max_repair_passes", -1)) < 0 or int(data.get("max_repair_passes", 0)) > 8:
+				return "max_repair_passes must be between zero and eight"
+			if int(data.get("max_generation_attempts", 0)) <= 0 or int(data.get("max_generation_attempts", 0)) > 5:
+				return "max_generation_attempts must be between one and five"
+			var surface: Dictionary = data.get("surface", {})
+			var surface_minimum := float(surface.get("minimum_ratio", 0.0))
+			var surface_maximum := float(surface.get("maximum_ratio", 0.0))
+			if surface_minimum <= 0.0 or surface_maximum <= surface_minimum or surface_maximum >= 0.25:
+				return "surface ratios must be ordered within the upper quarter of the world"
+			var strata: Array = data.get("strata", [])
+			if strata.size() != 4:
+				return "structured worldgen requires exactly four V1 strata"
+			var previous_ratio := 0.0
+			for index: int in range(strata.size()):
+				if not strata[index] is Dictionary:
+					return "strata entries must be objects"
+				var stratum: Dictionary = strata[index]
+				var end_ratio := float(stratum.get("end_ratio", 0.0))
+				if int(stratum.get("id", -1)) != index or end_ratio <= previous_ratio or end_ratio > 1.0:
+					return "strata IDs and end ratios must be ordered"
+				previous_ratio = end_ratio
+			if not is_equal_approx(previous_ratio, 1.0):
+				return "final stratum must end at 1.0"
+			var batch_gate: Dictionary = data.get("batch_gate", {})
+			if int(batch_gate.get("curated_seed_count", 0)) != 32 or int(batch_gate.get("random_seed_count", 0)) != 256:
+				return "authoritative worldgen batch must remain 32 curated plus 256 random seeds"
+			for rate_name: String in ["required_final_valid_rate", "minimum_raw_valid_rate", "maximum_retry_rate", "maximum_repair_rate"]:
+				var rate := float(batch_gate.get(rate_name, -1.0))
+				if rate < 0.0 or rate > 1.0:
+					return "batch_gate.%s must be between zero and one" % rate_name
+			var feature_counts: Dictionary = data.get("feature_counts", {})
+			for count_name: String in ["additional_root_clusters", "additional_reservoirs", "rock_masses", "natural_cavities", "unstable_pockets"]:
+				if int(feature_counts.get(count_name, -1)) < 0:
+					return "feature_counts.%s must not be negative" % count_name
+			var validation: Dictionary = data.get("validation", {})
+			for threshold_name: String in ["minimum_start_open_cells", "early_food_max_dig_cost", "first_hazard_min_dig_cost", "decision_knot_max_dig_cost", "minimum_decision_knots"]:
+				if int(validation.get(threshold_name, 0)) <= 0:
+					return "validation.%s must be positive" % threshold_name
 	return ""

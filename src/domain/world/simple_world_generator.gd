@@ -50,7 +50,7 @@ func _fill_terrain(world, surface: PackedInt32Array, rng) -> void:
 			var cell := Vector2i(x, y)
 			var protected_cell: bool = x == 0 or x == world.width - 1 or y == world.height - 1
 			if y < surface[x]:
-				world.initialize_cell(cell, CellDataScript.TerrainMaterial.EMPTY, true, protected_cell)
+				world.initialize_cell(cell, CellDataScript.TerrainMaterial.EMPTY, true, protected_cell, true)
 				continue
 			var depth_ratio := float(y - surface[x]) / maxi(1, world.height - surface[x])
 			var material := CellDataScript.TerrainMaterial.SOFT_SOIL
