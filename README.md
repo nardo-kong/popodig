@@ -1,6 +1,6 @@
 # Dig Down / 地下鼠鼠 — Project Documentation Pack v1.0
 
-> **Implementation status (2026-08-18):** Phase 3 Colony PASS. Three autonomous mice now arbitrate digging, hauling, hunger, rest, and safety work through deterministic reservations; they recover from cancelled, unreachable, invalidated, or hazardous work without direct unit control or resource loss. Development/release gameplay smokes, 270 automated assertions, a 100-second deterministic simulation soak, concurrent-colony performance gates, and visual QA pass. Player-painted zones, discoveries, hazards, structured world generation, persistence, and production art remain later milestones; current visuals are explicitly engineering placeholders.
+> **Implementation status (2026-08-18):** Phase 4 Zones PASS. Players can paint, erase, resize, merge, split, and reassign Sleeping, Storage, and Food/Forage zones directly in the continuous excavated world. Mice autonomously set zones up, reserve sleeping places, store goods within hard capacities, and evacuate wet storage without resource loss or deadlock. Development/release gameplay smokes, 440 automated assertions, a 100-second deterministic simulation soak, zone-churn and rendered performance gates, and four visual-QA captures pass. Structured world generation, discoveries, full hazards, persistence, and production art remain later milestones; current visuals are explicitly engineering placeholders.
 
 This repository is the implementation authority for a 2D underground mouse-colony systemic sandbox built around one dominant verb: **DIG**.
 

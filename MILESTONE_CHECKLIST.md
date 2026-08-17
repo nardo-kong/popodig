@@ -39,12 +39,12 @@
 - [x] Soak test PASS
 
 ## Phase 4 — Zones
-- [ ] Sleeping
-- [ ] Storage
-- [ ] Food/Forage
-- [ ] Suitability
-- [ ] Auto setup/dressing placeholder
-- [ ] Zone edit/reassign
+- [x] Sleeping
+- [x] Storage
+- [x] Food/Forage
+- [x] Suitability
+- [x] Auto setup/dressing placeholder
+- [x] Zone edit/reassign
 
 ## Phase 5 — World Generation
 - [ ] Skeleton
