@@ -87,6 +87,21 @@ if ($LASTEXITCODE -ne 0) {
     throw "Phase 3 release colony smoke failed with exit code $LASTEXITCODE"
 }
 
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase4_zones_development.log --script res://tests/phase4_zones_smoke.gd -- --profile=development --expect-debug=true
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 4 development zones smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase4_zones_release.log --script res://tests/phase4_zones_smoke.gd -- --profile=release --expect-debug=false --qa-phase4-demo
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 4 release zones smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase4_zone_churn_benchmark.log --script res://tools/qa/benchmark_phase4_zone_churn.gd
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 4 large-zone churn benchmark failed with exit code $LASTEXITCODE"
+}
+
 if (-not $SkipScreenshot) {
     & $Godot --path $ProjectRoot --disable-vsync --log-file .godot/phase1_benchmark.log --script res://tools/qa/benchmark_runtime.gd --rendering-driver opengl3
     if ($LASTEXITCODE -ne 0) {
@@ -101,6 +116,11 @@ if (-not $SkipScreenshot) {
     & $Godot --path $ProjectRoot --disable-vsync --log-file .godot/phase3_colony_benchmark.log --script res://tools/qa/benchmark_phase3_colony.gd --rendering-driver opengl3 -- --qa-phase3-demo
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 3 colony benchmark failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --disable-vsync --log-file .godot/phase4_zones_benchmark.log --script res://tools/qa/benchmark_phase4_zones.gd --rendering-driver opengl3 -- --qa-phase4-demo
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 zones benchmark failed with exit code $LASTEXITCODE"
     }
 }
 
@@ -120,19 +140,9 @@ if (-not $SkipScreenshot) {
         throw "Release-clean screenshot validation failed with exit code $LASTEXITCODE"
     }
 
-    & $Godot --path $ProjectRoot --log-file .godot/capture_phase3.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --qa-phase3-demo --wait-for-carry --output=res://art/qa/screenshots/phase_3_colony.png
-    if ($LASTEXITCODE -ne 0) {
-        throw "Phase 3 screenshot capture failed with exit code $LASTEXITCODE"
-    }
-
     & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase3.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_3_colony.png
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 3 screenshot validation failed with exit code $LASTEXITCODE"
-    }
-
-    & $Godot --path $ProjectRoot --log-file .godot/capture_phase3_1920.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --qa-phase3-demo --wait-for-carry --output=res://art/qa/screenshots/phase_3_colony_1920x1080.png --size=1920x1080
-    if ($LASTEXITCODE -ne 0) {
-        throw "Phase 3 1920x1080 screenshot capture failed with exit code $LASTEXITCODE"
     }
 
     & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase3_1920.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_3_colony_1920x1080.png --size=1920x1080
@@ -140,14 +150,49 @@ if (-not $SkipScreenshot) {
         throw "Phase 3 1920x1080 screenshot validation failed with exit code $LASTEXITCODE"
     }
 
-    & $Godot --path $ProjectRoot --log-file .godot/capture_phase3_release.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=release --qa-phase3-demo --output=res://art/qa/screenshots/phase_3_release_clean.png
-    if ($LASTEXITCODE -ne 0) {
-        throw "Phase 3 release-clean screenshot capture failed with exit code $LASTEXITCODE"
-    }
-
     & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase3_release.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_3_release_clean.png
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 3 release-clean screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase4.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --qa-phase4-demo --wait-for-zones --output=res://art/qa/screenshots/phase_4_zones.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase4.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_4_zones.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase4_1920.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --qa-phase4-demo --wait-for-zones --output=res://art/qa/screenshots/phase_4_zones_1920x1080.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 1920x1080 screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase4_1920.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_4_zones_1920x1080.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 1920x1080 screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase4_wet_storage.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --qa-phase4-demo --wait-for-wet-storage --output=res://art/qa/screenshots/phase_4_wet_storage.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 wet-Storage screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase4_wet_storage.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_4_wet_storage.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 wet-Storage screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase4_release.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=release --qa-phase4-demo --output=res://art/qa/screenshots/phase_4_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 release-clean screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase4_release.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_4_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 4 release-clean screenshot validation failed with exit code $LASTEXITCODE"
     }
 }
 
@@ -163,22 +208,31 @@ $ValidationLogs = @(
     "phase2_playable_development.log",
     "phase2_playable_release.log",
     "phase3_colony_development.log",
-    "phase3_colony_release.log"
+    "phase3_colony_release.log",
+    "phase4_zones_development.log",
+    "phase4_zones_release.log",
+    "phase4_zone_churn_benchmark.log"
 )
 if (-not $SkipScreenshot) {
     $ValidationLogs += @(
         "phase1_benchmark.log",
         "phase2_gameplay_benchmark.log",
         "phase3_colony_benchmark.log",
+        "phase4_zones_benchmark.log",
         "screenshot_validation.log",
         "screenshot_validation_1920.log",
         "screenshot_validation_release.log",
-        "capture_phase3.log",
         "screenshot_validation_phase3.log",
-        "capture_phase3_1920.log",
         "screenshot_validation_phase3_1920.log",
-        "capture_phase3_release.log",
-        "screenshot_validation_phase3_release.log"
+        "screenshot_validation_phase3_release.log",
+        "capture_phase4.log",
+        "screenshot_validation_phase4.log",
+        "capture_phase4_1920.log",
+        "screenshot_validation_phase4_1920.log",
+        "capture_phase4_wet_storage.log",
+        "screenshot_validation_phase4_wet_storage.log",
+        "capture_phase4_release.log",
+        "screenshot_validation_phase4_release.log"
     )
 }
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_phase": 3,
+  "current_phase": 4,
   "checks": [
     {"id": "project_import", "status": "PASS", "evidence": "tools/validate.ps1 import step"},
     {"id": "main_scene_launch", "status": "PASS", "evidence": "scenes/app/game_app.tscn"},
@@ -12,6 +12,8 @@
     {"id": "dig_and_path_update", "status": "PASS", "evidence": "tests/phase2_playable_smoke.gd"},
     {"id": "colony_autonomy", "status": "PASS", "evidence": "tests/phase3_colony_smoke.gd"},
     {"id": "colony_soak", "status": "PASS", "evidence": "tests/integration/test_colony_simulation.gd"},
+    {"id": "zone_lifecycle", "status": "PASS", "evidence": "tests/unit/test_zone_system.gd"},
+    {"id": "zone_colony_life", "status": "PASS", "evidence": "tests/integration/test_zone_colony_flow.gd and tests/phase4_zones_smoke.gd"},
     {"id": "save_load", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 10}
   ]
 }

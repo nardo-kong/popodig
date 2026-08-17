@@ -8,6 +8,16 @@ const TEST_SCRIPTS: PackedStringArray = [
 	"res://tests/integration/test_mouse_dig_flow.gd",
 	"res://tests/unit/test_colony_jobs.gd",
 	"res://tests/integration/test_colony_simulation.gd",
+	"res://tests/unit/test_zone_system.gd",
+	"res://tests/integration/test_zone_colony_flow.gd",
+]
+
+const COMPILE_GATES: PackedStringArray = [
+	"res://src/domain/zones/zone_system.gd",
+	"res://src/domain/jobs/job_system.gd",
+	"res://src/domain/colony/mouse_agent.gd",
+	"res://src/domain/colony/colony_simulation.gd",
+	"res://src/presentation/app/game_app.gd",
 ]
 
 
@@ -18,6 +28,14 @@ func _initialize() -> void:
 func _run_tests() -> void:
 	var passed := 0
 	var failed := 0
+	for script_path: String in COMPILE_GATES:
+		var compile_script := load(script_path) as Script
+		if compile_script == null or not compile_script.can_instantiate():
+			failed += 1
+			print("FAIL | Compile gate: %s | Script could not be loaded or instantiated" % script_path)
+		else:
+			passed += 1
+			print("PASS | Compile gate: %s" % script_path)
 	for script_path: String in TEST_SCRIPTS:
 		var test_script := load(script_path) as Script
 		if test_script == null or not test_script.can_instantiate():

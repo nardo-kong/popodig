@@ -168,9 +168,24 @@ static func validate_document(document_name: String, data: Dictionary) -> String
 				return "jobs.emergency_priority must exceed haul_priority"
 			if float(jobs.get("haul_priority", 0.0)) <= float(jobs.get("dig_priority", 0.0)):
 				return "jobs.haul_priority must exceed dig_priority"
+			if float(jobs.get("zone_setup_priority", 0.0)) <= float(jobs.get("dig_priority", 0.0)):
+				return "jobs.zone_setup_priority must exceed dig_priority"
+			if float(jobs.get("zone_setup_priority", 0.0)) >= float(jobs.get("haul_priority", 0.0)):
+				return "jobs.zone_setup_priority must remain below haul_priority"
 			var pathfinding: Dictionary = data.get("pathfinding", {})
 			if int(pathfinding.get("max_walkable_water_units", -1)) < 0:
 				return "pathfinding.max_walkable_water_units must not be negative"
+			var zones: Dictionary = data.get("zones", {})
+			if int(zones.get("setup_material_per_zone", 0)) <= 0:
+				return "zones.setup_material_per_zone must be positive"
+			if int(zones.get("storage_capacity_per_cell", 0)) <= 0:
+				return "zones.storage_capacity_per_cell must be positive"
+			if int(zones.get("sleeping_capacity_per_cell", 0)) <= 0:
+				return "zones.sleeping_capacity_per_cell must be positive"
+			if int(zones.get("dry_water_max_units", -1)) < 0:
+				return "zones.dry_water_max_units must not be negative"
+			if int(zones.get("dry_water_max_units", -1)) > int(pathfinding.get("max_walkable_water_units", -1)):
+				return "zones.dry_water_max_units must not exceed pathfinding.max_walkable_water_units"
 		"worldgen":
 			var size_value: Variant = data.get("world_size")
 			if not size_value is Array or size_value.size() != 2:

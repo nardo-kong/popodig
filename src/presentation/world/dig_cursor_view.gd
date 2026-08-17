@@ -5,6 +5,7 @@ var cell_size := 16
 var cell_coord := Vector2i(-1, -1)
 var valid := false
 var cancel_mode := false
+var tool_style := "DIG"
 
 
 func configure(logical_cell_size: int) -> void:
@@ -20,8 +21,13 @@ func set_cursor(coord: Vector2i, is_visible: bool, is_valid: bool, is_cancel: bo
 	queue_redraw()
 
 
+func set_tool_style(value: String) -> void:
+	tool_style = value
+	queue_redraw()
+
+
 func _draw() -> void:
-	var color := Color("eac56b") if valid else Color("d96b62")
+	var color := _tool_color() if valid else Color("d96b62")
 	if cancel_mode:
 		color = Color("ef8b71")
 	var rect := Rect2(Vector2.ONE, Vector2.ONE * (cell_size - 2))
@@ -30,3 +36,13 @@ func _draw() -> void:
 	if not valid or cancel_mode:
 		draw_line(Vector2(4.0, 4.0), Vector2(cell_size - 4.0, cell_size - 4.0), color, 1.5)
 		draw_line(Vector2(cell_size - 4.0, 4.0), Vector2(4.0, cell_size - 4.0), color, 1.5)
+
+
+func _tool_color() -> Color:
+	if tool_style.begins_with("SLEEPING"):
+		return Color("a997d4")
+	if tool_style.begins_with("STORAGE"):
+		return Color("e0b765")
+	if tool_style.begins_with("FOOD"):
+		return Color("7dc681")
+	return Color("eac56b")

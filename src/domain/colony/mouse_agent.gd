@@ -26,6 +26,8 @@ const ACTION_FLEE := "FLEE"
 const ACTION_STASH := "STASH"
 
 const ItemSystemScript = preload("res://src/domain/colony/item_system.gd")
+const ColonyJobScript = preload("res://src/domain/jobs/colony_job.gd")
+const ZoneScript = preload("res://src/domain/zones/zone.gd")
 
 var mouse_id := ""
 var current_cell := Vector2i(-1, -1)
@@ -45,8 +47,11 @@ var _path_service
 var _dig_system
 var _job_system
 var _item_system
+var _zone_system
 var _needs_enabled := false
 var _home_cell := Vector2i(-1, -1)
+var _sleep_zone_id := -1
+var _sleeping_capacity_per_cell := 1
 var _move_cells_per_second := 4.0
 var _dig_work_per_second := 1.0
 var _hunger_per_second := 0.008
@@ -85,6 +90,7 @@ func configure(world_grid, path_service, dig_system, balance: Dictionary = {}) -
 	_dig_system = dig_system
 	_job_system = null
 	_item_system = null
+	_zone_system = null
 	_needs_enabled = false
 	_apply_balance(balance)
 	_reset_action()
@@ -101,6 +107,12 @@ func configure_colony(job_system, item_system, home_cell: Vector2i, balance: Dic
 	rest = clampf(float(mouse.get("initial_rest", 1.0)), 0.0, 1.0)
 	_food_retry_remaining = 0.0
 	_rest_retry_remaining = 0.0
+
+
+func configure_zones(zone_system, balance: Dictionary = {}) -> void:
+	_zone_system = zone_system
+	var zones: Dictionary = balance.get("zones", {})
+	_sleeping_capacity_per_cell = maxi(1, int(zones.get("sleeping_capacity_per_cell", 1)))
 
 
 func fixed_tick(delta_seconds: float) -> Dictionary:
@@ -290,15 +302,30 @@ func _begin_eating() -> bool:
 
 
 func _begin_resting() -> bool:
-	if _home_cell.x < 0 or not _path_service.is_walkable(_home_cell):
-		return false
-	var route: Array[Vector2i] = _path_service.find_path(current_cell, _home_cell)
-	if route.is_empty():
-		return false
 	_interrupt_current(false)
+	var rest_target := Vector2i(-1, -1)
+	if _zone_system != null:
+		var reservation: Dictionary = _zone_system.reserve_best_usable_cell(
+			ZoneScript.Type.SLEEPING,
+			mouse_id,
+			current_cell,
+			_sleeping_capacity_per_cell
+		)
+		if reservation.ok:
+			_sleep_zone_id = int(reservation.zone_id)
+			rest_target = reservation.cell
+	if rest_target.x < 0:
+		if _home_cell.x < 0 or not _path_service.is_walkable(_home_cell):
+			return false
+		if _path_service.find_path(current_cell, _home_cell).is_empty():
+			return false
+		rest_target = _home_cell
 	current_job_id = "rest:%s" % mouse_id
 	_current_priority = 80.0
-	return _start_travel(_home_cell, ACTION_REST)
+	if _start_travel(rest_target, ACTION_REST):
+		return true
+	_release_sleeping_occupancy()
+	return false
 
 
 func _claim_work() -> Dictionary:
@@ -394,7 +421,31 @@ func _advance_hauling() -> Dictionary:
 			_cancel_carried_job()
 			return _tick_result(false, "DROPOFF_UNREACHABLE")
 		return _tick_result(true, "ITEM_PICKED_UP")
-	var dropoff: Dictionary = _item_system.dropoff(mouse_id, carried_item_type, carried_item_count, current_cell)
+	if _current_general_job.job_type == ColonyJobScript.Type.ZONE_SETUP:
+		var setup_result: Dictionary = (
+			{"ok": false, "reason_code": "ZONE_SYSTEM_UNAVAILABLE"}
+			if _zone_system == null
+			else _zone_system.apply_setup_material(_current_general_job.zone_id, carried_item_count)
+		)
+		if not setup_result.ok:
+			_cancel_carried_job()
+			_reset_action()
+			return _tick_result(false, String(setup_result.reason_code))
+		carried_item_type = ""
+		carried_item_count = 0
+		_job_system.complete(mouse_id, _current_general_job.job_id)
+		_reset_action()
+		return _tick_result(true, "ZONE_SETUP_COMPLETED")
+	var dropoff: Dictionary
+	if _current_general_job.dropoff_reservation_id >= 0:
+		dropoff = _job_system.complete_reserved_dropoff(
+			mouse_id,
+			_current_general_job.job_id,
+			carried_item_type,
+			carried_item_count
+		)
+	else:
+		dropoff = _item_system.dropoff(mouse_id, carried_item_type, carried_item_count, current_cell)
 	if not dropoff.ok:
 		var fallback := _find_carried_drop_cell()
 		if fallback.x >= 0 and fallback != current_cell and _start_travel(fallback, ACTION_HAUL_DROPOFF):
@@ -537,6 +588,17 @@ func _validate_current_action() -> void:
 	if _current_general_job != null and _job_system.get_job(_current_general_job.job_id) == null:
 		_stash_carried_if_possible()
 		_reset_action()
+	if _action_kind == ACTION_REST and _sleep_zone_id >= 0 and _zone_system != null:
+		var zone: Zone = _zone_system.get_zone(_sleep_zone_id)
+		if (
+			zone == null
+			or not zone.valid
+			or zone.setup_state != ZoneScript.SetupState.SET_UP
+			or not zone.cells.has(_travel_target)
+			or zone.occupant_refs.get(mouse_id, Vector2i(-1, -1)) != _travel_target
+		):
+			_reset_action()
+			_rest_retry_remaining = 0.0
 
 
 func _stash_carried_if_possible() -> bool:
@@ -558,14 +620,38 @@ func _stash_carried_if_possible() -> bool:
 
 
 func _find_carried_drop_cell() -> Vector2i:
-	if _world.is_in_bounds(current_cell) and _world.is_excavated(current_cell):
+	if _can_accept_carried_at(current_cell):
 		return current_cell
-	for neighbor: Vector2i in _world.get_cardinal_neighbors(current_cell):
-		if _path_service.is_walkable(neighbor):
-			return neighbor
-	if _is_safe_reachable(_home_cell):
-		return _home_cell
-	return Vector2i(-1, -1)
+	var starts: Array[Vector2i] = []
+	var start_cost := 0
+	if _path_service.is_walkable(current_cell):
+		starts.append(current_cell)
+	else:
+		start_cost = 1
+		for neighbor: Vector2i in _world.get_cardinal_neighbors(current_cell):
+			if _path_service.is_walkable(neighbor):
+				starts.append(neighbor)
+	var best := Vector2i(-1, -1)
+	var best_distance := 2147483647
+	for start: Vector2i in starts:
+		var distances: PackedInt32Array = _path_service.build_distance_field(start)
+		for index: int in range(distances.size()):
+			if distances[index] < 0:
+				continue
+			var cell: Vector2i = _world.index_to_cell(index)
+			if not _can_accept_carried_at(cell):
+				continue
+			var distance: int = distances[index] + start_cost
+			if distance < best_distance or (distance == best_distance and (best.x < 0 or cell.y < best.y or (cell.y == best.y and cell.x < best.x))):
+				best = cell
+				best_distance = distance
+	return best
+
+
+func _can_accept_carried_at(cell: Vector2i) -> bool:
+	if _item_system == null or not _world.is_in_bounds(cell) or not _world.is_excavated(cell):
+		return false
+	return _item_system.can_accept_unreserved_dropoff(cell, carried_item_count)
 
 
 func _begin_carried_stash() -> bool:
@@ -632,6 +718,7 @@ func _find_route_from_current(target: Vector2i, avoid_danger: bool = false) -> A
 
 
 func _reset_action() -> void:
+	_release_sleeping_occupancy()
 	_current_dig_job = null
 	_current_general_job = null
 	_item_reservation_id = -1
@@ -643,6 +730,12 @@ func _reset_action() -> void:
 	_move_progress = 0.0
 	path_state = "EMPTY"
 	_set_state(State.IDLE)
+
+
+func _release_sleeping_occupancy() -> void:
+	if _sleep_zone_id >= 0 and _zone_system != null:
+		_zone_system.release_occupant(mouse_id)
+	_sleep_zone_id = -1
 
 
 func _set_state(next_state: int) -> void:

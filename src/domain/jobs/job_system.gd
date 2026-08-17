@@ -18,6 +18,7 @@ var _last_topology_revision := 0
 var _travel_cost_weight := 0.25
 var _unreachable_retry_seconds := 2.0
 var _haul_priority := 20.0
+var _zone_setup_priority := 15.0
 var _emergency_priority := 100.0
 var _completed_count := 0
 
@@ -37,6 +38,7 @@ func configure(path_service, item_system, balance: Dictionary = {}) -> void:
 	_travel_cost_weight = maxf(0.0, float(jobs.get("travel_cost_weight", 0.25)))
 	_unreachable_retry_seconds = maxf(0.1, float(jobs.get("unreachable_retry_seconds", 2.0)))
 	_haul_priority = float(jobs.get("haul_priority", 20.0))
+	_zone_setup_priority = float(jobs.get("zone_setup_priority", 15.0))
 	_emergency_priority = float(jobs.get("emergency_priority", 100.0))
 
 
@@ -45,7 +47,9 @@ func enqueue_haul(
 	source_pile_id: int,
 	dropoff_cell: Vector2i,
 	count: int,
-	emergency: bool = false
+	emergency: bool = false,
+	target_zone_id: int = -1,
+	destination_capacity: int = -1
 ):
 	if _item_system == null or count <= 0:
 		return null
@@ -69,6 +73,40 @@ func enqueue_haul(
 	job.target_cell = dropoff_cell
 	job.item_type = item_type
 	job.item_count = count
+	job.zone_id = target_zone_id
+	if destination_capacity > 0:
+		var dropoff_reservation: Dictionary = _item_system.reserve_dropoff(
+			"job:%d" % job.job_id,
+			dropoff_cell,
+			count,
+			destination_capacity
+		)
+		if not dropoff_reservation.ok:
+			return null
+		job.dropoff_reservation_id = int(dropoff_reservation.reservation_id)
+	_jobs[job.job_id] = job
+	job_changed.emit(job.job_id, job.state)
+	return job
+
+
+func enqueue_zone_setup(source_pile_id: int, target_cell: Vector2i, count: int, zone_id: int):
+	if _item_system == null or count <= 0 or zone_id < 0:
+		return null
+	var source_pile: ItemPile = _item_system.get_pile(source_pile_id)
+	if source_pile == null or source_pile.item_type != ItemSystemScript.GENERAL_MATERIAL:
+		return null
+	if _committed_source_count(source_pile_id) + count > source_pile.count:
+		return null
+	var job := ColonyJobScript.new()
+	job.job_id = _next_job_id
+	_next_job_id += 1
+	job.job_type = ColonyJobScript.Type.ZONE_SETUP
+	job.priority = _zone_setup_priority
+	job.source_pile_id = source_pile_id
+	job.target_cell = target_cell
+	job.item_type = ItemSystemScript.GENERAL_MATERIAL
+	job.item_count = count
+	job.zone_id = zone_id
 	_jobs[job.job_id] = job
 	job_changed.emit(job.job_id, job.state)
 	return job
@@ -132,7 +170,13 @@ func claim_best(worker_id: String, worker_cell: Vector2i, needs: Dictionary = {}
 
 func complete(worker_id: String, job_id: int) -> bool:
 	var job: ColonyJob = _jobs.get(job_id)
-	if job == null or job.state != ColonyJobScript.State.RESERVED or job.worker_id != worker_id or job.item_reservation_id >= 0:
+	if (
+		job == null
+		or job.state != ColonyJobScript.State.RESERVED
+		or job.worker_id != worker_id
+		or job.item_reservation_id >= 0
+		or job.dropoff_reservation_id >= 0
+	):
 		return false
 	job.state = ColonyJobScript.State.COMPLETED
 	_worker_jobs.erase(worker_id)
@@ -140,6 +184,24 @@ func complete(worker_id: String, job_id: int) -> bool:
 	_completed_count += 1
 	job_changed.emit(job_id, job.state)
 	return true
+
+
+func complete_reserved_dropoff(worker_id: String, job_id: int, item_type: String, count: int) -> Dictionary:
+	var job: ColonyJob = _jobs.get(job_id)
+	if job == null or job.state != ColonyJobScript.State.RESERVED or job.worker_id != worker_id:
+		return {"ok": false, "reason_code": "INVALID_JOB"}
+	if job.dropoff_reservation_id < 0:
+		return {"ok": false, "reason_code": "NO_DROPOFF_RESERVATION"}
+	var result: Dictionary = _item_system.complete_reserved_dropoff(
+		job.dropoff_reservation_id,
+		"job:%d" % job.job_id,
+		worker_id,
+		item_type,
+		count
+	)
+	if result.ok:
+		job.dropoff_reservation_id = -1
+	return result
 
 
 func mark_item_picked_up(worker_id: String, job_id: int) -> bool:
@@ -161,6 +223,7 @@ func release_worker(worker_id: String) -> bool:
 		return false
 	if job.item_reservation_id < 0:
 		job.state = ColonyJobScript.State.CANCELLED
+		_release_job_dropoff(job)
 		_jobs.erase(job_id)
 		job_changed.emit(job_id, job.state)
 		return true
@@ -180,6 +243,7 @@ func cancel(job_id: int) -> bool:
 		_worker_jobs.erase(job.worker_id)
 		if job.item_reservation_id >= 0:
 			_item_system.release_worker(job.worker_id)
+	_release_job_dropoff(job)
 	job.state = ColonyJobScript.State.CANCELLED
 	_jobs.erase(job_id)
 	job_changed.emit(job_id, job.state)
@@ -206,6 +270,18 @@ func get_job(job_id: int):
 func get_jobs() -> Array[ColonyJob]:
 	var result: Array[ColonyJob] = []
 	for job: ColonyJob in _jobs.values():
+		result.append(job.snapshot())
+	result.sort_custom(func(a: ColonyJob, b: ColonyJob) -> bool:
+		return a.job_id < b.job_id
+	)
+	return result
+
+
+func get_zone_jobs(zone_id: int, job_type: int = -1) -> Array[ColonyJob]:
+	var result: Array[ColonyJob] = []
+	for job: ColonyJob in _jobs.values():
+		if job.zone_id != zone_id or (job_type >= 0 and job.job_type != job_type):
+			continue
 		result.append(job.snapshot())
 	result.sort_custom(func(a: ColonyJob, b: ColonyJob) -> bool:
 		return a.job_id < b.job_id
@@ -245,6 +321,8 @@ func get_debug_jobs() -> Array[Dictionary]:
 			"target_cell": job.target_cell,
 			"item_type": job.item_type,
 			"item_count": job.item_count,
+			"zone_id": job.zone_id,
+			"dropoff_reservation_id": job.dropoff_reservation_id,
 		})
 	return result
 
@@ -273,3 +351,10 @@ func _committed_source_count(source_pile_id: int) -> int:
 		if job.state == ColonyJobScript.State.PENDING or job.item_reservation_id >= 0:
 			committed += job.item_count
 	return committed
+
+
+func _release_job_dropoff(job: ColonyJob) -> void:
+	if job.dropoff_reservation_id < 0:
+		return
+	_item_system.release_dropoff(job.dropoff_reservation_id, "job:%d" % job.job_id)
+	job.dropoff_reservation_id = -1

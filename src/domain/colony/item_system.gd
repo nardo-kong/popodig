@@ -13,8 +13,11 @@ var _path_service
 var _piles: Dictionary = {}
 var _reservations: Dictionary = {}
 var _worker_reservations: Dictionary = {}
+var _dropoff_reservations: Dictionary = {}
+var _cell_capacities: Dictionary = {}
 var _next_pile_id := 1
 var _next_reservation_id := 1
+var _next_dropoff_reservation_id := 1
 
 
 func configure(world_grid, path_service) -> void:
@@ -23,14 +26,20 @@ func configure(world_grid, path_service) -> void:
 	_piles.clear()
 	_reservations.clear()
 	_worker_reservations.clear()
+	_dropoff_reservations.clear()
+	_cell_capacities.clear()
 	_next_pile_id = 1
 	_next_reservation_id = 1
+	_next_dropoff_reservation_id = 1
 
 
-func add_pile(item_type: String, cell: Vector2i, count: int) -> int:
+func add_pile(item_type: String, cell: Vector2i, count: int, excluded_dropoff_reservation_id: int = -1) -> int:
 	if not _is_known_type(item_type) or count <= 0:
 		return -1
 	if _world == null or not _world.is_in_bounds(cell) or not _world.is_excavated(cell):
+		return -1
+	var capacity: int = get_cell_capacity(cell)
+	if capacity > 0 and get_count_at(cell) + get_reserved_dropoff_count(cell, excluded_dropoff_reservation_id) + count > capacity:
 		return -1
 	for pile: ItemPile in _piles.values():
 		if pile.item_type == item_type and pile.cell == cell:
@@ -64,6 +73,23 @@ func get_total_count(item_type: String) -> int:
 		if pile.item_type == item_type:
 			total += pile.count
 	return total
+
+
+func get_count_at(cell: Vector2i) -> int:
+	var total := 0
+	for pile: ItemPile in _piles.values():
+		if pile.cell == cell:
+			total += pile.count
+	return total
+
+
+func get_pile_ids_at(cell: Vector2i) -> Array[int]:
+	var result: Array[int] = []
+	for pile: ItemPile in _piles.values():
+		if pile.cell == cell and pile.count > 0:
+			result.append(pile.pile_id)
+	result.sort()
+	return result
 
 
 func reserve_nearest(worker_id: String, item_type: String, count: int, origin: Vector2i) -> Dictionary:
@@ -145,10 +171,16 @@ func pickup(reservation_id: int, worker_id: String) -> Dictionary:
 	return result
 
 
-func dropoff(worker_id: String, item_type: String, count: int, cell: Vector2i) -> Dictionary:
+func dropoff(
+	worker_id: String,
+	item_type: String,
+	count: int,
+	cell: Vector2i,
+	excluded_dropoff_reservation_id: int = -1
+) -> Dictionary:
 	if worker_id.is_empty() or count <= 0:
 		return _result(false, "INVALID_DROPOFF")
-	var pile_id := add_pile(item_type, cell, count)
+	var pile_id := add_pile(item_type, cell, count, excluded_dropoff_reservation_id)
 	if pile_id < 0:
 		return _result(false, "INVALID_DROPOFF")
 	var result := _result(true, "OK")
@@ -157,6 +189,98 @@ func dropoff(worker_id: String, item_type: String, count: int, cell: Vector2i) -
 	result["count"] = count
 	result["cell"] = cell
 	return result
+
+
+func reserve_dropoff(owner_id: String, cell: Vector2i, count: int, capacity: int) -> Dictionary:
+	if owner_id.is_empty() or count <= 0 or capacity <= 0:
+		return _result(false, "INVALID_DROPOFF_RESERVATION")
+	if _world == null or not _world.is_in_bounds(cell) or not _world.is_excavated(cell):
+		return _result(false, "INVALID_DROPOFF_CELL")
+	var configured_capacity: int = get_cell_capacity(cell)
+	var effective_capacity: int = mini(capacity, configured_capacity) if configured_capacity > 0 else capacity
+	if get_count_at(cell) + get_reserved_dropoff_count(cell) + count > effective_capacity:
+		return _result(false, "DROPOFF_CAPACITY_EXCEEDED")
+	var reservation_id := _next_dropoff_reservation_id
+	_next_dropoff_reservation_id += 1
+	var reservation := {
+		"reservation_id": reservation_id,
+		"owner_id": owner_id,
+		"cell": cell,
+		"count": count,
+		"capacity": effective_capacity,
+	}
+	_dropoff_reservations[reservation_id] = reservation
+	var result := _result(true, "OK")
+	result.merge(reservation, true)
+	return result
+
+
+func complete_reserved_dropoff(
+	reservation_id: int,
+	owner_id: String,
+	worker_id: String,
+	item_type: String,
+	count: int
+) -> Dictionary:
+	var reservation: Dictionary = _dropoff_reservations.get(reservation_id, {})
+	if reservation.is_empty() or String(reservation.owner_id) != owner_id:
+		return _result(false, "INVALID_DROPOFF_RESERVATION")
+	if int(reservation.count) != count:
+		return _result(false, "DROPOFF_COUNT_MISMATCH")
+	var cell: Vector2i = reservation.cell
+	if get_count_at(cell) + count > int(reservation.capacity):
+		return _result(false, "DROPOFF_CAPACITY_EXCEEDED")
+	var result := dropoff(worker_id, item_type, count, cell, reservation_id)
+	if not result.ok:
+		return result
+	_dropoff_reservations.erase(reservation_id)
+	result["reservation_id"] = reservation_id
+	return result
+
+
+func release_dropoff(reservation_id: int, owner_id: String = "") -> bool:
+	var reservation: Dictionary = _dropoff_reservations.get(reservation_id, {})
+	if reservation.is_empty() or (not owner_id.is_empty() and String(reservation.owner_id) != owner_id):
+		return false
+	_dropoff_reservations.erase(reservation_id)
+	return true
+
+
+func get_reserved_dropoff_count(cell: Vector2i, excluded_reservation_id: int = -1) -> int:
+	var total := 0
+	for reservation_id: int in _dropoff_reservations:
+		var reservation: Dictionary = _dropoff_reservations[reservation_id]
+		if reservation_id != excluded_reservation_id and reservation.cell == cell:
+			total += int(reservation.count)
+	return total
+
+
+func get_debug_dropoff_reservations() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for reservation: Dictionary in _dropoff_reservations.values():
+		result.append(reservation.duplicate(true))
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.reservation_id) < int(b.reservation_id)
+	)
+	return result
+
+
+func replace_cell_capacities(capacities: Dictionary) -> void:
+	_cell_capacities.clear()
+	for cell: Variant in capacities:
+		if cell is Vector2i and int(capacities[cell]) > 0:
+			_cell_capacities[cell] = int(capacities[cell])
+
+
+func get_cell_capacity(cell: Vector2i) -> int:
+	return int(_cell_capacities.get(cell, -1))
+
+
+func can_accept_unreserved_dropoff(cell: Vector2i, count: int) -> bool:
+	if count <= 0 or _world == null or not _world.is_in_bounds(cell) or not _world.is_excavated(cell):
+		return false
+	var capacity: int = get_cell_capacity(cell)
+	return capacity <= 0 or get_count_at(cell) + get_reserved_dropoff_count(cell) + count <= capacity
 
 
 func release_worker(worker_id: String) -> bool:

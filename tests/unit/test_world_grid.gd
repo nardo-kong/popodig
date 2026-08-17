@@ -41,6 +41,12 @@ func _test_compact_cell_state() -> void:
 	_assert_true(cell.is_solid(), "Unexcavated terrain is solid")
 	_assert_true(grid.set_excavated(coord, true), "Cell excavation mutation succeeds")
 	_assert_true(grid.is_excavated(coord), "Excavated state updates")
+	_assert_equal(grid.get_zone_id(coord), -1, "Excavated cell starts without a zone")
+	_assert_true(grid.set_zone_id(coord, 7), "Cell accepts a compact zone reference")
+	_assert_equal(grid.get_zone_id(coord), 7, "Zone reference roundtrips through compact storage")
+	_assert_equal(grid.get_cell(coord).zone_id, 7, "Cell snapshot exposes its zone reference")
+	_assert_true(grid.set_zone_id(coord, -1), "Zone reference can be cleared")
+	_assert_true(not grid.set_zone_id(coord, -2), "Invalid negative zone reference is rejected")
 	grid.initialize_cell(Vector2i(0, 0), CellDataScript.TerrainMaterial.STONE, false, true)
 	_assert_true(not grid.set_excavated(Vector2i(0, 0), true), "Protected cell rejects normal mutation")
 	_assert_true(grid.set_excavated(Vector2i(0, 0), true, true), "Explicit generator/debug override can mutate protected cell")
@@ -57,6 +63,10 @@ func _test_dirty_chunk_updates() -> void:
 	_assert_true(chunk.is_dirty(ChunkScript.DIRTY_TERRAIN), "Terrain mutation dirties terrain presentation")
 	_assert_true(chunk.is_dirty(ChunkScript.DIRTY_PATHING), "Terrain mutation dirties path topology")
 	_assert_true(chunk.is_dirty(ChunkScript.DIRTY_STABILITY), "Excavation dirties local stability")
+	chunk.consume_dirty()
+	_assert_true(grid.set_zone_id(Vector2i(2, 2), 1), "Zone dirty test mutation succeeds")
+	_assert_true(chunk.is_dirty(ChunkScript.DIRTY_ZONES), "Zone mutation dirties zone presentation")
+	_assert_true(not chunk.is_dirty(ChunkScript.DIRTY_TERRAIN), "Zone mutation does not redraw terrain")
 	_assert_true(not grid.get_chunk(Vector2i(1, 1)).is_dirty(ChunkScript.DIRTY_TERRAIN), "Unrelated chunk remains clean after local edit")
 
 

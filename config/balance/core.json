@@ -25,6 +25,7 @@
   },
   "jobs": {
     "dig_priority": 10.0,
+    "zone_setup_priority": 15.0,
     "haul_priority": 20.0,
     "emergency_priority": 100.0,
     "travel_cost_weight": 0.25,
@@ -32,5 +33,11 @@
   },
   "pathfinding": {
     "max_walkable_water_units": 1
+  },
+  "zones": {
+    "setup_material_per_zone": 1,
+    "storage_capacity_per_cell": 12,
+    "sleeping_capacity_per_cell": 1,
+    "dry_water_max_units": 0
   }
 }

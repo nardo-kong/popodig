@@ -13,6 +13,7 @@ const CHANGE_WATER := 4
 const CHANGE_STABILITY := 8
 const CHANGE_PATHING := 16
 const CHANGE_DIG := 32
+const CHANGE_ZONE := 64
 
 var width: int
 var height: int
@@ -135,6 +136,11 @@ func get_water_units(cell_coord: Vector2i) -> int:
 	return 0 if index < 0 else _water_units[index]
 
 
+func get_zone_id(cell_coord: Vector2i) -> int:
+	var index := cell_to_index(cell_coord)
+	return -1 if index < 0 else _zone_ids[index]
+
+
 func get_cardinal_neighbors(cell_coord: Vector2i, in_bounds_only: bool = true) -> Array[Vector2i]:
 	var neighbors: Array[Vector2i] = []
 	for direction: Vector2i in [Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.DOWN]:
@@ -216,6 +222,15 @@ func set_water_units(cell_coord: Vector2i, units: int) -> bool:
 		return false
 	_water_units[index] = encoded
 	_mark_cell_changed(cell_coord, CHANGE_WATER | CHANGE_PATHING)
+	return true
+
+
+func set_zone_id(cell_coord: Vector2i, zone_id: int) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or zone_id < -1 or _zone_ids[index] == zone_id:
+		return false
+	_zone_ids[index] = zone_id
+	_mark_cell_changed(cell_coord, CHANGE_ZONE)
 	return true
 
 
@@ -336,4 +351,6 @@ func _changes_to_dirty(change_flags: int) -> int:
 		dirty |= WorldChunkScript.DIRTY_PATHING
 	if change_flags & CHANGE_DIG:
 		dirty |= WorldChunkScript.DIRTY_JOBS
+	if change_flags & CHANGE_ZONE:
+		dirty |= WorldChunkScript.DIRTY_ZONES
 	return dirty

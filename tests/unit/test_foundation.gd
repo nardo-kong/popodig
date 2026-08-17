@@ -42,6 +42,14 @@ func _test_invalid_configuration_rejection() -> void:
 		"pathfinding": {"max_walkable_water_units": 1},
 	}
 	assert_true(not AppConfigScript.validate_document("balance", invalid_balance).is_empty(), "Invalid digging balance is rejected")
+	var balance_result := AppConfigScript.load_json_document(AppConfigScript.CONFIG_PATHS.balance)
+	if balance_result.ok:
+		var invalid_water_balance: Dictionary = balance_result.data.duplicate(true)
+		invalid_water_balance.zones.dry_water_max_units = int(invalid_water_balance.pathfinding.max_walkable_water_units) + 1
+		assert_true(
+			not AppConfigScript.validate_document("balance", invalid_water_balance).is_empty(),
+			"Zone dry-water threshold cannot exceed the walkable-water threshold"
+		)
 
 
 func document_name_for_path(path: String) -> String:

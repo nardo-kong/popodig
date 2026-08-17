@@ -2,6 +2,7 @@ extends SceneTree
 
 const DEFAULT_OUTPUT := "res://art/qa/screenshots/phase_2_digging.png"
 const TARGET_SIZE := Vector2i(1280, 720)
+const ZoneScript = preload("res://src/domain/zones/zone.gd")
 
 
 func _initialize() -> void:
@@ -27,7 +28,22 @@ func _capture() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
-	if _has_user_argument("--wait-for-carry"):
+	if _has_user_argument("--wait-for-wet-storage"):
+		if not await _prepare_wet_storage_evidence(scene):
+			push_error("Screenshot fixture never reached evacuated wet-Storage evidence")
+			quit(1)
+			return
+		await process_frame
+	elif _has_user_argument("--wait-for-zones"):
+		var deadline_usec := Time.get_ticks_usec() + 8000000
+		while Time.get_ticks_usec() < deadline_usec and not _has_ready_zone_layout(scene):
+			await process_frame
+		if not _has_ready_zone_layout(scene):
+			push_error("Screenshot fixture never reached a ready zone layout")
+			quit(1)
+			return
+		await process_frame
+	elif _has_user_argument("--wait-for-carry"):
 		var deadline_usec := Time.get_ticks_usec() + 5000000
 		while Time.get_ticks_usec() < deadline_usec and not _has_visible_carrier(scene):
 			await process_frame
@@ -83,6 +99,92 @@ func _has_visible_carrier(scene: Node) -> bool:
 		if int(mouse.carried_item_count) > 0:
 			return true
 	return false
+
+
+func _has_ready_zone_layout(scene: Node) -> bool:
+	return _has_ready_zone_layout_count(scene, 3)
+
+
+func _has_ready_zone_layout_count(scene: Node, expected_count: int) -> bool:
+	var simulation: Variant = scene.get("colony_simulation")
+	if simulation == null:
+		return false
+	var zone_system = simulation.get_zone_system()
+	if simulation.get_job_system().get_pending_count() > 0 or simulation.get_job_system().get_active_count() > 0:
+		return false
+	for mouse in simulation.get_mice():
+		if mouse.carried_item_count > 0:
+			return false
+	var zones: Array = zone_system.get_zones()
+	if zones.size() != expected_count:
+		return false
+	for zone in zones:
+		if not zone.valid or zone.get_setup_state_name() != "SET_UP":
+			return false
+	for pile in simulation.get_item_system().get_piles():
+		if pile.count <= 0:
+			continue
+		var zone = zone_system.get_zone_at(pile.cell)
+		if zone == null or zone.get_type_name() != "STORAGE" or not zone.valid:
+			return false
+	return true
+
+
+func _prepare_wet_storage_evidence(scene: Node) -> bool:
+	var simulation: Variant = scene.get("colony_simulation")
+	if simulation == null:
+		return false
+	var zones = simulation.get_zone_system()
+	var home: Vector2i = scene.world_grid.metadata.start_cell
+	var fallback_cell := home + Vector2i(4, 0)
+	var painted: Dictionary = zones.paint_zone(ZoneScript.Type.STORAGE, [fallback_cell])
+	if not painted.ok:
+		return false
+	var ready_deadline := Time.get_ticks_usec() + 8000000
+	while Time.get_ticks_usec() < ready_deadline and not _has_ready_zone_layout_count(scene, 4):
+		await process_frame
+	if not _has_ready_zone_layout_count(scene, 4):
+		return false
+	var wet_cell := Vector2i(-1, -1)
+	for pile in simulation.get_item_system().get_piles():
+		var storage_zone: Zone = zones.get_zone_at(pile.cell)
+		if pile.count > 0 and storage_zone != null and storage_zone.zone_type == ZoneScript.Type.STORAGE:
+			wet_cell = pile.cell
+			break
+	if wet_cell.x < 0:
+		return false
+	scene.world_grid.set_water_units(wet_cell, 1)
+	var evacuation_deadline := Time.get_ticks_usec() + 8000000
+	while Time.get_ticks_usec() < evacuation_deadline and not _has_evacuated_wet_storage(scene, wet_cell):
+		await process_frame
+	if not _has_evacuated_wet_storage(scene, wet_cell):
+		return false
+	scene._set_tool(2)
+	var locked: bool = scene.set_qa_inspector_cell(wet_cell)
+	scene._feedback_seconds_remaining = 0.0
+	return locked
+
+
+func _has_evacuated_wet_storage(scene: Node, wet_cell: Vector2i) -> bool:
+	var simulation = scene.colony_simulation
+	var zones = simulation.get_zone_system()
+	var wet_zone: Zone = zones.get_zone_at(wet_cell)
+	if wet_zone == null or wet_zone.valid or not wet_zone.invalid_reasons.has("WET"):
+		return false
+	if simulation.get_item_system().get_count_at(wet_cell) > 0:
+		return false
+	if simulation.get_job_system().get_pending_count() > 0 or simulation.get_job_system().get_active_count() > 0:
+		return false
+	for mouse in simulation.get_mice():
+		if mouse.carried_item_count > 0:
+			return false
+	for pile in simulation.get_item_system().get_piles():
+		if pile.count <= 0:
+			continue
+		var zone: Zone = zones.get_zone_at(pile.cell)
+		if zone == null or zone.zone_type != ZoneScript.Type.STORAGE or not zone.valid or zone.setup_state != ZoneScript.SetupState.SET_UP:
+			return false
+	return true
 
 
 func _has_user_argument(argument_name: String) -> bool:

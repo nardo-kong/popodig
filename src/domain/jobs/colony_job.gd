@@ -25,8 +25,10 @@ var source_pile_id := -1
 var target_cell := Vector2i(-1, -1)
 var item_type := ""
 var item_count := 0
+var zone_id := -1
 var worker_id := ""
 var item_reservation_id := -1
+var dropoff_reservation_id := -1
 
 
 func snapshot():
@@ -39,8 +41,10 @@ func snapshot():
 	copy.target_cell = target_cell
 	copy.item_type = item_type
 	copy.item_count = item_count
+	copy.zone_id = zone_id
 	copy.worker_id = worker_id
 	copy.item_reservation_id = item_reservation_id
+	copy.dropoff_reservation_id = dropoff_reservation_id
 	return copy
 
 
