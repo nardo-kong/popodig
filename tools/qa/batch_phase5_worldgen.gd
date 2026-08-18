@@ -77,6 +77,8 @@ func _run() -> void:
 		repair_count += 1 if int(record.repair_count) > 0 else 0
 		if not bool(record.valid):
 			failures.append(record)
+		if records.size() % 8 == 0:
+			print("WORLDGEN_BATCH_PROGRESS generated=%d latest=%s seed=%d valid=%s elapsed_ms=%.2f" % [records.size(), name, int(record.seed), bool(record.valid), float(record.elapsed_ms)])
 	var random_seed := 1597463007
 	for index: int in range(random_count):
 		random_seed = _next_seed(random_seed)
@@ -88,6 +90,8 @@ func _run() -> void:
 		repair_count += 1 if int(record.repair_count) > 0 else 0
 		if not bool(record.valid):
 			failures.append(record)
+		if records.size() % 8 == 0:
+			print("WORLDGEN_BATCH_PROGRESS generated=%d latest=random_%03d seed=%d valid=%s elapsed_ms=%.2f" % [records.size(), index, int(record.seed), bool(record.valid), float(record.elapsed_ms)])
 	var replay_mismatches: Array[Dictionary] = []
 	var replay_indices: Dictionary = {}
 	for index: int in range(mini(8, curated_names.size())):
@@ -101,6 +105,7 @@ func _run() -> void:
 		var replay = generator.generate_result(config, int(original.seed))
 		if not replay.success or replay.get_content_hash() != int(original.content_hash):
 			replay_mismatches.append({"seed": original.seed, "expected": original.content_hash, "actual": replay.get_content_hash()})
+	print("WORLDGEN_BATCH_PROGRESS replayed=%d mismatches=%d" % [replay_indices.size(), replay_mismatches.size()])
 	timings.sort()
 	var total_count := records.size()
 	var valid_count := total_count - failures.size()

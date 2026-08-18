@@ -25,7 +25,7 @@ func run() -> Array[Dictionary]:
 func _test_structured_surface_cannot_bypass_underground() -> void:
 	var loaded: Dictionary = AppConfigScript.load_json_document("res://config/worldgen/default.json")
 	var generated = StructuredGeneratorScript.new().generate_result(loaded.data, 63051)
-	_assert_true(generated.success, "Structured v2 EXTERIOR fixture validates")
+	_assert_true(generated.success, "Structured v3 EXTERIOR fixture validates")
 	var world = generated.world
 	var paths := PathServiceScript.new()
 	paths.configure(world, BALANCE)
@@ -34,7 +34,7 @@ func _test_structured_surface_cannot_bypass_underground() -> void:
 	for x: int in range(world.width):
 		var sky := Vector2i(x, maxi(0, int(world.metadata.surface_heights[x]) - 1))
 		exterior_reachable = exterior_reachable or paths.is_reachable(start, sky)
-	_assert_true(not exterior_reachable, "Structured v2 world cannot route through sky and re-enter underground from an edge")
+	_assert_true(not exterior_reachable, "Structured v3 world cannot route through sky and re-enter underground from an edge")
 
 
 func _test_generated_exterior_is_not_colony_space() -> void:

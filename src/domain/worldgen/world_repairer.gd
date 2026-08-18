@@ -3,6 +3,7 @@ extends RefCounted
 
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const GeneratedFeatureScript = preload("res://src/domain/worldgen/generated_feature.gd")
+const SignalSystemScript = preload("res://src/domain/features/signal_system.gd")
 
 
 func repair(context: WorldGenContext, validation_report: Dictionary, repair_pass: int) -> Array[Dictionary]:
@@ -29,6 +30,7 @@ func repair(context: WorldGenContext, validation_report: Dictionary, repair_pass
 					if not roots.is_empty():
 						food_root = roots[0]
 						food_root.metadata.food_opportunity = true
+						_ensure_root_lifecycle_metadata(context, food_root)
 					else:
 						var root_anchor: Vector2i = context.world.metadata.start_cell + Vector2i(-7, 10)
 						food_root = _add_repair_root(context, root_anchor)
@@ -57,6 +59,9 @@ func repair(context: WorldGenContext, validation_report: Dictionary, repair_pass
 			"SIGNAL_HOOK_MISSING", "SIGNAL_HOOK_INVALID":
 				if _rebuild_signal_hooks(context):
 					actions.append(_action(repair_pass, code, "rebuild_signal_emitters", context.world.metadata.start_cell))
+			"SIGNAL_FIELD_MISSING", "SIGNAL_FIELD_EXTERIOR_LEAK":
+				_rebuild_signal_fields(context)
+				actions.append(_action(repair_pass, code, "rebuild_signal_fields", context.world.metadata.start_cell))
 			"DECISION_KNOT_MISSING":
 				var knot: Vector2i = context.world.metadata.start_cell + Vector2i(0, 10)
 				_repair_decision_knot(context, knot)
@@ -84,6 +89,8 @@ func repair(context: WorldGenContext, validation_report: Dictionary, repair_pass
 					actions.append(_action(repair_pass, code, "remove_unsafe_optional_reservoir", removed_anchor))
 			_:
 				pass
+	if not actions.is_empty():
+		_rebuild_signal_fields(context)
 	var after_hash := _repair_state_hash(context)
 	if before_hash == after_hash:
 		actions.clear()
@@ -93,6 +100,18 @@ func repair(context: WorldGenContext, validation_report: Dictionary, repair_pass
 			action.after_hash = after_hash
 		context.repairs.append_array(actions)
 	return actions
+
+
+func _rebuild_signal_fields(context: WorldGenContext) -> void:
+	var signal_system := SignalSystemScript.new()
+	signal_system.configure(
+		context.world,
+		context.feature_registry,
+		context.signal_emitters,
+		context.config.get("signal_fields", {}),
+		true,
+		false
+	)
 
 
 func _repair_start_space(context: WorldGenContext) -> void:
@@ -213,12 +232,30 @@ func _add_repair_root(context: WorldGenContext, anchor: Vector2i, required: bool
 		"approach_cells": _approach_cells(context, anchor, Vector2i(4, 2)),
 		"repair_inserted": true,
 	}
+	_ensure_root_lifecycle_metadata(context, feature)
 	context.feature_registry.add_feature(feature)
 	_claim_feature_cells(context, feature)
 	for cell: Vector2i in feature.cells:
 		context.world.set_material(cell, CellDataScript.TerrainMaterial.ROOT_SOIL)
 	context.signal_emitters.append(_emitter_for_feature(feature))
 	return feature
+
+
+func _ensure_root_lifecycle_metadata(context: WorldGenContext, feature: GeneratedFeature) -> void:
+	var root_config: Dictionary = context.config.get("root_feature", {})
+	var reserve: int = int(
+		root_config.get("required_food_reserve", 12)
+		if feature.required
+		else root_config.get("optional_food_reserve", 8)
+	)
+	feature.metadata.lifecycle_state = "SIGNAL"
+	feature.metadata.reaction_fired = false
+	feature.metadata.reveal_count = 0
+	feature.metadata.food_reserve_units = reserve if bool(feature.metadata.get("food_opportunity", false)) else 0
+	feature.metadata.initial_food_yield = int(root_config.get("initial_food_yield", 4))
+	feature.metadata.forage_interval_seconds = float(root_config.get("forage_interval_seconds", 8.0))
+	feature.metadata.food_produced_total = 0
+	feature.metadata.food_depleted = int(feature.metadata.food_reserve_units) <= 0
 
 
 func _add_repair_reservoir(context: WorldGenContext, anchor: Vector2i, required: bool = true) -> void:

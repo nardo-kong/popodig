@@ -51,6 +51,26 @@ func _test_invalid_configuration_rejection() -> void:
 			not AppConfigScript.validate_document("balance", invalid_water_balance).is_empty(),
 			"Zone dry-water threshold cannot exceed the walkable-water threshold"
 		)
+		var invalid_capacity_balance: Dictionary = balance_result.data.duplicate(true)
+		invalid_capacity_balance.water.cell_capacity_units = 0
+		assert_true(
+			not AppConfigScript.validate_document("balance", invalid_capacity_balance).is_empty(),
+			"Discrete water cell capacity must be positive"
+		)
+	var worldgen_result := AppConfigScript.load_json_document(AppConfigScript.CONFIG_PATHS.worldgen)
+	if worldgen_result.ok:
+		var invalid_signal_config: Dictionary = worldgen_result.data.duplicate(true)
+		invalid_signal_config.signal_fields.root_density.thresholds = [1, 1, 5]
+		assert_true(
+			not AppConfigScript.validate_document("worldgen", invalid_signal_config).is_empty(),
+			"Signal presentation thresholds must be strictly increasing"
+		)
+		var invalid_root_config: Dictionary = worldgen_result.data.duplicate(true)
+		invalid_root_config.root_feature.forage_interval_seconds = 0.0
+		assert_true(
+			not AppConfigScript.validate_document("worldgen", invalid_root_config).is_empty(),
+			"Root finite-production interval must be positive"
+		)
 
 
 func document_name_for_path(path: String) -> String:

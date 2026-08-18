@@ -3,6 +3,7 @@ extends RefCounted
 
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const GeneratedFeatureScript = preload("res://src/domain/worldgen/generated_feature.gd")
+const SignalSystemScript = preload("res://src/domain/features/signal_system.gd")
 const WorldGenContextScript = preload("res://src/domain/worldgen/world_gen_context.gd")
 const WorldGenerationResultScript = preload("res://src/domain/worldgen/world_generation_result.gd")
 const WorldGridScript = preload("res://src/domain/world/world_grid.gd")
@@ -15,7 +16,7 @@ const STAGE_ORDER: PackedStringArray = [
 	"landmarks",
 	"features",
 	"terrain",
-	"signal_hook",
+	"signal_fields",
 	"validation",
 	"repair",
 ]
@@ -36,7 +37,7 @@ func generate_result(config: Dictionary, seed_value: int) -> WorldGenerationResu
 		_run_timed(context, "landmarks", func() -> void: _stage_landmarks(context))
 		_run_timed(context, "features", func() -> void: _stage_features(context))
 		_run_timed(context, "terrain", func() -> void: _stage_terrain(context))
-		_run_timed(context, "signal_hook", func() -> void: _stage_signal_hook(context))
+		_run_timed(context, "signal_fields", func() -> void: _stage_signal_fields(context))
 		var validator := WorldValidatorScript.new()
 		var validation_started := Time.get_ticks_usec()
 		context.validation_report = validator.validate(context)
@@ -111,8 +112,8 @@ func _stage_skeleton(context: WorldGenContext) -> void:
 	}
 	context.world.metadata = {
 		"seed": context.seed_value,
-		"worldgen_version": int(context.config.get("worldgen_version", 2)),
-		"generator": "structured_v2",
+		"worldgen_version": int(context.config.get("worldgen_version", 3)),
+		"generator": "structured_v3",
 		"generation_attempt": context.attempt,
 		"start_cell": start_cell,
 		"surface_heights": context.surface_heights,
@@ -341,7 +342,7 @@ func _ensure_required_reservoir_shoulders(context: WorldGenContext) -> void:
 		context.world.set_water_units(cell, 0)
 
 
-func _stage_signal_hook(context: WorldGenContext) -> void:
+func _stage_signal_fields(context: WorldGenContext) -> void:
 	for feature: GeneratedFeature in context.feature_registry.get_features_by_role("feature"):
 		var channel := ""
 		match feature.type_id:
@@ -360,6 +361,15 @@ func _stage_signal_hook(context: WorldGenContext) -> void:
 			"strength": int(feature.metadata.get("signal_strength", 4)),
 			"falloff": int(feature.metadata.get("signal_falloff", 1)),
 		})
+	var signal_system := SignalSystemScript.new()
+	signal_system.configure(
+		context.world,
+		context.feature_registry,
+		context.signal_emitters,
+		context.config.get("signal_fields", {}),
+		true,
+		false
+	)
 
 
 func _add_landmark(context: WorldGenContext, type_id: String, anchor: Vector2i, approaches: Array[Vector2i], required: bool) -> void:
@@ -387,11 +397,22 @@ func _add_root_cluster(context: WorldGenContext, anchor: Vector2i, required: boo
 			if not cells.has(inward_cell):
 				cells.append(inward_cell)
 	var feature := GeneratedFeatureScript.new("root_cluster", anchor, cells, required)
+	var root_config: Dictionary = context.config.get("root_feature", {})
+	var food_opportunity: bool = required or int(rng.next_int(0, 99)) < 60
+	var food_reserve: int = int(root_config.get("required_food_reserve", 12) if required else root_config.get("optional_food_reserve", 8))
 	feature.metadata = {
-		"food_opportunity": required or rng.next_int(0, 99) < 60,
+		"food_opportunity": food_opportunity,
 		"signal_strength": 5,
 		"signal_falloff": 1,
 		"approach_cells": _cardinal_approaches(context, anchor, Vector2i(4, 3)),
+		"lifecycle_state": "SIGNAL",
+		"reaction_fired": false,
+		"reveal_count": 0,
+		"food_reserve_units": food_reserve if food_opportunity else 0,
+		"initial_food_yield": int(root_config.get("initial_food_yield", 4)),
+		"forage_interval_seconds": float(root_config.get("forage_interval_seconds", 8.0)),
+		"food_produced_total": 0,
+		"food_depleted": not food_opportunity or food_reserve <= 0,
 	}
 	context.feature_registry.add_feature(feature)
 
@@ -581,7 +602,7 @@ func _build_report(context: WorldGenContext) -> Dictionary:
 	return {
 		"valid": bool(context.validation_report.get("valid", false)),
 		"seed": context.seed_value,
-		"worldgen_version": int(context.config.get("worldgen_version", 2)),
+		"worldgen_version": int(context.config.get("worldgen_version", 3)),
 		"attempt": context.attempt,
 		"stage_order": context.stage_trace.duplicate(),
 		"stage_timings_ms": context.stage_timings_ms.duplicate(true),

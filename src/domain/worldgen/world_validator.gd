@@ -56,6 +56,7 @@ func validate(context: WorldGenContext) -> Dictionary:
 	_validate_landmarks(context, failures, metrics)
 	_validate_reservoirs(context, failures, metrics)
 	_validate_signal_hooks(context, failures)
+	_validate_signal_fields(context, failures, metrics)
 	_validate_decision_knots(context, failures, metrics)
 	_validate_required_approaches(context, failures)
 	return _report(failures, metrics)
@@ -335,6 +336,34 @@ func _validate_signal_hooks(context: WorldGenContext, failures: Array[Dictionary
 		for feature: GeneratedFeature in context.feature_registry.get_features(feature_type):
 			if not emitter_owner_ids.has(feature.id):
 				_fail(failures, "SIGNAL_HOOK_MISSING", "A major feature lacks its Phase 6+ signal emitter hook.", [feature.anchor], feature.id)
+
+
+func _validate_signal_fields(context: WorldGenContext, failures: Array[Dictionary], metrics: Dictionary) -> void:
+	var root_cells_with_signal := 0
+	var exterior_signal_cells := 0
+	for index: int in range(context.world.width * context.world.height):
+		var cell: Vector2i = context.world.index_to_cell(index)
+		var value: int = int(context.world.get_root_signal(cell))
+		if value > 0:
+			root_cells_with_signal += 1
+			if context.world.is_exterior(cell):
+				exterior_signal_cells += 1
+	metrics.root_signal_cell_count = root_cells_with_signal
+	metrics.exterior_signal_cell_count = exterior_signal_cells
+	if exterior_signal_cells > 0:
+		_fail(failures, "SIGNAL_FIELD_EXTERIOR_LEAK", "Root signal values leak into EXTERIOR cells.")
+	for feature: GeneratedFeature in context.feature_registry.get_features("root_cluster"):
+		if not feature.required:
+			continue
+		var boundary := _derived_feature_boundary(context, feature)
+		var has_clue := false
+		var strongest := 0
+		for cell: Vector2i in boundary:
+			var value: int = int(context.world.get_root_signal(cell))
+			strongest = maxi(strongest, value)
+			has_clue = has_clue or value > 0
+		if not has_clue or strongest < 3:
+			_fail(failures, "SIGNAL_FIELD_MISSING", "A required Root Cluster lacks a noticeable clue on its final-geometry boundary.", boundary, feature.id)
 
 
 func _validate_decision_knots(context: WorldGenContext, failures: Array[Dictionary], metrics: Dictionary) -> void:

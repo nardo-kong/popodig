@@ -2,7 +2,7 @@
   "schema_version": 2,
   "status": "PROVISIONAL",
   "default_seed": 137042,
-  "worldgen_version": 2,
+  "worldgen_version": 3,
   "world_size": [96, 72],
   "chunk_size": 16,
   "protected_margin": 1,
@@ -31,6 +31,18 @@
     "first_hazard_min_dig_cost": 9,
     "decision_knot_max_dig_cost": 30,
     "minimum_decision_knots": 1
+  },
+  "signal_fields": {
+    "root_density": {"thresholds": [1, 3, 5]},
+    "moisture": {"thresholds": [1, 3, 5]},
+    "instability": {"thresholds": [35, 60, 80]}
+  },
+  "root_feature": {
+    "required_food_reserve": 12,
+    "optional_food_reserve": 8,
+    "initial_food_yield": 4,
+    "forage_interval_seconds": 8.0,
+    "forage_radius": 2
   },
   "batch_gate": {
     "curated_seed_count": 32,

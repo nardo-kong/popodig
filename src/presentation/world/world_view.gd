@@ -10,7 +10,12 @@ var _chunk_views: Dictionary = {}
 var _show_grid := false
 
 
-func configure(grid, logical_cell_size: int) -> void:
+func configure(
+	grid,
+	logical_cell_size: int,
+	feature_registry = null,
+	signal_config: Dictionary = {}
+) -> void:
 	_clear_chunk_views()
 	world_grid = grid
 	cell_size = logical_cell_size
@@ -18,7 +23,7 @@ func configure(grid, logical_cell_size: int) -> void:
 		var chunk_view := WorldChunkViewScript.new()
 		chunk_view.name = "Chunk_%d_%d" % [chunk.coord.x, chunk.coord.y]
 		add_child(chunk_view)
-		chunk_view.configure(world_grid, chunk, cell_size)
+		chunk_view.configure(world_grid, chunk, cell_size, feature_registry, signal_config)
 		_chunk_views[chunk.coord] = chunk_view
 	world_grid.chunk_dirtied.connect(_on_chunk_dirtied)
 
@@ -27,6 +32,11 @@ func set_grid_visible(value: bool) -> void:
 	_show_grid = value
 	for chunk_view: WorldChunkView in _chunk_views.values():
 		chunk_view.set_grid_visible(value)
+
+
+func configure_environment(water_system, seal_system) -> void:
+	for chunk_view: WorldChunkView in _chunk_views.values():
+		chunk_view.configure_environment(water_system, seal_system)
 
 
 func is_grid_visible() -> bool:
@@ -68,7 +78,7 @@ func _on_chunk_dirtied(chunk_coord: Vector2i, dirty_flags: int) -> void:
 	var chunk_view: WorldChunkView = _chunk_views.get(chunk_coord)
 	if chunk_view == null:
 		return
-	if (dirty_flags & WorldChunkScript.DIRTY_TERRAIN) != 0:
+	if (dirty_flags & (WorldChunkScript.DIRTY_TERRAIN | WorldChunkScript.DIRTY_SIGNALS | WorldChunkScript.DIRTY_WATER)) != 0:
 		chunk_view.request_terrain_redraw()
 	if (dirty_flags & WorldChunkScript.DIRTY_JOBS) != 0:
 		chunk_view.request_dig_redraw()

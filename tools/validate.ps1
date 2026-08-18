@@ -122,6 +122,31 @@ if ($LASTEXITCODE -ne 0) {
     throw "Phase 5 fresh-process seed replay failed with exit code $LASTEXITCODE"
 }
 
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase6_root_development.log --script res://tests/phase6_root_smoke.gd -- --profile=development --expect-debug=true --qa-phase6-overlay=signal_bands
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 6 development Root lifecycle smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase6_root_release.log --script res://tests/phase6_root_smoke.gd -- --profile=release --expect-debug=false --qa-phase6-overlay=signal_bands
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 6 release-clean Root lifecycle smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase7_water_development.log --script res://tests/phase7_water_smoke.gd -- --profile=development --expect-debug=true --qa-phase7-overlay=water
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 7 development water lifecycle smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase7_water_release.log --script res://tests/phase7_water_smoke.gd -- --profile=release --expect-debug=false --qa-phase7-overlay=water
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 7 release-clean water lifecycle smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase7_water_benchmark.log --script res://tools/qa/benchmark_phase7_water.gd
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 7 bounded water benchmark failed with exit code $LASTEXITCODE"
+}
+
 if (-not $SkipScreenshot) {
     & $Godot --path $ProjectRoot --disable-vsync --log-file .godot/phase1_benchmark.log --script res://tools/qa/benchmark_runtime.gd --rendering-driver opengl3
     if ($LASTEXITCODE -ne 0) {
@@ -141,6 +166,11 @@ if (-not $SkipScreenshot) {
     & $Godot --path $ProjectRoot --disable-vsync --log-file .godot/phase4_zones_benchmark.log --script res://tools/qa/benchmark_phase4_zones.gd --rendering-driver opengl3 -- --qa-phase4-demo
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 4 zones benchmark failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --disable-vsync --log-file .godot/phase6_signal_benchmark.log --script res://tools/qa/benchmark_phase6_signals.gd --rendering-driver opengl3 -- --qa-phase6-demo=clue
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 signal runtime benchmark failed with exit code $LASTEXITCODE"
     }
 }
 
@@ -244,6 +274,96 @@ if (-not $SkipScreenshot) {
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 5 release-clean screenshot validation failed with exit code $LASTEXITCODE"
     }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase6_clues.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase6-demo=clue --output=res://art/qa/screenshots/phase_6_root_clues.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 normal Root-clue screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase6_clues.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_6_root_clues.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 normal Root-clue screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase6_raw.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase6-demo=clue --qa-phase6-overlay=root_raw --output=res://art/qa/screenshots/phase_6_root_signal_raw_1920x1080.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 raw-signal screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase6_raw.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_6_root_signal_raw_1920x1080.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 raw-signal screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase6_stable.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase6-demo=reveal --output=res://art/qa/screenshots/phase_6_root_stable.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 revealed-Root screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase6_stable.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_6_root_stable.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 revealed-Root screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase6_release.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=release --qa-phase6-overlay=root_raw --output=res://art/qa/screenshots/phase_6_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 release-clean screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase6_release.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_6_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 6 release-clean screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase7_clues.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase7-demo=clue --output=res://art/qa/screenshots/phase_7_moisture_clues.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 normal moisture-clue screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase7_clues.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_7_moisture_clues.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 normal moisture-clue screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase7_breach.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase7-demo=breach --output=res://art/qa/screenshots/phase_7_reservoir_breach.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 reservoir-breach screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase7_breach.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_7_reservoir_breach.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 reservoir-breach screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase7_water_debug.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase7-demo=breach --qa-phase7-overlay=water --output=res://art/qa/screenshots/phase_7_water_flow_debug_1920x1080.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 water-flow debug screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase7_water_debug.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_7_water_flow_debug_1920x1080.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 water-flow debug screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase7_seal.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase7-demo=seal --output=res://art/qa/screenshots/phase_7_seal_recovery.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 seal-recovery screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase7_seal.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_7_seal_recovery.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 seal-recovery screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase7_release.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=release --qa-phase7-demo=breach --qa-phase7-overlay=water --output=res://art/qa/screenshots/phase_7_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 release-clean screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase7_release.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_7_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 7 release-clean screenshot validation failed with exit code $LASTEXITCODE"
+    }
 }
 
 $ValidationLogs = @(
@@ -265,7 +385,12 @@ $ValidationLogs = @(
     "phase5_worldgen_development.log",
     "phase5_worldgen_release.log",
     "phase5_seed_batch.log",
-    "phase5_fresh_replay.log"
+    "phase5_fresh_replay.log",
+    "phase6_root_development.log",
+    "phase6_root_release.log",
+    "phase7_water_development.log",
+    "phase7_water_release.log",
+    "phase7_water_benchmark.log"
 )
 if (-not $SkipScreenshot) {
     $ValidationLogs += @(
@@ -273,6 +398,7 @@ if (-not $SkipScreenshot) {
         "phase2_gameplay_benchmark.log",
         "phase3_colony_benchmark.log",
         "phase4_zones_benchmark.log",
+        "phase6_signal_benchmark.log",
         "screenshot_validation.log",
         "screenshot_validation_1920.log",
         "screenshot_validation_release.log",
@@ -292,7 +418,25 @@ if (-not $SkipScreenshot) {
         "capture_phase5_strata.log",
         "screenshot_validation_phase5_strata.log",
         "capture_phase5_release.log",
-        "screenshot_validation_phase5_release.log"
+        "screenshot_validation_phase5_release.log",
+        "capture_phase6_clues.log",
+        "screenshot_validation_phase6_clues.log",
+        "capture_phase6_raw.log",
+        "screenshot_validation_phase6_raw.log",
+        "capture_phase6_stable.log",
+        "screenshot_validation_phase6_stable.log",
+        "capture_phase6_release.log",
+        "screenshot_validation_phase6_release.log",
+        "capture_phase7_clues.log",
+        "screenshot_validation_phase7_clues.log",
+        "capture_phase7_breach.log",
+        "screenshot_validation_phase7_breach.log",
+        "capture_phase7_water_debug.log",
+        "screenshot_validation_phase7_water_debug.log",
+        "capture_phase7_seal.log",
+        "screenshot_validation_phase7_seal.log",
+        "capture_phase7_release.log",
+        "screenshot_validation_phase7_release.log"
     )
 }
 

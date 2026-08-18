@@ -34,7 +34,7 @@ func _test_pipeline_and_contract(config: Dictionary) -> void:
 		print("WORLDGEN_TEST_FAILURES %s" % result.report.get("validation", {}).get("failure_codes", []))
 	_assert_true(result.success, "Structured pipeline produces a validator-approved default world")
 	_assert_equal(result.report.stage_order, GeneratorScript.STAGE_ORDER, "Worldgen executes the locked eight-stage order")
-	_assert_equal(result.world.metadata.worldgen_version, 2, "Structured topology records worldgen version 2")
+	_assert_equal(result.world.metadata.worldgen_version, 3, "Structured topology records worldgen version 3")
 	_assert_true(result.world.metadata.generation_valid, "Final world metadata records validation success")
 	_assert_equal(result.world.metadata.content_hash, result.get_content_hash(), "Generation result and world share the canonical content hash")
 	_assert_true(result.world.is_traversable(result.world.metadata.start_cell), "Structured start burrow is traversable interior")

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_phase": 5,
+  "current_phase": 7,
   "checks": [
     {"id": "project_import", "status": "PASS", "evidence": "tools/validate.ps1 import step"},
     {"id": "main_scene_launch", "status": "PASS", "evidence": "scenes/app/game_app.tscn"},
@@ -16,6 +16,11 @@
     {"id": "zone_colony_life", "status": "PASS", "evidence": "tests/integration/test_zone_colony_flow.gd and tests/phase4_zones_smoke.gd"},
     {"id": "structured_worldgen", "status": "PASS", "evidence": "tests/unit/test_structured_worldgen.gd and tests/phase5_worldgen_smoke.gd"},
     {"id": "worldgen_seed_batch", "status": "PASS", "evidence": "art/qa/reports/phase_5_seed_batch.json"},
+    {"id": "root_signal_field", "status": "PASS", "evidence": "tests/unit/test_signal_system.gd and tests/phase6_root_smoke.gd"},
+    {"id": "root_feature_lifecycle", "status": "PASS", "evidence": "tests/integration/test_root_feature_flow.gd and tests/phase6_root_smoke.gd"},
+    {"id": "finite_water_lifecycle", "status": "PASS", "evidence": "tests/unit/test_water_system.gd and tests/phase7_water_smoke.gd"},
+    {"id": "water_colony_reaction", "status": "PASS", "evidence": "tests/integration/test_water_colony_flow.gd and tests/phase7_water_smoke.gd"},
+    {"id": "autonomous_seal_recovery", "status": "PASS", "evidence": "tests/integration/test_seal_colony_flow.gd and tests/phase7_water_smoke.gd"},
     {"id": "save_load", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 10}
   ]
 }
