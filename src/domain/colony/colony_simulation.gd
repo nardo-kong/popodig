@@ -7,6 +7,10 @@ const JobSystemScript = preload("res://src/domain/jobs/job_system.gd")
 const ColonyJobScript = preload("res://src/domain/jobs/colony_job.gd")
 const ZoneScript = preload("res://src/domain/zones/zone.gd")
 const ZoneSystemScript = preload("res://src/domain/zones/zone_system.gd")
+const SignalSystemScript = preload("res://src/domain/features/signal_system.gd")
+const RootFeatureSystemScript = preload("res://src/domain/features/root_feature_system.gd")
+const WaterSystemScript = preload("res://src/domain/features/water_system.gd")
+const SealSystemScript = preload("res://src/domain/features/seal_system.gd")
 
 var _world
 var _path_service
@@ -15,6 +19,10 @@ var _balance: Dictionary = {}
 var _item_system
 var _job_system
 var _zone_system
+var _signal_system
+var _root_feature_system
+var _water_system
+var _seal_system
 var _mice: Array[MouseAgent] = []
 var _storage_capacity_per_cell := 12
 var _emergency_relocation_piles: Dictionary = {}
@@ -22,7 +30,14 @@ var _colony_distances := PackedInt32Array()
 var _colony_distance_revision := -1
 
 
-func configure(world_grid, path_service, dig_system, balance: Dictionary = {}) -> void:
+func configure(
+	world_grid,
+	path_service,
+	dig_system,
+	balance: Dictionary = {},
+	feature_registry = null,
+	worldgen_config: Dictionary = {}
+) -> void:
 	_world = world_grid
 	_path_service = path_service
 	_dig_system = dig_system
@@ -33,6 +48,35 @@ func configure(world_grid, path_service, dig_system, balance: Dictionary = {}) -
 	_job_system.configure(_path_service, _item_system, _balance)
 	_zone_system = ZoneSystemScript.new()
 	_zone_system.configure(_world, _path_service, _balance)
+	_signal_system = null
+	_root_feature_system = null
+	_water_system = null
+	_seal_system = SealSystemScript.new()
+	if feature_registry != null:
+		_signal_system = SignalSystemScript.new()
+		_signal_system.configure(
+			_world,
+			feature_registry,
+			_world.metadata.get("signal_emitters", []),
+			worldgen_config.get("signal_fields", {}),
+			false,
+			true
+		)
+		_root_feature_system = RootFeatureSystemScript.new()
+		_root_feature_system.configure(
+			_world,
+			feature_registry,
+			_signal_system,
+			_item_system,
+			_zone_system,
+			_dig_system,
+			worldgen_config.get("root_feature", {})
+		)
+		_water_system = WaterSystemScript.new()
+		_water_system.configure(_world, feature_registry, _signal_system, _dig_system, _balance)
+		_water_system.reservoir_breached.connect(_on_reservoir_breached)
+		_water_system.danger_cleared.connect(recover_from_danger)
+	_seal_system.configure(_world, _water_system)
 	var zones_balance: Dictionary = _balance.get("zones", {})
 	_storage_capacity_per_cell = maxi(1, int(zones_balance.get("storage_capacity_per_cell", 12)))
 	_emergency_relocation_piles.clear()
@@ -52,10 +96,15 @@ func fixed_tick(delta_seconds: float) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []
 	if delta_seconds <= 0.0:
 		return results
+	if _water_system != null:
+		_water_system.fixed_tick(delta_seconds)
 	_synchronize_zone_state()
+	if _root_feature_system != null:
+		_root_feature_system.fixed_tick(delta_seconds)
 	_job_system.advance_time(delta_seconds)
 	for mouse: MouseAgent in _mice:
 		results.append(mouse.fixed_tick(delta_seconds))
+	_recover_mice_that_finished_water_escape()
 	return results
 
 
@@ -68,6 +117,7 @@ func add_mouse(mouse_id: String, cell: Vector2i):
 	var home_cell := cell if not start_value is Vector2i else start_value as Vector2i
 	mouse.configure_colony(_job_system, _item_system, home_cell, _balance)
 	mouse.configure_zones(_zone_system, _balance)
+	mouse.configure_environment(_seal_system)
 	_mice.append(mouse)
 	return mouse
 
@@ -106,6 +156,26 @@ func get_zone_system():
 	return _zone_system
 
 
+func get_signal_system():
+	return _signal_system
+
+
+func get_root_feature_system():
+	return _root_feature_system
+
+
+func get_water_system():
+	return _water_system
+
+
+func get_seal_system():
+	return _seal_system
+
+
+func request_seal(cell: Vector2i) -> Dictionary:
+	return _seal_system.request_seal(cell)
+
+
 func add_item_pile(item_type: String, cell: Vector2i, count: int) -> int:
 	return _item_system.add_pile(item_type, cell, count)
 
@@ -123,6 +193,19 @@ func trigger_danger(danger_cells: Array, safe_cell: Vector2i = Vector2i(-1, -1))
 
 func recover_from_danger() -> void:
 	for mouse: MouseAgent in _mice:
+		mouse.recover_from_danger()
+
+
+func _recover_mice_that_finished_water_escape() -> void:
+	if _water_system == null or not _water_system.is_danger_active():
+		return
+	for mouse: MouseAgent in _mice:
+		if not mouse.danger_state:
+			continue
+		if mouse.get_state_name() != "FLEEING":
+			continue
+		if _water_system.is_cell_in_danger_region(mouse.current_cell):
+			continue
 		mouse.recover_from_danger()
 
 
@@ -149,11 +232,66 @@ func _synchronize_zone_state() -> void:
 	_zone_system.flush_world_changes()
 	_prune_emergency_relocation_piles()
 	_cancel_invalid_zone_jobs()
+	_cancel_invalid_seal_jobs()
 	_sync_storage_references()
 	for request: Dictionary in _zone_system.consume_invalidated_storage_requests():
 		_emergency_relocation_piles[int(request.pile_id)] = bool(request.emergency)
 	_enqueue_zone_setup_jobs()
+	_enqueue_seal_jobs()
 	_enqueue_storage_jobs()
+
+
+func _cancel_invalid_seal_jobs() -> void:
+	for job: ColonyJob in _job_system.get_jobs():
+		if job.job_type == ColonyJobScript.Type.SEAL and not _seal_system.has_request(job.action_cell):
+			_job_system.cancel(job.job_id)
+
+
+func _enqueue_seal_jobs() -> void:
+	for request: Dictionary in _seal_system.get_requests():
+		var seal_cell: Vector2i = request.cell
+		var already_enqueued := false
+		for job: ColonyJob in _job_system.get_jobs():
+			if job.job_type == ColonyJobScript.Type.SEAL and job.action_cell == seal_cell:
+				already_enqueued = true
+				break
+		if already_enqueued:
+			continue
+		var candidates: Array[Dictionary] = []
+		for pile: ItemPile in _item_system.get_piles():
+			if pile.item_type != ItemSystemScript.GENERAL_MATERIAL or pile.available_count() < int(request.material_required):
+				continue
+			for work_cell: Vector2i in _world.get_cardinal_neighbors(seal_cell):
+				if not _path_service.is_walkable(work_cell):
+					continue
+				var route: Array[Vector2i] = _path_service.find_path(pile.cell, work_cell)
+				if route.is_empty():
+					continue
+				candidates.append({
+					"pile_id": pile.pile_id,
+					"work_cell": work_cell,
+					"distance": route.size() - 1,
+				})
+		candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			if int(a.distance) != int(b.distance):
+				return int(a.distance) < int(b.distance)
+			if int(a.pile_id) != int(b.pile_id):
+				return int(a.pile_id) < int(b.pile_id)
+			return _world.cell_to_index(a.work_cell) < _world.cell_to_index(b.work_cell)
+		)
+		for candidate: Dictionary in candidates:
+			var job = _job_system.enqueue_seal(
+				int(candidate.pile_id),
+				candidate.work_cell,
+				seal_cell,
+				int(request.material_required)
+			)
+			if job != null:
+				break
+
+
+func _on_reservoir_breached(_feature_id: int, _cell: Vector2i, danger_cells: Array, _released_units: int) -> void:
+	trigger_danger(danger_cells)
 
 
 func _cancel_invalid_zone_jobs() -> void:

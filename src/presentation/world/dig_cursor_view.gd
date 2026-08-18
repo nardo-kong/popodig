@@ -45,4 +45,6 @@ func _tool_color() -> Color:
 		return Color("e0b765")
 	if tool_style.begins_with("FOOD"):
 		return Color("7dc681")
+	if tool_style.begins_with("SEAL"):
+		return Color("70c5cf")
 	return Color("eac56b")

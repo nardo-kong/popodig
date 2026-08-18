@@ -220,7 +220,7 @@ modulate = Color(0.921569, 0.713726, 0.431373, 1)
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Pan/Zoom · 1–4 Tools · F2 Grid · F3 Paths · F4 Copy Seed · F5 Replay · F6 Next Seed · F7 Worldgen"
+text = "Pan/Zoom · 1–5 Tools · F2 Grid · F3 Paths · F4 Copy Seed · F5 Replay · F6 Next Seed · F7 Worldgen"
 horizontal_alignment = 1
 
 [node name="FpsLabel" type="Label" parent="UI/Root/Footer/Margin/Row"]

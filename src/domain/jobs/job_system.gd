@@ -19,6 +19,7 @@ var _travel_cost_weight := 0.25
 var _unreachable_retry_seconds := 2.0
 var _haul_priority := 20.0
 var _zone_setup_priority := 15.0
+var _seal_priority := 35.0
 var _emergency_priority := 100.0
 var _completed_count := 0
 
@@ -39,6 +40,7 @@ func configure(path_service, item_system, balance: Dictionary = {}) -> void:
 	_unreachable_retry_seconds = maxf(0.1, float(jobs.get("unreachable_retry_seconds", 2.0)))
 	_haul_priority = float(jobs.get("haul_priority", 20.0))
 	_zone_setup_priority = float(jobs.get("zone_setup_priority", 15.0))
+	_seal_priority = float(jobs.get("seal_priority", 35.0))
 	_emergency_priority = float(jobs.get("emergency_priority", 100.0))
 
 
@@ -107,6 +109,29 @@ func enqueue_zone_setup(source_pile_id: int, target_cell: Vector2i, count: int, 
 	job.item_type = ItemSystemScript.GENERAL_MATERIAL
 	job.item_count = count
 	job.zone_id = zone_id
+	_jobs[job.job_id] = job
+	job_changed.emit(job.job_id, job.state)
+	return job
+
+
+func enqueue_seal(source_pile_id: int, work_cell: Vector2i, seal_cell: Vector2i, count: int = 1):
+	if _item_system == null or count <= 0:
+		return null
+	var source_pile: ItemPile = _item_system.get_pile(source_pile_id)
+	if source_pile == null or source_pile.item_type != ItemSystemScript.GENERAL_MATERIAL:
+		return null
+	if _committed_source_count(source_pile_id) + count > source_pile.count:
+		return null
+	var job := ColonyJobScript.new()
+	job.job_id = _next_job_id
+	_next_job_id += 1
+	job.job_type = ColonyJobScript.Type.SEAL
+	job.priority = _seal_priority
+	job.source_pile_id = source_pile_id
+	job.target_cell = work_cell
+	job.action_cell = seal_cell
+	job.item_type = ItemSystemScript.GENERAL_MATERIAL
+	job.item_count = count
 	_jobs[job.job_id] = job
 	job_changed.emit(job.job_id, job.state)
 	return job
@@ -319,6 +344,7 @@ func get_debug_jobs() -> Array[Dictionary]:
 			"worker_id": job.worker_id,
 			"source_pile_id": job.source_pile_id,
 			"target_cell": job.target_cell,
+			"action_cell": job.action_cell,
 			"item_type": job.item_type,
 			"item_count": job.item_count,
 			"zone_id": job.zone_id,

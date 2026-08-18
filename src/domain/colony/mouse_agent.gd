@@ -48,6 +48,7 @@ var _dig_system
 var _job_system
 var _item_system
 var _zone_system
+var _seal_system
 var _needs_enabled := false
 var _home_cell := Vector2i(-1, -1)
 var _sleep_zone_id := -1
@@ -91,6 +92,7 @@ func configure(world_grid, path_service, dig_system, balance: Dictionary = {}) -
 	_job_system = null
 	_item_system = null
 	_zone_system = null
+	_seal_system = null
 	_needs_enabled = false
 	_apply_balance(balance)
 	_reset_action()
@@ -113,6 +115,10 @@ func configure_zones(zone_system, balance: Dictionary = {}) -> void:
 	_zone_system = zone_system
 	var zones: Dictionary = balance.get("zones", {})
 	_sleeping_capacity_per_cell = maxi(1, int(zones.get("sleeping_capacity_per_cell", 1)))
+
+
+func configure_environment(seal_system) -> void:
+	_seal_system = seal_system
 
 
 func fixed_tick(delta_seconds: float) -> Dictionary:
@@ -436,6 +442,21 @@ func _advance_hauling() -> Dictionary:
 		_job_system.complete(mouse_id, _current_general_job.job_id)
 		_reset_action()
 		return _tick_result(true, "ZONE_SETUP_COMPLETED")
+	if _current_general_job.job_type == ColonyJobScript.Type.SEAL:
+		var seal_result: Dictionary = (
+			{"ok": false, "reason_code": "SEAL_SYSTEM_UNAVAILABLE"}
+			if _seal_system == null
+			else _seal_system.complete_seal(_current_general_job.action_cell, carried_item_count)
+		)
+		if not seal_result.ok:
+			_cancel_carried_job()
+			_reset_action()
+			return _tick_result(false, String(seal_result.reason_code))
+		carried_item_type = ""
+		carried_item_count = 0
+		_job_system.complete(mouse_id, _current_general_job.job_id)
+		_reset_action()
+		return _tick_result(true, "SEAL_COMPLETED")
 	var dropoff: Dictionary
 	if _current_general_job.dropoff_reservation_id >= 0:
 		dropoff = _job_system.complete_reserved_dropoff(
@@ -483,8 +504,22 @@ func _advance_rest(delta_seconds: float) -> Dictionary:
 
 
 func _advance_danger(delta_seconds: float) -> Dictionary:
-	if state == State.MOVING:
+	if state == State.MOVING and _action_kind == ACTION_FLEE:
 		return _advance_movement(delta_seconds)
+	# A danger signal can arrive re-entrantly while a dig completion is still
+	# unwinding. If that completion reset the flee action, rebuild it here
+	# instead of leaving the mouse permanently idle inside the reaction area.
+	if _danger_cells.has(current_cell):
+		var flee_target := _select_flee_target(Vector2i(-1, -1))
+		_action_kind = ACTION_FLEE
+		_current_priority = 1000.0
+		current_job_id = "danger"
+		if flee_target.x >= 0 and _start_travel(flee_target, ACTION_FLEE):
+			return _tick_result(true, "DANGER_ROUTE_REBUILT")
+		_set_state(State.FLEEING)
+		path_state = "BLOCKED"
+		return _tick_result(false, "NO_SAFE_ROUTE")
+	_set_state(State.FLEEING)
 	_stash_carried_if_possible()
 	return _tick_result(true, "SAFE_WAIT")
 
@@ -696,7 +731,9 @@ func _is_safe_reachable(cell: Vector2i) -> bool:
 
 
 func _find_route_from_current(target: Vector2i, avoid_danger: bool = false) -> Array[Vector2i]:
-	var forbidden: Dictionary = _danger_cells if avoid_danger else {}
+	# A mouse already caught inside a reaction area must be allowed to traverse
+	# outward through that area. Once outside, ordinary repaths forbid re-entry.
+	var forbidden: Dictionary = _danger_cells if avoid_danger and not _danger_cells.has(current_cell) else {}
 	var direct: Array[Vector2i] = _path_service.find_path(current_cell, target, forbidden)
 	if not direct.is_empty() or _path_service.is_walkable(current_cell):
 		return direct

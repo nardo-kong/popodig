@@ -28,11 +28,22 @@
     "zone_setup_priority": 15.0,
     "haul_priority": 20.0,
     "emergency_priority": 100.0,
+    "seal_priority": 35.0,
     "travel_cost_weight": 0.25,
     "unreachable_retry_seconds": 2.0
   },
   "pathfinding": {
     "max_walkable_water_units": 1
+  },
+  "water": {
+    "cell_capacity_units": 4,
+    "simulation_step_seconds": 0.2,
+    "max_transfers_per_step": 256,
+    "source_release_per_step": 2,
+    "breach_initial_units": 1,
+    "stable_quiet_steps": 3,
+    "danger_radius": 3,
+    "danger_water_units": 2
   },
   "zones": {
     "setup_material_per_zone": 1,

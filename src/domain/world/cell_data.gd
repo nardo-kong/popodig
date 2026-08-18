@@ -33,10 +33,11 @@ var root_signal := 0
 var zone_id := -1
 var protected_cell := false
 var exterior := false
+var sealed := false
 
 
 func is_solid() -> bool:
-	return terrain_material != TerrainMaterial.EMPTY and not excavated
+	return sealed or (terrain_material != TerrainMaterial.EMPTY and not excavated)
 
 
 func is_exterior() -> bool:
@@ -44,7 +45,7 @@ func is_exterior() -> bool:
 
 
 func is_traversable() -> bool:
-	return excavated and not exterior
+	return excavated and not exterior and not sealed
 
 
 static func material_name(material: int) -> String:

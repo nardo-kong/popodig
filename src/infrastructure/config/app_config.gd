@@ -180,6 +180,10 @@ static func validate_document(document_name: String, data: Dictionary) -> String
 				return "jobs.zone_setup_priority must exceed dig_priority"
 			if float(jobs.get("zone_setup_priority", 0.0)) >= float(jobs.get("haul_priority", 0.0)):
 				return "jobs.zone_setup_priority must remain below haul_priority"
+			if float(jobs.get("seal_priority", 0.0)) <= float(jobs.get("haul_priority", 0.0)):
+				return "jobs.seal_priority must exceed haul_priority"
+			if float(jobs.get("seal_priority", 0.0)) >= float(jobs.get("emergency_priority", 0.0)):
+				return "jobs.seal_priority must remain below emergency_priority"
 			var pathfinding: Dictionary = data.get("pathfinding", {})
 			if int(pathfinding.get("max_walkable_water_units", -1)) < 0:
 				return "pathfinding.max_walkable_water_units must not be negative"
@@ -194,6 +198,20 @@ static func validate_document(document_name: String, data: Dictionary) -> String
 				return "zones.dry_water_max_units must not be negative"
 			if int(zones.get("dry_water_max_units", -1)) > int(pathfinding.get("max_walkable_water_units", -1)):
 				return "zones.dry_water_max_units must not exceed pathfinding.max_walkable_water_units"
+			var water: Dictionary = data.get("water", {})
+			for positive_name: String in ["cell_capacity_units", "max_transfers_per_step", "source_release_per_step", "stable_quiet_steps", "danger_radius", "danger_water_units"]:
+				if int(water.get(positive_name, 0)) <= 0:
+					return "water.%s must be positive" % positive_name
+			if float(water.get("simulation_step_seconds", 0.0)) <= 0.0:
+				return "water.simulation_step_seconds must be positive"
+			if int(water.get("breach_initial_units", -1)) < 0:
+				return "water.breach_initial_units must not be negative"
+			if int(water.get("breach_initial_units", 0)) > int(water.get("cell_capacity_units", 0)):
+				return "water.breach_initial_units must not exceed cell capacity"
+			if int(pathfinding.get("max_walkable_water_units", 0)) >= int(water.get("cell_capacity_units", 0)):
+				return "walkable water threshold must remain below cell capacity"
+			if int(water.get("danger_water_units", 0)) > int(water.get("cell_capacity_units", 0)):
+				return "water.danger_water_units must not exceed cell capacity"
 		"worldgen":
 			var size_value: Variant = data.get("world_size")
 			if not size_value is Array or size_value.size() != 2:
@@ -244,4 +262,16 @@ static func validate_document(document_name: String, data: Dictionary) -> String
 			for threshold_name: String in ["minimum_start_open_cells", "early_food_max_dig_cost", "first_hazard_min_dig_cost", "decision_knot_max_dig_cost", "minimum_decision_knots"]:
 				if int(validation.get(threshold_name, 0)) <= 0:
 					return "validation.%s must be positive" % threshold_name
+			var signal_fields: Dictionary = data.get("signal_fields", {})
+			for channel_name: String in ["root_density", "moisture", "instability"]:
+				var channel: Dictionary = signal_fields.get(channel_name, {})
+				var thresholds: Array = channel.get("thresholds", [])
+				if thresholds.size() != 3 or int(thresholds[0]) <= 0 or int(thresholds[1]) <= int(thresholds[0]) or int(thresholds[2]) <= int(thresholds[1]):
+					return "signal_fields.%s thresholds must contain three increasing positive values" % channel_name
+			var root_feature: Dictionary = data.get("root_feature", {})
+			for count_name: String in ["required_food_reserve", "optional_food_reserve", "initial_food_yield", "forage_radius"]:
+				if int(root_feature.get(count_name, 0)) <= 0:
+					return "root_feature.%s must be positive" % count_name
+			if float(root_feature.get("forage_interval_seconds", 0.0)) <= 0.0:
+				return "root_feature.forage_interval_seconds must be positive"
 	return ""

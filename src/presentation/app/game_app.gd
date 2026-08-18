@@ -23,6 +23,7 @@ enum Tool {
 	SLEEPING,
 	STORAGE,
 	FOOD_FORAGE,
+	SEAL,
 }
 
 @onready var world_view: WorldView = %WorldView
@@ -49,6 +50,10 @@ var world_grid
 var path_service
 var dig_system
 var colony_simulation
+var signal_system
+var root_feature_system
+var water_system
+var seal_system
 var mouse_agent
 var worldgen_result
 var _logical_cell_size := 16
@@ -84,7 +89,12 @@ func _ready() -> void:
 		return
 	_logical_cell_size = int(balance_config.get("logical_cell_size", 16))
 	_simulation_step = float(digging_balance.get("simulation_step_seconds", 0.05))
-	world_view.configure(world_grid, _logical_cell_size)
+	world_view.configure(
+		world_grid,
+		_logical_cell_size,
+		worldgen_result.feature_registry,
+		worldgen_config.get("signal_fields", {})
+	)
 	world_camera.configure_world_bounds(world_view.get_world_rect())
 	world_camera.focus_cell(world_grid.metadata.start_cell, _logical_cell_size)
 	path_service = GridPathServiceScript.new()
@@ -92,7 +102,23 @@ func _ready() -> void:
 	dig_system = DigSystemScript.new()
 	dig_system.configure(world_grid, path_service, balance_config)
 	colony_simulation = ColonySimulationScript.new()
-	colony_simulation.configure(world_grid, path_service, dig_system, balance_config)
+	colony_simulation.configure(
+		world_grid,
+		path_service,
+		dig_system,
+		balance_config,
+		worldgen_result.feature_registry,
+		worldgen_config
+	)
+	signal_system = colony_simulation.get_signal_system()
+	root_feature_system = colony_simulation.get_root_feature_system()
+	water_system = colony_simulation.get_water_system()
+	seal_system = colony_simulation.get_seal_system()
+	world_view.configure_environment(water_system, seal_system)
+	if root_feature_system != null:
+		root_feature_system.feature_reacted.connect(_on_root_feature_reacted)
+	if water_system != null:
+		water_system.reservoir_breached.connect(_on_reservoir_breached)
 	_seed_initial_supplies()
 	var mice: Array = colony_simulation.get_mice()
 	mouse_agent = mice[0] if not mice.is_empty() else null
@@ -100,7 +126,7 @@ func _ready() -> void:
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
 	colony_items_view.configure(colony_simulation.get_item_system(), _logical_cell_size)
 	colony_debug_overlay.configure(colony_simulation, _logical_cell_size)
-	worldgen_debug_overlay.configure(world_grid, worldgen_result.feature_registry, _logical_cell_size)
+	worldgen_debug_overlay.configure(world_grid, worldgen_result.feature_registry, _logical_cell_size, signal_system, water_system)
 	dig_cursor_view.configure(_logical_cell_size)
 	seed_label.text = "Seed %d · worldgen v%d · VALID · repairs %d" % [seed_value, world_grid.metadata.worldgen_version, world_grid.metadata.repairs.size()]
 	stats_label.text = "%d×%d cells · %d chunks · %.1f KiB · %d features · hash %d" % [
@@ -112,7 +138,11 @@ func _ready() -> void:
 		worldgen_result.get_content_hash(),
 	]
 	if AppConfig.cheats_enabled():
-		var requested_overlay := _user_argument_value("--qa-phase5-overlay=")
+		var requested_overlay := _user_argument_value("--qa-phase7-overlay=")
+		if requested_overlay.is_empty():
+			requested_overlay = _user_argument_value("--qa-phase6-overlay=")
+		if requested_overlay.is_empty():
+			requested_overlay = _user_argument_value("--qa-phase5-overlay=")
 		if not requested_overlay.is_empty() and worldgen_debug_overlay.set_mode_by_name(requested_overlay):
 			stats_label.text += " · overlay %s" % worldgen_debug_overlay.get_mode_name()
 	var debug_visible := AppConfig.debug_tools_enabled()
@@ -128,8 +158,15 @@ func _ready() -> void:
 		_setup_qa_colony_demo()
 	if _has_user_argument("--qa-phase4-demo") and AppConfig.cheats_enabled():
 		_setup_qa_zone_demo()
+	if AppConfig.cheats_enabled():
+		var phase6_demo := _user_argument_value("--qa-phase6-demo=")
+		if not phase6_demo.is_empty():
+			_setup_qa_root_demo(phase6_demo)
+		var phase7_demo := _user_argument_value("--qa-phase7-demo=")
+		if not phase7_demo.is_empty():
+			_setup_qa_water_demo(phase7_demo)
 	_update_hud()
-	GameLog.info("WORLDGEN", "Phase 5 structured world generated seed=%d content_hash=%d features=%d repairs=%d mice=%d" % [seed_value, worldgen_result.get_content_hash(), worldgen_result.feature_registry.count(), world_grid.metadata.repairs.size(), mice.size()])
+	GameLog.info("WORLDGEN", "Phase 7 water-enabled world generated seed=%d content_hash=%d features=%d repairs=%d mice=%d" % [seed_value, worldgen_result.get_content_hash(), worldgen_result.feature_registry.count(), world_grid.metadata.repairs.size(), mice.size()])
 
 
 func _process(delta: float) -> void:
@@ -203,16 +240,24 @@ func _handle_tool_shortcut(event: InputEvent) -> bool:
 		KEY_4:
 			_set_tool(Tool.FOOD_FORAGE)
 			return true
+		KEY_5:
+			_set_tool(Tool.SEAL)
+			return true
 	return false
 
 
 func _set_tool(tool: int) -> void:
-	_current_tool = clampi(tool, Tool.DIG, Tool.FOOD_FORAGE)
+	_current_tool = clampi(tool, Tool.DIG, Tool.SEAL)
 	_end_paint()
 	var zone_type := _current_zone_type()
-	zone_overlay_view.set_editing(_current_tool != Tool.DIG, zone_type)
+	zone_overlay_view.set_editing(_is_zone_tool(), zone_type)
 	dig_cursor_view.set_tool_style(_tool_name())
-	_last_feedback = "Paint any legal excavated cell." if _current_tool != Tool.DIG else "Choose any legal frontier cell."
+	if _current_tool == Tool.DIG:
+		_last_feedback = "Choose any legal frontier cell."
+	elif _current_tool == Tool.SEAL:
+		_last_feedback = "Mark an open cell for autonomous sealing."
+	else:
+		_last_feedback = "Paint any legal excavated cell."
 	_hover_feedback = _last_feedback
 	_feedback_seconds_remaining = 1.0
 
@@ -270,7 +315,22 @@ func _paint_to(cell_coord: Vector2i) -> void:
 	if cells.is_empty():
 		return
 	var result: Dictionary
-	if _current_tool != Tool.DIG:
+	if _current_tool == Tool.SEAL:
+		var changed: Array[Vector2i] = []
+		var rejected: Array[Dictionary] = []
+		for cell: Vector2i in cells:
+			var seal_result: Dictionary = seal_system.cancel_request(cell) if _paint_action == PaintAction.CANCEL else seal_system.request_seal(cell)
+			if bool(seal_result.ok):
+				changed.append(cell)
+			else:
+				rejected.append({"cell": cell, "reason_code": seal_result.reason_code})
+		result = {
+			"ok": not changed.is_empty(),
+			"reason_code": "OK" if not changed.is_empty() else ("NOT_OPEN" if rejected.is_empty() else rejected[0].reason_code),
+			"changed_cells": changed,
+			"rejected": rejected,
+		}
+	elif _current_tool != Tool.DIG:
 		if _paint_action == PaintAction.CANCEL:
 			result = EraseZoneCommandScript.new(colony_simulation.get_zone_system(), cells).execute()
 		else:
@@ -327,7 +387,16 @@ func _update_cursor() -> void:
 		dig_cursor_view.set_cursor(cell_coord, false, false, false)
 		return
 	var cancel_mode := _paint_action == PaintAction.CANCEL
-	if _current_tool != Tool.DIG:
+	if _current_tool == Tool.SEAL:
+		var valid: bool = seal_system.has_request(cell_coord) if cancel_mode else seal_system.inspect_request(cell_coord) == "OK"
+		if cancel_mode:
+			_hover_feedback = "Cancel this pending seal." if valid else _reason_text("REQUEST_NOT_FOUND")
+		else:
+			var reason: String = seal_system.inspect_request(cell_coord)
+			_hover_feedback = "Seal here; a mouse will bring 1 Material." if valid else _reason_text(reason)
+		dig_cursor_view.set_cursor(cell_coord, true, valid, cancel_mode)
+		return
+	if _is_zone_tool():
 		var zone_system = colony_simulation.get_zone_system()
 		var current_zone: Zone = zone_system.get_zone_at(cell_coord)
 		var inspection: Dictionary = zone_system.inspect_cell(_current_zone_type(), cell_coord)
@@ -346,12 +415,19 @@ func _update_cursor() -> void:
 		_hover_feedback = "Release this planned dig." if valid else _reason_text("NOT_DESIGNATED")
 	else:
 		_hover_feedback = "Legal frontier — paint freely from here." if valid else _reason_text(String(inspection.get("reason_code", "NOT_EXCAVATABLE")))
+	if signal_system != null:
+		var clue: String = signal_system.get_qualitative_clue("root_density", cell_coord)
+		if not clue.is_empty():
+			_hover_feedback += "  %s" % clue
+		var moisture_clue: String = signal_system.get_qualitative_clue("moisture", cell_coord)
+		if not moisture_clue.is_empty():
+			_hover_feedback += "  %s" % moisture_clue
 	dig_cursor_view.set_cursor(cell_coord, true, valid, cancel_mode)
 
 
 func _update_hud() -> void:
-	dig_status_label.text = "%s · LMB paint · RMB clear  |  dig queued %d" % [_tool_name(), dig_system.get_designated_count()]
-	tool_status_label.text = "1 Dig · 2 Sleep · 3 Storage · 4 Food/Forage  |  current: %s" % _tool_name()
+	dig_status_label.text = "%s · LMB paint · RMB clear  |  dig queued %d · seals %d" % [_tool_name(), dig_system.get_designated_count(), seal_system.get_requests().size()]
+	tool_status_label.text = "1 Dig · 2 Sleep · 3 Storage · 4 Food/Forage · 5 Seal  |  current: %s" % _tool_name()
 	var mice: Array = colony_simulation.get_mice()
 	var active_count := 0
 	var carrying_count := 0
@@ -407,20 +483,51 @@ func _update_inspector() -> void:
 			zone.get_setup_state_name().replace("_", " ").capitalize(),
 			zone_details,
 		]
-	inspector_label.text = "Cell (%d, %d) · stratum %d\n%s · hardness %.2f\n%s · dig %s %.0f%%%s\nfeature %d%s · %s" % [
+	var signal_text := "Signals unavailable"
+	if signal_system != null:
+		signal_text = "Root %d/%s/%s · Moisture %d/%s/%s" % [
+			signal_system.get_value("root_density", _selected_cell),
+			signal_system.get_band_name(signal_system.get_band("root_density", _selected_cell)),
+			signal_system.get_recognition_name("root_cluster"),
+			signal_system.get_value("moisture", _selected_cell),
+			signal_system.get_band_name(signal_system.get_band("moisture", _selected_cell)),
+			signal_system.get_recognition_name("water_reservoir"),
+		]
+	var feature_text := "feature %d%s" % [cell.feature_id, " · LANDMARK" if cell.landmark else ""]
+	if cell.feature_id >= 0:
+		var feature = worldgen_result.feature_registry.get_feature(cell.feature_id)
+		if feature != null and not feature.hidden:
+			feature_text += " · %s · reserve %d" % [
+				String(feature.metadata.get("lifecycle_state", "REVEALED")),
+				int(feature.metadata.get("reserve_units", feature.metadata.get("food_reserve_units", 0))),
+			]
+	inspector_label.text = "Cell (%d, %d) · stratum %d\n%s · hardness %.2f · water %d%s\n%s · dig %s %.0f%%%s\n%s\n%s · %s" % [
 		cell.coord.x,
 		cell.coord.y,
 		cell.stratum_id,
 		cell.material_name(cell.terrain_material),
 		cell.hardness,
+		cell.water_units,
+		" · SEALED" if cell.sealed else "",
 		"EXTERIOR" if cell.is_exterior() else ("Excavated" if cell.is_traversable() else "Solid"),
 		_dig_state_name(cell.dig_state),
 		cell.dig_progress * 100.0,
 		" · PROTECTED" if cell.protected_cell else "",
-		cell.feature_id,
-		" · LANDMARK" if cell.landmark else "",
+		feature_text,
+		signal_text,
 		zone_text,
 	]
+
+
+func _on_root_feature_reacted(_feature_id: int, reaction: Dictionary) -> void:
+	var produced := int(reaction.get("food_produced", 0))
+	_last_feedback = "Root Cluster exposed. %d food released; nearby Food/Forage space can stabilize it." % produced
+	_feedback_seconds_remaining = 5.0
+
+
+func _on_reservoir_breached(_feature_id: int, _cell: Vector2i, _danger_cells: Array, released_units: int) -> void:
+	_last_feedback = "Reservoir breached: %d unit released. Mice are evacuating; dig drainage or use Seal." % released_units
+	_feedback_seconds_remaining = 6.0
 
 
 func _mouse_cell() -> Vector2i:
@@ -493,6 +600,224 @@ func _setup_qa_zone_demo() -> void:
 	_set_tool(Tool.STORAGE)
 
 
+func _setup_qa_root_demo(requested_mode: String) -> void:
+	var food_roots: Array = []
+	for feature in worldgen_result.feature_registry.get_features("root_cluster"):
+		if bool(feature.metadata.get("food_opportunity", false)):
+			food_roots.append(feature)
+	if food_roots.is_empty():
+		GameLog.failure("QA", "Phase 6 Root demo has no food-bearing Root Cluster")
+		return
+	var root_feature = food_roots[0]
+	if requested_mode.to_lower() in ["reveal", "stable"]:
+		var witness: Array = world_grid.metadata.get("validation_metrics", {}).get("witness_paths", {}).get("early_food", [])
+		if not _replay_qa_excavation_witness(witness):
+			GameLog.failure("QA", "Phase 6 Root demo could not replay the early-food witness")
+			return
+		for feature in food_roots:
+			if not feature.hidden:
+				root_feature = feature
+				break
+		var forage_cell := Vector2i(-1, -1)
+		if not witness.is_empty() and witness[-1] is Vector2i:
+			forage_cell = witness[-1]
+		if forage_cell.x >= 0:
+			var zones = colony_simulation.get_zone_system()
+			var painted: Dictionary = zones.paint_zone(ZoneScript.Type.FOOD_FORAGE, [forage_cell])
+			var zone: Zone = zones.get_zone_at(forage_cell)
+			if bool(painted.get("ok", false)) and zone != null:
+				zones.begin_setup(zone.zone_id)
+				zones.apply_setup_material(zone.zone_id, zone.setup_material_required)
+				root_feature_system.fixed_tick(float(root_feature.metadata.get("forage_interval_seconds", 8.0)))
+		_set_tool(Tool.FOOD_FORAGE)
+	else:
+		var best_cell := _best_root_clue_cell(root_feature)
+		set_qa_inspector_cell(best_cell)
+		debug_inspector.visible = false
+	world_camera.focus_cell(root_feature.anchor, _logical_cell_size)
+	set_qa_inspector_cell(root_feature.anchor if not root_feature.hidden else _qa_inspector_cell)
+
+
+func _best_root_clue_cell(root_feature) -> Vector2i:
+	var best_value := -1
+	var best_cell: Vector2i = root_feature.anchor
+	var search_region: Rect2i = root_feature.get_bounds().grow(6)
+	for y: int in range(maxi(0, search_region.position.y), mini(world_grid.height, search_region.end.y)):
+		for x: int in range(maxi(0, search_region.position.x), mini(world_grid.width, search_region.end.x)):
+			var cell := Vector2i(x, y)
+			if world_grid.is_exterior(cell) or world_grid.get_feature_id(cell) >= 0:
+				continue
+			var value: int = int(world_grid.get_root_signal(cell))
+			if value > best_value:
+				best_value = value
+				best_cell = cell
+	return best_cell
+
+
+func _setup_qa_water_demo(requested_mode: String) -> void:
+	var reservoirs: Array = worldgen_result.feature_registry.get_features("water_reservoir")
+	if reservoirs.is_empty():
+		GameLog.failure("QA", "Phase 7 Water demo has no reservoir")
+		return
+	var reservoir = reservoirs[0]
+	for candidate in reservoirs:
+		if candidate.required:
+			reservoir = candidate
+			break
+	var mode := requested_mode.strip_edges().to_lower()
+	if mode == "clue":
+		var clue_cell := _best_moisture_clue_cell(reservoir)
+		world_camera.focus_cell(clue_cell, _logical_cell_size)
+		set_qa_inspector_cell(clue_cell)
+		_set_tool(Tool.DIG)
+		return
+	if mode == "seal":
+		var seal_cell := _find_qa_seal_cell()
+		if seal_cell.x < 0 or not colony_simulation.request_seal(seal_cell).ok:
+			GameLog.failure("QA", "Phase 7 Seal demo could not create request")
+			return
+		for _tick: int in range(500):
+			colony_simulation.fixed_tick(0.05)
+			if world_grid.is_sealed(seal_cell):
+				break
+		_set_tool(Tool.SEAL)
+		world_camera.focus_cell(seal_cell, _logical_cell_size)
+		set_qa_inspector_cell(seal_cell)
+		return
+	var witness := _qa_potential_path(reservoir.cells)
+	if not _replay_qa_until_revealed(witness, reservoir):
+		GameLog.failure("QA", "Phase 7 Water demo could not breach reservoir witness")
+		return
+	for _tick: int in range(16):
+		water_system.fixed_tick(0.2)
+	var outlet: Vector2i = reservoir.metadata.get("outlet_cell", reservoir.anchor)
+	_set_tool(Tool.SEAL)
+	world_camera.focus_cell(outlet, _logical_cell_size)
+	set_qa_inspector_cell(outlet)
+
+
+func _best_moisture_clue_cell(reservoir) -> Vector2i:
+	var best_value := -1
+	var best_cell: Vector2i = reservoir.anchor
+	var search_region: Rect2i = reservoir.get_bounds().grow(6)
+	for y: int in range(maxi(0, search_region.position.y), mini(world_grid.height, search_region.end.y)):
+		for x: int in range(maxi(0, search_region.position.x), mini(world_grid.width, search_region.end.x)):
+			var cell := Vector2i(x, y)
+			if world_grid.is_exterior(cell) or world_grid.get_feature_id(cell) >= 0:
+				continue
+			var value: int = int(world_grid.get_moisture_signal(cell))
+			if value > best_value:
+				best_value = value
+				best_cell = cell
+	return best_cell
+
+
+func _qa_potential_path(goals: Array[Vector2i]) -> Array[Vector2i]:
+	var start: Vector2i = world_grid.metadata.start_cell
+	var goal_lookup: Dictionary = {}
+	for goal: Vector2i in goals:
+		goal_lookup[goal] = true
+	var previous: Dictionary = {start: Vector2i(-1, -1)}
+	var queue: Array[Vector2i] = [start]
+	var head := 0
+	var reached := Vector2i(-1, -1)
+	while head < queue.size():
+		var current: Vector2i = queue[head]
+		head += 1
+		if goal_lookup.has(current):
+			reached = current
+			break
+		for neighbor: Vector2i in world_grid.get_cardinal_neighbors(current):
+			if previous.has(neighbor) or world_grid.is_exterior(neighbor) or world_grid.is_protected(neighbor):
+				continue
+			if not world_grid.is_traversable(neighbor) and not world_grid.is_solid(neighbor):
+				continue
+			previous[neighbor] = current
+			queue.append(neighbor)
+	if reached.x < 0:
+		return []
+	var path: Array[Vector2i] = []
+	var cursor := reached
+	while cursor.x >= 0:
+		path.append(cursor)
+		cursor = previous.get(cursor, Vector2i(-1, -1))
+	path.reverse()
+	return path
+
+
+func _replay_qa_until_revealed(witness: Array[Vector2i], feature) -> bool:
+	var worker_cell: Vector2i = world_grid.metadata.start_cell
+	for cell: Vector2i in witness:
+		if world_grid.is_traversable(cell):
+			worker_cell = cell
+			continue
+		var designation: Dictionary = dig_system.designate_path([cell])
+		var job = dig_system.claim_next("qa_phase7", worker_cell)
+		if not designation.ok or job == null:
+			return false
+		var completion: Dictionary = dig_system.advance_job("qa_phase7", job.job_id, 1000.0)
+		if not completion.completed:
+			return false
+		worker_cell = cell
+		if not feature.hidden:
+			return true
+	return not feature.hidden
+
+
+func _find_qa_seal_cell() -> Vector2i:
+	var start: Vector2i = world_grid.metadata.start_cell
+	var distances: PackedInt32Array = path_service.build_distance_field(start)
+	var candidates: Array[Dictionary] = []
+	for index: int in range(distances.size()):
+		if distances[index] < 2:
+			continue
+		var cell: Vector2i = world_grid.index_to_cell(index)
+		if world_grid.get_water_units(cell) > 0:
+			continue
+		var open_neighbors := 0
+		for neighbor: Vector2i in world_grid.get_cardinal_neighbors(cell):
+			if path_service.is_walkable(neighbor):
+				open_neighbors += 1
+		if open_neighbors >= 2:
+			candidates.append({
+				"cell": cell,
+				"vertical_offset": absi(cell.y - start.y),
+				"distance": distances[index],
+			})
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a.vertical_offset) != int(b.vertical_offset):
+			return int(a.vertical_offset) < int(b.vertical_offset)
+		if int(a.distance) != int(b.distance):
+			return int(a.distance) < int(b.distance)
+		return world_grid.cell_to_index(a.cell) < world_grid.cell_to_index(b.cell)
+	)
+	return Vector2i(-1, -1) if candidates.is_empty() else candidates[0].cell
+
+
+func _replay_qa_excavation_witness(witness: Array) -> bool:
+	if witness.size() <= 1:
+		return false
+	var worker_cell: Vector2i = world_grid.metadata.start_cell
+	for cell_value: Variant in witness:
+		if not cell_value is Vector2i:
+			return false
+		var cell: Vector2i = cell_value
+		if world_grid.is_traversable(cell):
+			worker_cell = cell
+			continue
+		var designation: Dictionary = dig_system.designate_path([cell])
+		if not bool(designation.get("ok", false)):
+			return false
+		var job = dig_system.claim_next("qa_phase6", worker_cell)
+		if job == null:
+			return false
+		var completion: Dictionary = dig_system.advance_job("qa_phase6", job.job_id, 1000.0)
+		if not bool(completion.get("ok", false)) or not bool(completion.get("completed", false)):
+			return false
+		worker_cell = cell
+	return true
+
+
 func _find_traversable_cell(anchor: Vector2i, offsets: Array[Vector2i]) -> Vector2i:
 	for offset: Vector2i in offsets:
 		var candidate := anchor + offset
@@ -525,6 +850,18 @@ func _reason_text(reason_code: String) -> String:
 			return "Start from a reachable excavated frontier."
 		"NOT_DESIGNATED":
 			return "There is no pending dig to cancel here."
+		"NOT_OPEN":
+			return "Seals require an excavated interior cell."
+		"EXTERIOR":
+			return "The exterior shaft cannot be sealed."
+		"ALREADY_SEALED":
+			return "This cell is already sealed; use Dig to remove it."
+		"ALREADY_REQUESTED":
+			return "A seal is already planned here."
+		"REQUEST_NOT_FOUND":
+			return "There is no pending seal to cancel here."
+		"WATER_DISPLACEMENT_BLOCKED":
+			return "Adjacent cells need room before this wet seal can be completed."
 		"NOT_EXCAVATED":
 			return "Zones can only use excavated space."
 		"NOT_CONNECTED":
@@ -572,6 +909,10 @@ func _current_zone_type() -> int:
 			return ZoneScript.Type.SLEEPING
 
 
+func _is_zone_tool() -> bool:
+	return _current_tool in [Tool.SLEEPING, Tool.STORAGE, Tool.FOOD_FORAGE]
+
+
 func _tool_name() -> String:
 	match _current_tool:
 		Tool.SLEEPING:
@@ -580,5 +921,7 @@ func _tool_name() -> String:
 			return "STORAGE ZONE"
 		Tool.FOOD_FORAGE:
 			return "FOOD/FORAGE ZONE"
+		Tool.SEAL:
+			return "SEAL"
 		_:
 			return "DIG"

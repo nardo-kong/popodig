@@ -229,6 +229,16 @@ func get_designated_count() -> int:
 	return _jobs_by_cell.size()
 
 
+func get_designated_cells() -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for cell: Vector2i in _jobs_by_cell:
+		cells.append(cell)
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return _world.cell_to_index(a) < _world.cell_to_index(b)
+	)
+	return cells
+
+
 func get_active_job_count() -> int:
 	return _worker_job_ids.size()
 

@@ -23,6 +23,7 @@ var state: int = State.PENDING
 var priority := 20.0
 var source_pile_id := -1
 var target_cell := Vector2i(-1, -1)
+var action_cell := Vector2i(-1, -1)
 var item_type := ""
 var item_count := 0
 var zone_id := -1
@@ -39,6 +40,7 @@ func snapshot():
 	copy.priority = priority
 	copy.source_pile_id = source_pile_id
 	copy.target_cell = target_cell
+	copy.action_cell = action_cell
 	copy.item_type = item_type
 	copy.item_count = item_count
 	copy.zone_id = zone_id

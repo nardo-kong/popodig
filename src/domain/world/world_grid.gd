@@ -18,6 +18,7 @@ const CHANGE_ZONE := 64
 const CELL_FLAG_PROTECTED := 1
 const CELL_FLAG_EXTERIOR := 2
 const CELL_FLAG_LANDMARK := 4
+const CELL_FLAG_SEALED := 32
 const CELL_FLAG_STRATUM_SHIFT := 3
 const CELL_FLAG_STRATUM_MASK := 24
 
@@ -92,6 +93,7 @@ func get_cell(cell_coord: Vector2i) -> CellData:
 	cell.zone_id = _zone_ids[index]
 	cell.protected_cell = (_cell_flags[index] & CELL_FLAG_PROTECTED) != 0
 	cell.exterior = (_cell_flags[index] & CELL_FLAG_EXTERIOR) != 0
+	cell.sealed = (_cell_flags[index] & CELL_FLAG_SEALED) != 0
 	return cell
 
 
@@ -128,12 +130,27 @@ func is_exterior(cell_coord: Vector2i) -> bool:
 
 func is_traversable(cell_coord: Vector2i) -> bool:
 	var index := cell_to_index(cell_coord)
-	return index >= 0 and _excavated[index] == 1 and (_cell_flags[index] & CELL_FLAG_EXTERIOR) == 0
+	return (
+		index >= 0
+		and _excavated[index] == 1
+		and (_cell_flags[index] & (CELL_FLAG_EXTERIOR | CELL_FLAG_SEALED)) == 0
+	)
 
 
 func is_solid(cell_coord: Vector2i) -> bool:
 	var index := cell_to_index(cell_coord)
-	return index >= 0 and _terrain[index] != CellDataScript.TerrainMaterial.EMPTY and _excavated[index] == 0
+	return (
+		index >= 0
+		and (
+			(_cell_flags[index] & CELL_FLAG_SEALED) != 0
+			or (_terrain[index] != CellDataScript.TerrainMaterial.EMPTY and _excavated[index] == 0)
+		)
+	)
+
+
+func is_sealed(cell_coord: Vector2i) -> bool:
+	var index := cell_to_index(cell_coord)
+	return index >= 0 and (_cell_flags[index] & CELL_FLAG_SEALED) != 0
 
 
 func is_protected(cell_coord: Vector2i) -> bool:
@@ -257,6 +274,21 @@ func set_exterior(cell_coord: Vector2i, value: bool) -> bool:
 	return true
 
 
+func set_sealed(cell_coord: Vector2i, value: bool) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or _excavated[index] == 0 or (_cell_flags[index] & CELL_FLAG_EXTERIOR) != 0:
+		return false
+	var current := (_cell_flags[index] & CELL_FLAG_SEALED) != 0
+	if current == value:
+		return false
+	if value:
+		_cell_flags[index] |= CELL_FLAG_SEALED
+	else:
+		_cell_flags[index] &= ~CELL_FLAG_SEALED
+	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_WATER | CHANGE_PATHING | CHANGE_STABILITY)
+	return true
+
+
 func set_dig_state(cell_coord: Vector2i, state: int) -> bool:
 	var index := cell_to_index(cell_coord)
 	if index < 0 or state < CellDataScript.DigState.NONE or state > CellDataScript.DigState.ACTIVE:
@@ -370,6 +402,20 @@ func set_root_signal(cell_coord: Vector2i, value: int) -> bool:
 	return true
 
 
+func replace_signal_field(channel: String, values: PackedByteArray) -> bool:
+	if values.size() != width * height:
+		return false
+	match channel:
+		"root_density":
+			_root_signal = values
+		"moisture":
+			_moisture_signal = values
+		_:
+			return false
+	mark_all_chunks_dirty(WorldChunkScript.DIRTY_SIGNALS)
+	return true
+
+
 func set_zone_id(cell_coord: Vector2i, zone_id: int) -> bool:
 	var index := cell_to_index(cell_coord)
 	if index < 0 or zone_id < -1 or _zone_ids[index] == zone_id:
@@ -381,7 +427,17 @@ func set_zone_id(cell_coord: Vector2i, zone_id: int) -> bool:
 
 func complete_excavation_atomic(cell_coord: Vector2i) -> bool:
 	var index := cell_to_index(cell_coord)
-	if index < 0 or (_cell_flags[index] & (CELL_FLAG_PROTECTED | CELL_FLAG_EXTERIOR)) != 0 or _excavated[index] == 1:
+	if index < 0 or (_cell_flags[index] & (CELL_FLAG_PROTECTED | CELL_FLAG_EXTERIOR)) != 0:
+		return false
+	if (_cell_flags[index] & CELL_FLAG_SEALED) != 0:
+		if _dig_state[index] == CellDataScript.DigState.NONE:
+			return false
+		_cell_flags[index] &= ~CELL_FLAG_SEALED
+		_dig_state[index] = CellDataScript.DigState.NONE
+		_dig_progress[index] = 0.0
+		_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_WATER | CHANGE_PATHING | CHANGE_STABILITY | CHANGE_DIG)
+		return true
+	if _excavated[index] == 1:
 		return false
 	if _terrain[index] == CellDataScript.TerrainMaterial.EMPTY:
 		return false
@@ -416,6 +472,24 @@ func mark_all_chunks_dirty(flags: int = WorldChunkScript.DIRTY_ALL) -> void:
 	for chunk: WorldChunk in _chunks.values():
 		chunk.mark_dirty(flags)
 		chunk_dirtied.emit(chunk.coord, flags)
+
+
+func mark_region_dirty(region: Rect2i, change_flags: int) -> void:
+	var start := Vector2i(maxi(0, region.position.x), maxi(0, region.position.y))
+	var finish := Vector2i(mini(width, region.end.x), mini(height, region.end.y))
+	if finish.x <= start.x or finish.y <= start.y:
+		return
+	var dirty_flags := _changes_to_dirty(change_flags)
+	var first_chunk := cell_to_chunk(start)
+	var last_chunk := cell_to_chunk(finish - Vector2i.ONE)
+	for chunk_y: int in range(first_chunk.y, last_chunk.y + 1):
+		for chunk_x: int in range(first_chunk.x, last_chunk.x + 1):
+			var chunk_coord := Vector2i(chunk_x, chunk_y)
+			var chunk: WorldChunk = _chunks.get(chunk_coord)
+			if chunk == null:
+				continue
+			chunk.mark_dirty(dirty_flags)
+			chunk_dirtied.emit(chunk_coord, dirty_flags)
 
 
 func checksum() -> int:
