@@ -3,3 +3,4 @@
 *.log
 exports/
 build/
+art/qa/reports/*_quick.json

@@ -58,25 +58,25 @@
 - [x] Batch seed report
 
 ## Phase 6 — Root
-- [ ] Root geometry
-- [ ] Root signals
-- [ ] Reveal
-- [ ] Reaction
-- [ ] Adaptation
-- [ ] Stable state
-- [ ] Food integration
+- [x] Root geometry
+- [x] Root signals
+- [x] Reveal
+- [x] Reaction
+- [x] Adaptation
+- [x] Stable state
+- [x] Food integration
 - [ ] Playtest cue readability
 
 ## Phase 7 — Water
-- [ ] Finite reservoir
-- [ ] Moisture signal
-- [ ] Tile flow
-- [ ] Breach
-- [ ] Seal
-- [ ] Emergency haul
-- [ ] Wet zone state
-- [ ] Stable pool sleep
-- [ ] Conservation tests
+- [x] Finite reservoir
+- [x] Moisture signal
+- [x] Tile flow
+- [x] Breach
+- [x] Seal
+- [x] Emergency haul
+- [x] Wet zone state
+- [x] Stable pool sleep
+- [x] Conservation tests
 
 ## Phase 8 — Stability
 - [ ] Weak soil

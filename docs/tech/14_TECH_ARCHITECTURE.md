@@ -78,11 +78,17 @@ Runs deterministic pipeline and validation.
 ### SignalSystem
 Builds/updates signal fields in dirty regions.
 
+Current Phase 6 implementation stores Root Density and Moisture as compact `WorldGrid` fields. Generation replaces each complete field in one operation; runtime terrain mutations recalculate bounded regions, retain a capped dirty-region history for diagnostics, and dirty only affected presentation chunks. Player-facing queries return qualitative bands/wording, while raw values remain development-overlay data.
+
 ### DigSystem
 Validates designations, creates executable dig jobs, resolves tile excavation.
 
 ### WaterSystem
 Moves discrete water units on scheduled ticks.
+
+The Phase 7 implementation owns finite reservoir lifecycle state and a deterministic active-cell simulation. Each excavated cell holds 0–4 units; a bounded fixed step prefers gravity, then horizontal movement toward lower fill. Sources, terrain changes, and seals wake only local cells, while unchanged pools sleep after a configurable quiet window. `get_conserved_inventory()` treats standing water plus remaining finite reserves as one audited quantity.
+
+`SealSystem` is a separate adaptation service. It converts a player request into an autonomous colony job, consumes exactly one General Material at completion, displaces any shallow water before closing the cell, and commits the seal through the packed cell flag so path, zone, water, checksum, and later save systems share one truth. A completed seal remains removable through the dominant DIG verb.
 
 ### StabilitySystem
 Evaluates dirty local structural regions and resolves warning/collapse.
@@ -200,6 +206,10 @@ Feature definition fields may include:
 - validator constraints
 
 Avoid hardcoding all root/water logic in a single world controller.
+
+Phase 6 keeps Root lifecycle behavior in `RootFeatureSystem`, separate from generation geometry and presentation. It subscribes to authoritative `DigSystem.cell_excavated`, enforces a one-shot reveal/reaction, advances monotonic recognition, exposes a finite food reserve, and reaches Stable State only through a valid set-up nearby Food/Forage zone. This is the reference contract for later Water and Stability feature handlers.
+
+Phase 7 follows the same contract in `WaterSystem`: Moisture clues precede reveal; authoritative excavation fires a one-shot breach reaction; finite discharge changes the continuous map; player-created drainage, storage relocation, and `SealSystem` barriers are spatial adaptations; exhausted, unchanged pools enter Stable State and sleep. Breach danger uses the existing mouse interruption path. A mouse already inside the danger region may path outward, and resumes ordinary autonomy after reaching a safe cell so a persistent pool cannot permanently pause the colony.
 
 ## 13. Event bus
 Use explicit domain/application signals/events for cross-system reactions.
