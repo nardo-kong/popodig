@@ -7,6 +7,7 @@ const TEST_SCRIPTS: PackedStringArray = [
 	"res://tests/unit/test_structured_worldgen.gd",
 	"res://tests/unit/test_signal_system.gd",
 	"res://tests/unit/test_water_system.gd",
+	"res://tests/unit/test_terrain_atlas.gd",
 	"res://tests/integration/test_exterior_semantics.gd",
 	"res://tests/unit/test_dig_system.gd",
 	"res://tests/integration/test_mouse_dig_flow.gd",

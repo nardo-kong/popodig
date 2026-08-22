@@ -19,7 +19,10 @@ func _capture() -> void:
 		quit(1)
 		return
 	root.size = target_size
-	var packed := load(ProjectSettings.get_setting("application/run/main_scene")) as PackedScene
+	var scene_path: String = ProjectSettings.get_setting("application/run/main_scene")
+	if _has_user_argument("--qa-visual-room"):
+		scene_path = "res://scenes/qa/visual_test_room.tscn"
+	var packed := load(scene_path) as PackedScene
 	if packed == null:
 		push_error("Main scene could not be loaded")
 		quit(1)
@@ -28,6 +31,9 @@ func _capture() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
+	if not _apply_qa_camera_override(scene):
+		quit(1)
+		return
 	if _has_user_argument("--wait-for-wet-storage"):
 		if not await _prepare_wet_storage_evidence(scene):
 			push_error("Screenshot fixture never reached evacuated wet-Storage evidence")
@@ -189,3 +195,38 @@ func _has_evacuated_wet_storage(scene: Node, wet_cell: Vector2i) -> bool:
 
 func _has_user_argument(argument_name: String) -> bool:
 	return OS.get_cmdline_user_args().has(argument_name)
+
+
+func _user_argument_value(prefix: String) -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with(prefix):
+			return argument.trim_prefix(prefix)
+	return ""
+
+
+## QA-only camera control for art evidence captures; refuses the release
+## profile so release-clean screenshots cannot be repositioned accidentally.
+func _apply_qa_camera_override(scene: Node) -> bool:
+	var zoom_text := _user_argument_value("--qa-zoom=")
+	var focus_text := _user_argument_value("--qa-focus=")
+	if zoom_text.is_empty() and focus_text.is_empty():
+		return true
+	if _user_argument_value("--profile=") == "release":
+		push_error("Camera override is not allowed in release-clean captures")
+		return false
+	var camera: Camera2D = scene.get("world_camera")
+	if camera == null:
+		if scene.scene_file_path != "res://scenes/qa/visual_test_room.tscn":
+			push_error("Scene has no world camera for QA override")
+			return false
+		return true
+	if not zoom_text.is_empty():
+		camera.zoom = Vector2.ONE * clampf(float(zoom_text), camera.min_zoom, camera.max_zoom)
+	if not focus_text.is_empty():
+		var parts := focus_text.split(",")
+		if parts.size() != 2:
+			push_error("--qa-focus expects x,y cell coordinates")
+			return false
+		camera.focus_cell(Vector2i(int(parts[0]), int(parts[1])), int(scene.get("_logical_cell_size")))
+	camera.reset_smoothing()
+	return true

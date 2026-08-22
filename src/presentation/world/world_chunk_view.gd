@@ -4,6 +4,14 @@ extends Node2D
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const WorldChunkScript = preload("res://src/domain/world/world_chunk.gd")
 const DigOverlayChunkViewScript = preload("res://src/presentation/world/dig_overlay_chunk_view.gd")
+const TerrainAtlasViewScript = preload("res://src/presentation/world/terrain_atlas.gd")
+
+# Overlap that hides filtering seams between adjacent organic tile silhouettes.
+const TILE_OVERSHOOT_UNITS := 0.5
+# Pass 01 keeps the legacy flat colors as underlay/fallback so presentation
+# degrades gracefully if production assets are absent.
+const EXTERIOR_BASE_COLOR := Color("302822")
+const EXCAVATED_BASE_COLOR := Color("171413")
 
 var world_grid
 var world_chunk
@@ -63,13 +71,46 @@ func request_dig_redraw() -> void:
 func _draw() -> void:
 	if world_grid == null or world_chunk == null:
 		return
+	var atlas := TerrainAtlasViewScript.get_shared()
 	draw_count += 1
+	# Terrain rendering runs in grouped passes so the canvas batcher can merge
+	# consecutive flat rects and consecutive textured quads instead of flushing
+	# a state change per cell. Overlay pass restores per-cell visual layering
+	# above terrain.
+	var texture_cells: Array[Vector2] = []
+	var texture_tiles: Array[Dictionary] = []
 	for local_y: int in range(world_chunk.size.y):
 		for local_x: int in range(world_chunk.size.x):
 			var cell_coord: Vector2i = world_chunk.origin + Vector2i(local_x, local_y)
 			var rect := Rect2(Vector2(local_x, local_y) * cell_size, Vector2.ONE * cell_size)
-			var color := _cell_color(cell_coord)
-			draw_rect(rect, color)
+			var material: int = get_display_material(cell_coord)
+			if material == CellDataScript.TerrainMaterial.EMPTY:
+				draw_rect(rect, EXTERIOR_BASE_COLOR)
+			elif world_grid.is_excavated(cell_coord):
+				draw_rect(rect, EXCAVATED_BASE_COLOR)
+				var burrow_tile: Dictionary = atlas.get_burrow_interior_tile(TerrainAtlasViewScript.cell_variant_hash(cell_coord))
+				if not burrow_tile.is_empty():
+					texture_cells.append(rect.position)
+					texture_tiles.append(burrow_tile)
+			else:
+				var tile: Dictionary = atlas.get_tile_for_material(material, TerrainAtlasViewScript.cell_variant_hash(cell_coord))
+				if not tile.is_empty():
+					draw_rect(rect, tile.base_color)
+					texture_cells.append(rect.position)
+					texture_tiles.append(tile)
+				else:
+					draw_rect(rect, _legacy_material_color(material, cell_coord))
+	for quad_index: int in range(texture_cells.size()):
+		var tile: Dictionary = texture_tiles[quad_index]
+		draw_texture_rect_region(
+			tile.texture,
+			Rect2(texture_cells[quad_index], Vector2.ONE * cell_size).grow(TILE_OVERSHOOT_UNITS),
+			tile.source_rect
+		)
+	for local_y: int in range(world_chunk.size.y):
+		for local_x: int in range(world_chunk.size.x):
+			var cell_coord: Vector2i = world_chunk.origin + Vector2i(local_x, local_y)
+			var rect := Rect2(Vector2(local_x, local_y) * cell_size, Vector2.ONE * cell_size)
 			_draw_root_information(cell_coord, rect)
 			_draw_water_information(cell_coord, rect)
 			_draw_seal_information(cell_coord, rect)
@@ -80,12 +121,7 @@ func _draw() -> void:
 	world_chunk.consume_dirty(WorldChunkScript.DIRTY_TERRAIN | WorldChunkScript.DIRTY_SIGNALS | WorldChunkScript.DIRTY_WATER)
 
 
-func _cell_color(cell_coord: Vector2i) -> Color:
-	var material: int = get_display_material(cell_coord)
-	if material == CellDataScript.TerrainMaterial.EMPTY:
-		return Color("302822")
-	if world_grid.is_excavated(cell_coord):
-		return Color("171413")
+func _legacy_material_color(material: int, cell_coord: Vector2i) -> Color:
 	var base: Color
 	match material:
 		CellDataScript.TerrainMaterial.SOFT_SOIL:
