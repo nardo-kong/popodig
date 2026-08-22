@@ -146,3 +146,11 @@ production water asset was promoted this pass.
 - Phase 1–7 smokes, phase benchmarks, 288/288 seed batch (0 replay mismatches), fresh replay: PASS
 - Screenshot pipeline: all captures + headless validations PASS except the pre-existing
   wet-storage fixture documented above
+
+## 10. Commits
+
+- Commit A `f39a3cb` — art: normalize pass-01 production candidates
+  (candidates + normalized tiles + atlas + descriptor + manifest + normalization tool)
+- Commit B `cc8b158` — art: integrate terrain presentation pass 01
+  (atlas loader, chunk-view grouped-pass renderer, visual test room, tests, capture args, QA evidence)
+- Commit C `fef3427` — docs: record art integration pass 01 (this document)
