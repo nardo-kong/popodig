@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "style_version": "pass_01",
+  "source_px_per_cell": 128,
+  "logical_cell_world_units": 16,
+  "atlas": "assets/art/production/terrain/terrain_atlas_pass_01.png",
+  "atlas_tile_px": 128,
+  "foundation_reuses": "stone",
+  "entries": {
+    "soft_soil": [
+      {
+        "variant": 1,
+        "atlas_column": 0,
+        "edge_base_color": "#5f3b22"
+      }
+    ],
+    "damp_clay": [
+      {
+        "variant": 1,
+        "atlas_column": 1,
+        "edge_base_color": "#35251b"
+      }
+    ],
+    "loose_soil": [
+      {
+        "variant": 1,
+        "atlas_column": 2,
+        "edge_base_color": "#835830"
+      }
+    ],
+    "stone": [
+      {
+        "variant": 1,
+        "atlas_column": 3,
+        "edge_base_color": "#564c42"
+      }
+    ],
+    "burrow_interior": [
+      {
+        "variant": 1,
+        "atlas_column": 4,
+        "edge_base_color": "#2f2117"
+      }
+    ]
+  }
+}

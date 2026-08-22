@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "pass": "pass_01",
+  "scale_contract": {
+    "source_pixels_per_logical_cell": 128,
+    "alternatives_considered": [
+      64,
+      128
+    ],
+    "decision": "128 keeps pebble detail readable at max gameplay zoom 2.2 while linear-filtered minification stays clean; 64 lost close-zoom material detail."
+  },
+  "assets": [
+    {
+      "source_candidate": "art/candidates/pass_01/NormalSoil-removebg-preview.png",
+      "class": "terrain_center",
+      "family": "pass_01_soft_pixel",
+      "style_version": "pass_01",
+      "status": "ACCEPTED_WITH_NORMALIZATION",
+      "material": "soft_soil",
+      "variant": 1,
+      "asset": "assets/art/production/terrain/terrain_soil_soft_center_01.png",
+      "source_px_per_cell": 128,
+      "edge_base_color": "#5f3b22",
+      "audit": {
+        "candidate_canvas": [
+          243,
+          243
+        ],
+        "corner_alpha_transparent": true,
+        "opaque_bbox": [
+          19,
+          20,
+          220,
+          225
+        ],
+        "normalized_size": [
+          128,
+          128
+        ]
+      }
+    },
+    {
+      "source_candidate": "art/candidates/pass_01/DampSoil-removebg-preview.png",
+      "class": "terrain_center",
+      "family": "pass_01_soft_pixel",
+      "style_version": "pass_01",
+      "status": "ACCEPTED_WITH_NORMALIZATION",
+      "material": "damp_clay",
+      "variant": 1,
+      "asset": "assets/art/production/terrain/terrain_clay_damp_center_01.png",
+      "source_px_per_cell": 128,
+      "edge_base_color": "#35251b",
+      "audit": {
+        "candidate_canvas": [
+          243,
+          243
+        ],
+        "corner_alpha_transparent": true,
+        "opaque_bbox": [
+          19,
+          19,
+          222,
+          225
+        ],
+        "normalized_size": [
+          128,
+          128
+        ]
+      }
+    },
+    {
+      "source_candidate": "art/candidates/pass_01/LooseSoil-removebg-preview.png",
+      "class": "terrain_center",
+      "family": "pass_01_soft_pixel",
+      "style_version": "pass_01",
+      "status": "ACCEPTED_WITH_NORMALIZATION",
+      "material": "loose_soil",
+      "variant": 1,
+      "asset": "assets/art/production/terrain/terrain_soil_loose_center_01.png",
+      "source_px_per_cell": 128,
+      "edge_base_color": "#835830",
+      "audit": {
+        "candidate_canvas": [
+          243,
+          243
+        ],
+        "corner_alpha_transparent": true,
+        "opaque_bbox": [
+          22,
+          21,
+          223,
+          226
+        ],
+        "normalized_size": [
+          128,
+          128
+        ]
+      }
+    },
+    {
+      "source_candidate": "art/candidates/pass_01/Stone-removebg-preview.png",
+      "class": "terrain_center",
+      "family": "pass_01_soft_pixel",
+      "style_version": "pass_01",
+      "status": "ACCEPTED_WITH_NORMALIZATION",
+      "material": "stone",
+      "variant": 1,
+      "asset": "assets/art/production/terrain/terrain_stone_center_01.png",
+      "source_px_per_cell": 128,
+      "edge_base_color": "#564c42",
+      "audit": {
+        "candidate_canvas": [
+          243,
+          243
+        ],
+        "corner_alpha_transparent": true,
+        "opaque_bbox": [
+          20,
+          20,
+          221,
+          224
+        ],
+        "normalized_size": [
+          128,
+          128
+        ]
+      }
+    },
+    {
+      "source_candidate": "art/candidates/pass_01/BurrowInterior-removebg-preview.png",
+      "class": "terrain_center",
+      "family": "pass_01_soft_pixel",
+      "style_version": "pass_01",
+      "status": "ACCEPTED_WITH_NORMALIZATION",
+      "material": "burrow_interior",
+      "variant": 1,
+      "asset": "assets/art/production/terrain/terrain_burrow_interior_center_01.png",
+      "source_px_per_cell": 128,
+      "edge_base_color": "#2f2117",
+      "audit": {
+        "candidate_canvas": [
+          256,
+          256
+        ],
+        "corner_alpha_transparent": true,
+        "opaque_bbox": [
+          29,
+          30,
+          229,
+          230
+        ],
+        "normalized_size": [
+          128,
+          128
+        ]
+      }
+    }
+  ],
+  "rejected": [],
+  "deferred": [
+    {
+      "type": "root_signal",
+      "reason": "candidates not yet provided by user"
+    },
+    {
+      "type": "root_modules",
+      "reason": "candidates not yet provided by user"
+    },
+    {
+      "type": "water",
+      "reason": "water art direction not locked; placeholder retained by decision"
+    },
+    {
+      "type": "stability",
+      "reason": "phase 8 domain not implemented; candidates not provided"
+    },
+    {
+      "type": "mouse_master",
+      "reason": "static master only useful once animation states exist"
+    },
+    {
+      "type": "terrain_variants",
+      "reason": "user will supply 4-5 more variants per material"
+    }
+  ]
+}
