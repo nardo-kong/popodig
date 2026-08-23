@@ -154,6 +154,34 @@
           128
         ]
       }
+    },
+    {
+      "source_candidate": "art/candidates/pass_01/mouse_master_idle_candidate_01.png",
+      "class": "entity_mouse_master_idle",
+      "family": "pass_01_soft_pixel",
+      "style_version": "pass_01",
+      "status": "ACCEPTED_TEMPORARY_HYBRID",
+      "asset": "assets/art/production/entities/mouse_master_idle_01.png",
+      "source_px_per_world_unit": 8,
+      "display_height_units": 18.0,
+      "normalized_size": [
+        140,
+        144
+      ],
+      "decision": "User-approved temporary hybrid: static master replaces the placeholder body while procedural state badges stay on top until key animation states arrive.",
+      "audit": {
+        "candidate_canvas": [
+          1254,
+          1254
+        ],
+        "opaque_bbox": [
+          0,
+          23,
+          1194,
+          1254
+        ],
+        "halo_check": "low-alpha pixels are warm outline tones, no removebg fringe"
+      }
     }
   ],
   "rejected": [],
@@ -175,12 +203,12 @@
       "reason": "phase 8 domain not implemented; candidates not provided"
     },
     {
-      "type": "mouse_master",
-      "reason": "static master only useful once animation states exist"
-    },
-    {
       "type": "terrain_variants",
       "reason": "user will supply 4-5 more variants per material"
+    },
+    {
+      "type": "mouse_animation_states",
+      "reason": "idle/walk/dig/carry/eat/sleep/panic set still required before final mouse integration replaces the temporary hybrid"
     }
   ]
 }

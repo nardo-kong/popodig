@@ -27,6 +27,9 @@ func _capture() -> void:
 		push_error("Main scene could not be loaded")
 		quit(1)
 		return
+	if _has_user_argument("--qa-mouse-master=on"):
+		const MouseViewScript = preload("res://src/presentation/entities/mouse_view.gd")
+		MouseViewScript.master_default = true
 	var scene := packed.instantiate()
 	root.add_child(scene)
 	await process_frame
@@ -223,10 +226,15 @@ func _apply_qa_camera_override(scene: Node) -> bool:
 	if not zoom_text.is_empty():
 		camera.zoom = Vector2.ONE * clampf(float(zoom_text), camera.min_zoom, camera.max_zoom)
 	if not focus_text.is_empty():
-		var parts := focus_text.split(",")
-		if parts.size() != 2:
-			push_error("--qa-focus expects x,y cell coordinates")
-			return false
-		camera.focus_cell(Vector2i(int(parts[0]), int(parts[1])), int(scene.get("_logical_cell_size")))
+		var focus_cell_coord := Vector2i.ZERO
+		if focus_text == "start":
+			focus_cell_coord = scene.world_grid.metadata.start_cell
+		else:
+			var parts := focus_text.split(",")
+			if parts.size() != 2:
+				push_error("--qa-focus expects 'start' or x,y cell coordinates")
+				return false
+			focus_cell_coord = Vector2i(int(parts[0]), int(parts[1]))
+		camera.focus_cell(focus_cell_coord, int(scene.get("_logical_cell_size")))
 	camera.reset_smoothing()
 	return true
