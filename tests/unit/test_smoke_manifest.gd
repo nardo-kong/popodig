@@ -10,7 +10,7 @@ func run() -> Array[Dictionary]:
 	_assert_true(document.ok, "Smoke manifest parses")
 	if not document.ok:
 		return results
-	_assert_equal(document.data.get("current_phase"), 7, "Smoke manifest phase is current")
+	_assert_equal(int(document.data.get("current_phase", 0)), 8, "Smoke manifest phase is current")
 	var checks: Array = document.data.get("checks", [])
 	_assert_true(not checks.is_empty(), "Smoke manifest contains checks")
 	var seen_ids: Dictionary = {}

@@ -12,32 +12,35 @@ enum Mode {
 	SIGNAL_SYSTEM,
 	MOISTURE_RAW,
 	WATER_STATE,
+	STABILITY_STATE,
 }
 
 var world_grid
 var feature_registry: FeatureRegistry
 var signal_system
 var water_system
+var stability_system
 var cell_size := 16
 var mode := Mode.NONE
 
 
-func configure(world, registry: FeatureRegistry, logical_cell_size: int, signals = null, water = null) -> void:
+func configure(world, registry: FeatureRegistry, logical_cell_size: int, signals = null, water = null, stability = null) -> void:
 	world_grid = world
 	feature_registry = registry
 	signal_system = signals
 	water_system = water
+	stability_system = stability
 	cell_size = logical_cell_size
 	queue_redraw()
 
 
 func _process(_delta: float) -> void:
-	if visible and mode == Mode.WATER_STATE:
+	if visible and (mode == Mode.WATER_STATE or mode == Mode.STABILITY_STATE):
 		queue_redraw()
 
 
 func cycle_mode() -> String:
-	mode = (mode + 1) % (Mode.WATER_STATE + 1)
+	mode = (mode + 1) % (Mode.STABILITY_STATE + 1)
 	queue_redraw()
 	return get_mode_name()
 
@@ -65,6 +68,8 @@ func set_mode_by_name(mode_name: String) -> bool:
 			mode = Mode.MOISTURE_RAW
 		"water", "water_state", "flow":
 			mode = Mode.WATER_STATE
+		"stability", "stability_state", "collapse", "reinforce":
+			mode = Mode.STABILITY_STATE
 		_:
 			return false
 	queue_redraw()
@@ -92,6 +97,8 @@ func get_mode_name() -> String:
 			return "MOISTURE SIGNAL RAW"
 		Mode.WATER_STATE:
 			return "WATER ACTIVE / FLOW"
+		Mode.STABILITY_STATE:
+			return "STABILITY WARNINGS"
 		_:
 			return "OFF"
 
@@ -118,6 +125,8 @@ func _draw() -> void:
 			_draw_moisture_raw()
 		Mode.WATER_STATE:
 			_draw_water_state()
+		Mode.STABILITY_STATE:
+			_draw_stability_state()
 
 
 func _draw_strata() -> void:
@@ -246,6 +255,33 @@ func _draw_water_state() -> void:
 		var to_center := _cell_center(to_cell)
 		draw_line(from_center, to_center, Color("9cecff"), 2.0)
 		draw_circle(to_center, 2.0, Color("d6f8ff"))
+
+
+func _draw_stability_state() -> void:
+	var thresholds: Array = world_grid.metadata.get("signal_thresholds", {}).get("instability", [35, 60, 80])
+	var colors: Array[Color] = [
+		Color.TRANSPARENT,
+		Color("dfc56c", 0.30),
+		Color("e79b50", 0.42),
+		Color("e95f55", 0.55),
+	]
+	for index: int in range(world_grid.width * world_grid.height):
+		var cell: Vector2i = world_grid.index_to_cell(index)
+		if not world_grid.is_traversable(cell) or world_grid.is_exterior(cell):
+			continue
+		var value: int = int(world_grid.get_stability_base(cell))
+		if value <= 0:
+			continue
+		var band := 1
+		if value >= int(thresholds[2]):
+			band = 3
+		elif value >= int(thresholds[1]):
+			band = 2
+		draw_rect(_cell_rect(cell), colors[band], true)
+	for index: int in range(world_grid.width * world_grid.height):
+		var cell: Vector2i = world_grid.index_to_cell(index)
+		if world_grid.is_reinforced(cell):
+			draw_rect(_cell_rect(cell).grow(-1.0), Color("c9a86a", 0.9), false, 2.0)
 
 
 func _cell_rect(cell: Vector2i) -> Rect2:

@@ -18,6 +18,7 @@ var world_chunk
 var feature_registry
 var water_system
 var seal_system
+var stability_system
 var cell_size := 16
 var show_cell_grid := false
 var redraw_request_count := 0
@@ -52,9 +53,10 @@ func set_grid_visible(value: bool) -> void:
 	request_terrain_redraw()
 
 
-func configure_environment(water, seals) -> void:
+func configure_environment(water, seals, stability = null) -> void:
 	water_system = water
 	seal_system = seals
+	stability_system = stability
 	request_terrain_redraw()
 
 
@@ -114,11 +116,12 @@ func _draw() -> void:
 			_draw_root_information(cell_coord, rect)
 			_draw_water_information(cell_coord, rect)
 			_draw_seal_information(cell_coord, rect)
+			_draw_stability_information(cell_coord, rect)
 			if world_grid.is_protected(cell_coord):
 				draw_rect(rect.grow(-1.0), Color(0.68, 0.66, 0.61, 0.48), false, 1.0)
 			if show_cell_grid:
 				draw_rect(rect, Color(0.9, 0.82, 0.68, 0.12), false, 1.0)
-	world_chunk.consume_dirty(WorldChunkScript.DIRTY_TERRAIN | WorldChunkScript.DIRTY_SIGNALS | WorldChunkScript.DIRTY_WATER)
+	world_chunk.consume_dirty(WorldChunkScript.DIRTY_TERRAIN | WorldChunkScript.DIRTY_SIGNALS | WorldChunkScript.DIRTY_WATER | WorldChunkScript.DIRTY_STABILITY)
 
 
 func _legacy_material_color(material: int, cell_coord: Vector2i) -> Color:
@@ -241,6 +244,52 @@ func _draw_seal_information(cell_coord: Vector2i, rect: Rect2) -> void:
 	if seal_system != null and seal_system.has_request(cell_coord):
 		draw_rect(rect.grow(-2.0), Color("70c5cf", 0.24), true)
 		draw_rect(rect.grow(-2.0), Color("87d9dd", 0.88), false, 1.5)
+
+
+func _draw_stability_information(cell_coord: Vector2i, rect: Rect2) -> void:
+	if world_grid.is_exterior(cell_coord):
+		return
+	# Reinforced roof support (placeholder art until the Phase 11 pass).
+	if world_grid.is_reinforced(cell_coord):
+		draw_line(rect.position + Vector2(2.0, 3.0), Vector2(rect.end.x - 2.0, rect.position.y + 3.0), Color("c9a86a", 0.95), 2.0)
+		draw_line(rect.position + Vector2(4.0, 6.0), rect.position + Vector2(4.0, 11.0), Color("a98b52", 0.85), 1.5)
+		draw_line(Vector2(rect.end.x - 4.0, rect.position.y + 6.0), Vector2(rect.end.x - 4.0, rect.position.y + 11.0), Color("a98b52", 0.85), 1.5)
+	# Warning bands on open cells under a stressed ceiling: crumbs -> cracks ->
+	# critical icon (docs/systems/09 spec stage list; Phase 11 replaces with
+	# particle/animation placeholders).
+	if stability_system != null and stability_system.has_request(cell_coord):
+		draw_rect(rect.grow(-2.0), Color("e5c06a", 0.22), true)
+		draw_rect(rect.grow(-2.0), Color("f2d488", 0.9), false, 1.5)
+	var value: int = int(world_grid.get_stability_base(cell_coord))
+	if value > 0 and world_grid.is_traversable(cell_coord):
+		var thresholds: Array = world_grid.metadata.get("signal_thresholds", {}).get("instability", [35, 60, 80])
+		if value >= int(thresholds[2]):
+			var center := rect.get_center()
+			draw_colored_polygon(PackedVector2Array([
+				Vector2(center.x, center.y - 5.0),
+				Vector2(center.x + 5.0, center.y + 4.0),
+				Vector2(center.x - 5.0, center.y + 4.0),
+			]), Color("ef7c54", 0.92))
+			draw_rect(Rect2(center + Vector2(-0.75, -2.0), Vector2(1.5, 3.5)), Color("2b1d16"), true)
+			draw_rect(Rect2(center + Vector2(-0.75, 2.2), Vector2(1.5, 1.5)), Color("2b1d16"), true)
+		elif value >= int(thresholds[1]):
+			var seed_hash := absi(cell_coord.x * 37039 + cell_coord.y * 65537)
+			for crack: int in range(2):
+				var sway := float((seed_hash >> (crack * 3)) % 5) - 2.0
+				draw_line(
+					rect.position + Vector2(3.0 + crack * 5.0, 2.0),
+					rect.position + Vector2(5.0 + crack * 5.0 + sway, 13.0),
+					Color("d8c49a", 0.62),
+					1.0
+				)
+		elif value >= int(thresholds[0]):
+			var crumb_hash := absi(cell_coord.x * 15487 + cell_coord.y * 3313)
+			for crumb: int in range(3):
+				draw_circle(
+					rect.position + Vector2(float((crumb_hash >> (crumb * 2)) % 12) + 2.0, float((crumb_hash >> (crumb * 3)) % 10) + 3.0),
+					0.9,
+					Color("c9b28a", 0.42)
+				)
 
 
 func _feature_at(cell_coord: Vector2i):

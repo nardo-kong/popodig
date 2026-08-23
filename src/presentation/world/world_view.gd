@@ -34,9 +34,9 @@ func set_grid_visible(value: bool) -> void:
 		chunk_view.set_grid_visible(value)
 
 
-func configure_environment(water_system, seal_system) -> void:
+func configure_environment(water_system, seal_system, stability_system = null) -> void:
 	for chunk_view: WorldChunkView in _chunk_views.values():
-		chunk_view.configure_environment(water_system, seal_system)
+		chunk_view.configure_environment(water_system, seal_system, stability_system)
 
 
 func is_grid_visible() -> bool:
@@ -78,7 +78,7 @@ func _on_chunk_dirtied(chunk_coord: Vector2i, dirty_flags: int) -> void:
 	var chunk_view: WorldChunkView = _chunk_views.get(chunk_coord)
 	if chunk_view == null:
 		return
-	if (dirty_flags & (WorldChunkScript.DIRTY_TERRAIN | WorldChunkScript.DIRTY_SIGNALS | WorldChunkScript.DIRTY_WATER)) != 0:
+	if (dirty_flags & (WorldChunkScript.DIRTY_TERRAIN | WorldChunkScript.DIRTY_SIGNALS | WorldChunkScript.DIRTY_WATER | WorldChunkScript.DIRTY_STABILITY)) != 0:
 		chunk_view.request_terrain_redraw()
 	if (dirty_flags & WorldChunkScript.DIRTY_JOBS) != 0:
 		chunk_view.request_dig_redraw()

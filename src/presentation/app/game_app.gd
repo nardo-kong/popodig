@@ -24,6 +24,7 @@ enum Tool {
 	STORAGE,
 	FOOD_FORAGE,
 	SEAL,
+	REINFORCE,
 }
 
 @onready var world_view: WorldView = %WorldView
@@ -114,11 +115,15 @@ func _ready() -> void:
 	root_feature_system = colony_simulation.get_root_feature_system()
 	water_system = colony_simulation.get_water_system()
 	seal_system = colony_simulation.get_seal_system()
-	world_view.configure_environment(water_system, seal_system)
+	world_view.configure_environment(water_system, seal_system, colony_simulation.get_stability_system())
 	if root_feature_system != null:
 		root_feature_system.feature_reacted.connect(_on_root_feature_reacted)
 	if water_system != null:
 		water_system.reservoir_breached.connect(_on_reservoir_breached)
+	var stability = colony_simulation.get_stability_system()
+	if stability != null:
+		stability.region_collapsed.connect(_on_region_collapsed)
+		stability.critical_warning.connect(_on_critical_warning)
 	_seed_initial_supplies()
 	var mice: Array = colony_simulation.get_mice()
 	mouse_agent = mice[0] if not mice.is_empty() else null
@@ -126,7 +131,7 @@ func _ready() -> void:
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
 	colony_items_view.configure(colony_simulation.get_item_system(), _logical_cell_size)
 	colony_debug_overlay.configure(colony_simulation, _logical_cell_size)
-	worldgen_debug_overlay.configure(world_grid, worldgen_result.feature_registry, _logical_cell_size, signal_system, water_system)
+	worldgen_debug_overlay.configure(world_grid, worldgen_result.feature_registry, _logical_cell_size, signal_system, water_system, colony_simulation.get_stability_system())
 	dig_cursor_view.configure(_logical_cell_size)
 	seed_label.text = "Seed %d · worldgen v%d · VALID · repairs %d" % [seed_value, world_grid.metadata.worldgen_version, world_grid.metadata.repairs.size()]
 	stats_label.text = "%d×%d cells · %d chunks · %.1f KiB · %d features · hash %d" % [
@@ -165,6 +170,9 @@ func _ready() -> void:
 		var phase7_demo := _user_argument_value("--qa-phase7-demo=")
 		if not phase7_demo.is_empty():
 			_setup_qa_water_demo(phase7_demo)
+		var phase8_demo := _user_argument_value("--qa-phase8-demo=")
+		if not phase8_demo.is_empty():
+			_setup_qa_stability_demo(phase8_demo)
 	_update_hud()
 	GameLog.info("WORLDGEN", "Phase 7 water-enabled world generated seed=%d content_hash=%d features=%d repairs=%d mice=%d" % [seed_value, worldgen_result.get_content_hash(), worldgen_result.feature_registry.count(), world_grid.metadata.repairs.size(), mice.size()])
 
@@ -243,11 +251,14 @@ func _handle_tool_shortcut(event: InputEvent) -> bool:
 		KEY_5:
 			_set_tool(Tool.SEAL)
 			return true
+		KEY_6:
+			_set_tool(Tool.REINFORCE)
+			return true
 	return false
 
 
 func _set_tool(tool: int) -> void:
-	_current_tool = clampi(tool, Tool.DIG, Tool.SEAL)
+	_current_tool = clampi(tool, Tool.DIG, Tool.REINFORCE)
 	_end_paint()
 	var zone_type := _current_zone_type()
 	zone_overlay_view.set_editing(_is_zone_tool(), zone_type)
@@ -256,6 +267,8 @@ func _set_tool(tool: int) -> void:
 		_last_feedback = "Choose any legal frontier cell."
 	elif _current_tool == Tool.SEAL:
 		_last_feedback = "Mark an open cell for autonomous sealing."
+	elif _current_tool == Tool.REINFORCE:
+		_last_feedback = "Mark a ceiling cell for autonomous reinforcement."
 	else:
 		_last_feedback = "Paint any legal excavated cell."
 	_hover_feedback = _last_feedback
@@ -315,6 +328,7 @@ func _paint_to(cell_coord: Vector2i) -> void:
 	if cells.is_empty():
 		return
 	var result: Dictionary
+	var stability = colony_simulation.get_stability_system()
 	if _current_tool == Tool.SEAL:
 		var changed: Array[Vector2i] = []
 		var rejected: Array[Dictionary] = []
@@ -324,6 +338,25 @@ func _paint_to(cell_coord: Vector2i) -> void:
 				changed.append(cell)
 			else:
 				rejected.append({"cell": cell, "reason_code": seal_result.reason_code})
+		result = {
+			"ok": not changed.is_empty(),
+			"reason_code": "OK" if not changed.is_empty() else ("NOT_OPEN" if rejected.is_empty() else rejected[0].reason_code),
+			"changed_cells": changed,
+			"rejected": rejected,
+		}
+	elif _current_tool == Tool.REINFORCE:
+		var changed: Array[Vector2i] = []
+		var rejected: Array[Dictionary] = []
+		for cell: Vector2i in cells:
+			var reinforce_result: Dictionary = (
+				stability.cancel_request(cell)
+				if _paint_action == PaintAction.CANCEL
+				else stability.request_reinforce(cell)
+			)
+			if bool(reinforce_result.ok):
+				changed.append(cell)
+			else:
+				rejected.append({"cell": cell, "reason_code": reinforce_result.reason_code})
 		result = {
 			"ok": not changed.is_empty(),
 			"reason_code": "OK" if not changed.is_empty() else ("NOT_OPEN" if rejected.is_empty() else rejected[0].reason_code),
@@ -396,6 +429,17 @@ func _update_cursor() -> void:
 			_hover_feedback = "Seal here; a mouse will bring 1 Material." if valid else _reason_text(reason)
 		dig_cursor_view.set_cursor(cell_coord, true, valid, cancel_mode)
 		return
+	var stability = colony_simulation.get_stability_system()
+	if _current_tool == Tool.REINFORCE and stability != null:
+		var has_request: bool = stability.has_request(cell_coord)
+		var reason_code: String = stability.inspect_request(cell_coord)
+		var valid := has_request if cancel_mode else reason_code == "OK"
+		if cancel_mode:
+			_hover_feedback = "Cancel this pending reinforcement." if has_request else _reason_text("REQUEST_NOT_FOUND")
+		else:
+			_hover_feedback = "Reinforce this ceiling; a mouse will bring 1 Material." if valid else _reason_text(reason_code)
+		dig_cursor_view.set_cursor(cell_coord, true, valid, cancel_mode)
+		return
 	if _is_zone_tool():
 		var zone_system = colony_simulation.get_zone_system()
 		var current_zone: Zone = zone_system.get_zone_at(cell_coord)
@@ -426,8 +470,14 @@ func _update_cursor() -> void:
 
 
 func _update_hud() -> void:
-	dig_status_label.text = "%s · LMB paint · RMB clear  |  dig queued %d · seals %d" % [_tool_name(), dig_system.get_designated_count(), seal_system.get_requests().size()]
-	tool_status_label.text = "1 Dig · 2 Sleep · 3 Storage · 4 Food/Forage · 5 Seal  |  current: %s" % _tool_name()
+	var stability = colony_simulation.get_stability_system()
+	dig_status_label.text = "%s · LMB paint · RMB clear  |  dig queued %d · seals %d · reinforcements %d" % [
+		_tool_name(),
+		dig_system.get_designated_count(),
+		seal_system.get_requests().size(),
+		stability.get_requests().size() if stability != null else 0,
+	]
+	tool_status_label.text = "1 Dig · 2 Sleep · 3 Storage · 4 Food/Forage · 5 Seal · 6 Reinforce  |  current: %s" % _tool_name()
 	var mice: Array = colony_simulation.get_mice()
 	var active_count := 0
 	var carrying_count := 0
@@ -493,6 +543,10 @@ func _update_inspector() -> void:
 			signal_system.get_band_name(signal_system.get_band("moisture", _selected_cell)),
 			signal_system.get_recognition_name("water_reservoir"),
 		]
+	var stability = colony_simulation.get_stability_system()
+	if stability != null and world_grid.is_traversable(_selected_cell):
+		var warning_level: int = stability.get_warning_level(_selected_cell)
+		signal_text += " · Stability %s" % stability.get_warning_level_name(warning_level)
 	var feature_text := "feature %d%s" % [cell.feature_id, " · LANDMARK" if cell.landmark else ""]
 	if cell.feature_id >= 0:
 		var feature = worldgen_result.feature_registry.get_feature(cell.feature_id)
@@ -501,7 +555,7 @@ func _update_inspector() -> void:
 				String(feature.metadata.get("lifecycle_state", "REVEALED")),
 				int(feature.metadata.get("reserve_units", feature.metadata.get("food_reserve_units", 0))),
 			]
-	inspector_label.text = "Cell (%d, %d) · stratum %d\n%s · hardness %.2f · water %d%s\n%s · dig %s %.0f%%%s\n%s\n%s · %s" % [
+	inspector_label.text = "Cell (%d, %d) · stratum %d\n%s · hardness %.2f · water %d%s\n%s · dig %s %.0f%%%s%s\n%s\n%s · %s" % [
 		cell.coord.x,
 		cell.coord.y,
 		cell.stratum_id,
@@ -513,6 +567,7 @@ func _update_inspector() -> void:
 		_dig_state_name(cell.dig_state),
 		cell.dig_progress * 100.0,
 		" · PROTECTED" if cell.protected_cell else "",
+		" · REINFORCED" if cell.reinforced else "",
 		feature_text,
 		signal_text,
 		zone_text,
@@ -528,6 +583,26 @@ func _on_root_feature_reacted(_feature_id: int, reaction: Dictionary) -> void:
 func _on_reservoir_breached(_feature_id: int, _cell: Vector2i, _danger_cells: Array, released_units: int) -> void:
 	_last_feedback = "Reservoir breached: %d unit released. Mice are evacuating; dig drainage or use Seal." % released_units
 	_feedback_seconds_remaining = 6.0
+
+
+func _on_region_collapsed(cells: Array, absorbed_water_units: int) -> void:
+	var water_note := "" if int(absorbed_water_units) <= 0 else " %d water sank into the rubble." % int(absorbed_water_units)
+	_last_feedback = "Local collapse! %d cell%s filled with rubble.%s Reinforce ceilings or dig a narrower route next time." % [
+		cells.size(),
+		"" if cells.size() == 1 else "s",
+		water_note,
+	]
+	_feedback_seconds_remaining = 6.0
+
+
+func _on_critical_warning(cells: Array) -> void:
+	if _feedback_seconds_remaining > 0.0:
+		return
+	_last_feedback = "Critical ceiling warning near cell (%d, %d). Mice are clearing out; reinforce it or let it collapse." % [
+		(cells[0] as Vector2i).x,
+		(cells[0] as Vector2i).y,
+	]
+	_feedback_seconds_remaining = 5.0
 
 
 func _mouse_cell() -> Vector2i:
@@ -818,6 +893,147 @@ func _replay_qa_excavation_witness(witness: Array) -> bool:
 	return true
 
 
+func _setup_qa_stability_demo(requested_mode: String) -> void:
+	var mode := requested_mode.strip_edges().to_lower()
+	var home: Vector2i = world_grid.metadata.start_cell
+	var seam := _find_qa_soft_soil_seam(home)
+	if seam.row < 0:
+		GameLog.failure("QA", "Phase 8 Stability demo found no soft-soil seam")
+		return
+	var span_count: int
+	match mode:
+		"clue":
+			span_count = mini(int(seam.length), 4)
+		"collapse":
+			span_count = mini(int(seam.length), 14)
+		_:
+			span_count = mini(int(seam.length), 9)
+	var goals: Array[Vector2i] = []
+	for index: int in range(span_count):
+		goals.append(Vector2i(int(seam.start) + index, int(seam.row)))
+	var witness := _qa_potential_path(goals)
+	if witness.is_empty() or not _replay_qa_excavation_witness(witness):
+		GameLog.failure("QA", "Phase 8 Stability demo could not excavate a witness span")
+		return
+	for _pass: int in range(goals.size() + 1):
+		var all_done := true
+		var progressed := false
+		for goal: Vector2i in goals:
+			if world_grid.is_traversable(goal):
+				continue
+			all_done = false
+			var work := Vector2i(-1, -1)
+			for neighbor: Vector2i in world_grid.get_cardinal_neighbors(goal):
+				if path_service.is_walkable(neighbor):
+					work = neighbor
+					break
+			if work.x < 0:
+				continue
+			if not bool(dig_system.designate_path([goal]).get("ok", false)):
+				continue
+			var job = dig_system.claim_next("qa_phase8", work)
+			if job == null:
+				continue
+			if bool(dig_system.advance_job("qa_phase8", job.job_id, 10000.0).get("completed", false)):
+				progressed = true
+		if all_done or not progressed:
+			break
+	for _tick: int in range(12):
+		colony_simulation.fixed_tick(0.05)
+	var stability = colony_simulation.get_stability_system()
+	var excavated := 0
+	for goal: Vector2i in goals:
+		if world_grid.is_traversable(goal):
+			excavated += 1
+	if excavated < 3:
+		GameLog.failure("QA", "Phase 8 Stability demo witness span too short")
+		return
+	var tunnel_cells: Array[Vector2i] = []
+	for x: int in range(int(seam.start), int(seam.start) + excavated):
+		tunnel_cells.append(Vector2i(x, int(seam.row)))
+	world_camera.focus_cell(tunnel_cells[tunnel_cells.size() / 2], _logical_cell_size)
+	set_qa_inspector_cell(tunnel_cells[tunnel_cells.size() / 2])
+	_set_tool(Tool.REINFORCE)
+	match mode:
+		"reinforce":
+			var start_cell: Vector2i = world_grid.metadata.start_cell
+			var request_cell := Vector2i(-1, -1)
+			for candidate_cell: Vector2i in tunnel_cells:
+				if String(stability.inspect_request(candidate_cell)) != "OK":
+					continue
+				if path_service.find_path(start_cell, candidate_cell).is_empty():
+					continue
+				request_cell = candidate_cell
+				break
+			if request_cell.x < 0:
+				GameLog.failure("QA", "Phase 8 Reinforce demo found no connected ceiling candidate")
+				return
+			var supply_cell := Vector2i(-1, -1)
+			for neighbor: Vector2i in world_grid.get_cardinal_neighbors(request_cell):
+				if path_service.is_walkable(neighbor):
+					supply_cell = neighbor
+					break
+			colony_simulation.add_item_pile("GENERAL_MATERIAL", supply_cell if supply_cell.x >= 0 else request_cell, 2)
+			var request: Dictionary = colony_simulation.request_reinforce(request_cell)
+			if not bool(request.get("ok", false)):
+				GameLog.failure("QA", "Phase 8 Reinforce demo request rejected: %s" % String(request.get("reason_code", "?")))
+				return
+			for _tick: int in range(1200):
+				colony_simulation.fixed_tick(0.05)
+				if world_grid.is_reinforced(request_cell + Vector2i.UP):
+					break
+			if not world_grid.is_reinforced(request_cell + Vector2i.UP):
+				GameLog.failure("QA", "Phase 8 Reinforce demo never completed autonomously")
+				return
+			for _tick: int in range(40):
+				colony_simulation.fixed_tick(0.05)
+		"collapse":
+			var deadline := 6000
+			var demo_collapsed := false
+			while deadline > 0:
+				colony_simulation.fixed_tick(0.05)
+				deadline -= 1
+				for tunnel_cell: Vector2i in tunnel_cells:
+					if not world_grid.is_traversable(tunnel_cell):
+						demo_collapsed = true
+						break
+				if demo_collapsed:
+					break
+			if not demo_collapsed:
+				GameLog.failure("QA", "Phase 8 Collapse demo never collapsed the over-span")
+				return
+			for _tick: int in range(40):
+				colony_simulation.fixed_tick(0.05)
+		_:
+			pass
+
+
+func _find_qa_soft_soil_seam(home: Vector2i) -> Dictionary:
+	var best := {"row": -1, "start": -1, "length": 0}
+	for candidate_row: int in range(home.y + 4, mini(world_grid.height - 4, home.y + 16)):
+		var length := 0
+		var start := -1
+		for x: int in range(4, world_grid.width - 4):
+			var cell := Vector2i(x, candidate_row)
+			var usable: bool = (
+				world_grid.is_solid(cell)
+				and not world_grid.is_exterior(cell)
+				and not world_grid.is_protected(cell)
+				and world_grid.get_feature_id(cell) < 0
+				and world_grid.get_material(cell) != CellDataScript.TerrainMaterial.STONE
+			)
+			if usable:
+				if start < 0:
+					start = x
+				length += 1
+				if length > int(best.length):
+					best = {"row": candidate_row, "start": start, "length": length}
+			else:
+				length = 0
+				start = -1
+	return best
+
+
 func _find_traversable_cell(anchor: Vector2i, offsets: Array[Vector2i]) -> Vector2i:
 	for offset: Vector2i in offsets:
 		var candidate := anchor + offset
@@ -862,6 +1078,10 @@ func _reason_text(reason_code: String) -> String:
 			return "There is no pending seal to cancel here."
 		"WATER_DISPLACEMENT_BLOCKED":
 			return "Adjacent cells need room before this wet seal can be completed."
+		"NO_ROOF":
+			return "Reinforcement needs solid ceiling directly above."
+		"ALREADY_REINFORCED":
+			return "This ceiling is already reinforced."
 		"NOT_EXCAVATED":
 			return "Zones can only use excavated space."
 		"NOT_CONNECTED":
@@ -923,5 +1143,7 @@ func _tool_name() -> String:
 			return "FOOD/FORAGE ZONE"
 		Tool.SEAL:
 			return "SEAL"
+		Tool.REINFORCE:
+			return "REINFORCE"
 		_:
 			return "DIG"

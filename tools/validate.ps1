@@ -142,6 +142,16 @@ if ($LASTEXITCODE -ne 0) {
     throw "Phase 7 release-clean water lifecycle smoke failed with exit code $LASTEXITCODE"
 }
 
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase8_stability_development.log --script res://tests/phase8_stability_smoke.gd -- --profile=development --expect-debug=true
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 8 development stability lifecycle smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase8_stability_release.log --script res://tests/phase8_stability_smoke.gd -- --profile=release --expect-debug=false
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 8 release-clean stability lifecycle smoke failed with exit code $LASTEXITCODE"
+}
+
 & $Godot --headless --path $ProjectRoot --log-file .godot/phase7_water_benchmark.log --script res://tools/qa/benchmark_phase7_water.gd
 if ($LASTEXITCODE -ne 0) {
     throw "Phase 7 bounded water benchmark failed with exit code $LASTEXITCODE"
@@ -364,6 +374,46 @@ if (-not $SkipScreenshot) {
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 7 release-clean screenshot validation failed with exit code $LASTEXITCODE"
     }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase8_warnings.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase8-demo=warn --output=res://art/qa/screenshots/phase_8_stability_warnings.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 8 stability-warnings screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase8_warnings.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_8_stability_warnings.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 8 stability-warnings screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase8_reinforced.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase8-demo=reinforce --output=res://art/qa/screenshots/phase_8_reinforced_support.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 8 reinforced-support screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase8_reinforced.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_8_reinforced_support.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 8 reinforced-support screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase8_collapse.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase8-demo=collapse --output=res://art/qa/screenshots/phase_8_bounded_collapse.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 8 bounded-collapse screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase8_collapse.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_8_bounded_collapse.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 8 bounded-collapse screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase8_release.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=release --qa-phase8-demo=warn --output=res://art/qa/screenshots/phase_8_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 8 release-clean screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase8_release.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_8_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 8 release-clean screenshot validation failed with exit code $LASTEXITCODE"
+    }
 }
 
 $ValidationLogs = @(
@@ -390,7 +440,9 @@ $ValidationLogs = @(
     "phase6_root_release.log",
     "phase7_water_development.log",
     "phase7_water_release.log",
-    "phase7_water_benchmark.log"
+    "phase7_water_benchmark.log",
+    "phase8_stability_development.log",
+    "phase8_stability_release.log"
 )
 if (-not $SkipScreenshot) {
     $ValidationLogs += @(
@@ -436,7 +488,15 @@ if (-not $SkipScreenshot) {
         "capture_phase7_seal.log",
         "screenshot_validation_phase7_seal.log",
         "capture_phase7_release.log",
-        "screenshot_validation_phase7_release.log"
+        "screenshot_validation_phase7_release.log",
+        "capture_phase8_warnings.log",
+        "screenshot_validation_phase8_warnings.log",
+        "capture_phase8_reinforced.log",
+        "screenshot_validation_phase8_reinforced.log",
+        "capture_phase8_collapse.log",
+        "screenshot_validation_phase8_collapse.log",
+        "capture_phase8_release.log",
+        "screenshot_validation_phase8_release.log"
     )
 }
 
