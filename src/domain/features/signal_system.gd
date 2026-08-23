@@ -139,6 +139,14 @@ func get_qualitative_clue(channel: String, cell: Vector2i) -> String:
 	var band := get_band(channel, cell)
 	if band == Band.NONE:
 		return ""
+	if channel == INSTABILITY:
+		match band:
+			Band.WEAK:
+				return "Soil crumbs drift down here."
+			Band.NOTICEABLE:
+				return "Cracks creep along this ceiling."
+			_:
+				return "Critical: this ceiling could collapse!"
 	if channel == MOISTURE:
 		var moisture_level := get_recognition_level(WATER_CATEGORY)
 		if moisture_level == RecognitionLevel.UNKNOWN:

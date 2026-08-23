@@ -11,6 +11,7 @@ const SignalSystemScript = preload("res://src/domain/features/signal_system.gd")
 const RootFeatureSystemScript = preload("res://src/domain/features/root_feature_system.gd")
 const WaterSystemScript = preload("res://src/domain/features/water_system.gd")
 const SealSystemScript = preload("res://src/domain/features/seal_system.gd")
+const StabilitySystemScript = preload("res://src/domain/features/stability_system.gd")
 
 var _world
 var _path_service
@@ -23,6 +24,8 @@ var _signal_system
 var _root_feature_system
 var _water_system
 var _seal_system
+var _stability_system
+var _item_damage_fraction := 0.25
 var _mice: Array[MouseAgent] = []
 var _storage_capacity_per_cell := 12
 var _emergency_relocation_piles: Dictionary = {}
@@ -77,6 +80,23 @@ func configure(
 		_water_system.reservoir_breached.connect(_on_reservoir_breached)
 		_water_system.danger_cleared.connect(recover_from_danger)
 	_seal_system.configure(_world, _water_system)
+	var stability_balance: Dictionary = _balance.get("stability", {})
+	_item_damage_fraction = clampf(float(stability_balance.get("item_damage_fraction", 0.25)), 0.0, 1.0)
+	_stability_system = StabilitySystemScript.new()
+	var instability_config: Dictionary = worldgen_config.get("signal_fields", {}).get("instability", {})
+	_stability_system.configure(
+		_world,
+		feature_registry,
+		_dig_system,
+		_water_system,
+		_balance,
+		instability_config.get("thresholds", [])
+	)
+	_stability_system.critical_warning.connect(_on_critical_warning)
+	_stability_system.region_collapsed.connect(_on_region_collapsed)
+	_stability_system.danger_cleared.connect(recover_from_danger)
+	_dig_system.set_hazard_filter(_stability_system.is_job_blocked)
+	_job_system.set_hazard_filter(_stability_system.is_job_blocked)
 	var zones_balance: Dictionary = _balance.get("zones", {})
 	_storage_capacity_per_cell = maxi(1, int(zones_balance.get("storage_capacity_per_cell", 12)))
 	_emergency_relocation_piles.clear()
@@ -98,6 +118,8 @@ func fixed_tick(delta_seconds: float) -> Array[Dictionary]:
 		return results
 	if _water_system != null:
 		_water_system.fixed_tick(delta_seconds)
+	if _stability_system != null:
+		_stability_system.fixed_tick(delta_seconds)
 	_synchronize_zone_state()
 	if _root_feature_system != null:
 		_root_feature_system.fixed_tick(delta_seconds)
@@ -117,7 +139,7 @@ func add_mouse(mouse_id: String, cell: Vector2i):
 	var home_cell := cell if not start_value is Vector2i else start_value as Vector2i
 	mouse.configure_colony(_job_system, _item_system, home_cell, _balance)
 	mouse.configure_zones(_zone_system, _balance)
-	mouse.configure_environment(_seal_system)
+	mouse.configure_environment(_seal_system, _stability_system)
 	_mice.append(mouse)
 	return mouse
 
@@ -172,8 +194,18 @@ func get_seal_system():
 	return _seal_system
 
 
+func get_stability_system():
+	return _stability_system
+
+
 func request_seal(cell: Vector2i) -> Dictionary:
 	return _seal_system.request_seal(cell)
+
+
+func request_reinforce(cell: Vector2i) -> Dictionary:
+	if _stability_system == null:
+		return {"ok": false, "reason_code": "STABILITY_SYSTEM_UNAVAILABLE", "request_id": -1, "cell": cell}
+	return _stability_system.request_reinforce(cell)
 
 
 func add_item_pile(item_type: String, cell: Vector2i, count: int) -> int:
@@ -193,19 +225,6 @@ func trigger_danger(danger_cells: Array, safe_cell: Vector2i = Vector2i(-1, -1))
 
 func recover_from_danger() -> void:
 	for mouse: MouseAgent in _mice:
-		mouse.recover_from_danger()
-
-
-func _recover_mice_that_finished_water_escape() -> void:
-	if _water_system == null or not _water_system.is_danger_active():
-		return
-	for mouse: MouseAgent in _mice:
-		if not mouse.danger_state:
-			continue
-		if mouse.get_state_name() != "FLEEING":
-			continue
-		if _water_system.is_cell_in_danger_region(mouse.current_cell):
-			continue
 		mouse.recover_from_danger()
 
 
@@ -233,11 +252,13 @@ func _synchronize_zone_state() -> void:
 	_prune_emergency_relocation_piles()
 	_cancel_invalid_zone_jobs()
 	_cancel_invalid_seal_jobs()
+	_cancel_invalid_reinforce_jobs()
 	_sync_storage_references()
 	for request: Dictionary in _zone_system.consume_invalidated_storage_requests():
 		_emergency_relocation_piles[int(request.pile_id)] = bool(request.emergency)
 	_enqueue_zone_setup_jobs()
 	_enqueue_seal_jobs()
+	_enqueue_reinforce_jobs()
 	_enqueue_storage_jobs()
 
 
@@ -245,6 +266,59 @@ func _cancel_invalid_seal_jobs() -> void:
 	for job: ColonyJob in _job_system.get_jobs():
 		if job.job_type == ColonyJobScript.Type.SEAL and not _seal_system.has_request(job.action_cell):
 			_job_system.cancel(job.job_id)
+
+
+func _cancel_invalid_reinforce_jobs() -> void:
+	if _stability_system == null:
+		return
+	for job: ColonyJob in _job_system.get_jobs():
+		if job.job_type == ColonyJobScript.Type.REINFORCE and not _stability_system.has_request(job.action_cell):
+			_job_system.cancel(job.job_id)
+
+
+func _enqueue_reinforce_jobs() -> void:
+	if _stability_system == null:
+		return
+	for request: Dictionary in _stability_system.get_requests():
+		var reinforce_cell: Vector2i = request.cell
+		var already_enqueued := false
+		for job: ColonyJob in _job_system.get_jobs():
+			if job.job_type == ColonyJobScript.Type.REINFORCE and job.action_cell == reinforce_cell:
+				already_enqueued = true
+				break
+		if already_enqueued:
+			continue
+		var candidates: Array[Dictionary] = []
+		for pile: ItemPile in _item_system.get_piles():
+			if pile.item_type != ItemSystemScript.GENERAL_MATERIAL or pile.available_count() < int(request.material_required):
+				continue
+			for work_cell: Vector2i in _world.get_cardinal_neighbors(reinforce_cell):
+				if not _path_service.is_walkable(work_cell) or work_cell == reinforce_cell:
+					continue
+				var route: Array[Vector2i] = _path_service.find_path(pile.cell, work_cell)
+				if route.is_empty():
+					continue
+				candidates.append({
+					"pile_id": pile.pile_id,
+					"work_cell": work_cell,
+					"distance": route.size() - 1,
+				})
+		candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			if int(a.distance) != int(b.distance):
+				return int(a.distance) < int(b.distance)
+			if int(a.pile_id) != int(b.pile_id):
+				return int(a.pile_id) < int(b.pile_id)
+			return _world.cell_to_index(a.work_cell) < _world.cell_to_index(b.work_cell)
+		)
+		for candidate: Dictionary in candidates:
+			var job = _job_system.enqueue_reinforce(
+				int(candidate.pile_id),
+				candidate.work_cell,
+				reinforce_cell,
+				int(request.material_required)
+			)
+			if job != null:
+				break
 
 
 func _enqueue_seal_jobs() -> void:
@@ -292,6 +366,81 @@ func _enqueue_seal_jobs() -> void:
 
 func _on_reservoir_breached(_feature_id: int, _cell: Vector2i, danger_cells: Array, _released_units: int) -> void:
 	trigger_danger(danger_cells)
+
+
+func _on_critical_warning(cells: Array) -> void:
+	for mouse: MouseAgent in _mice:
+		if cells.has(mouse.current_cell):
+			mouse.trigger_danger(cells)
+
+
+func _on_region_collapsed(cells: Array, _absorbed_water_units: int) -> void:
+	var collapsed: Dictionary = {}
+	for cell_value: Variant in cells:
+		if cell_value is Vector2i:
+			collapsed[cell_value as Vector2i] = true
+	for pile: ItemPile in _item_system.get_piles():
+		if pile.count <= 0 or not collapsed.has(pile.cell):
+			continue
+		var stored_pile: ItemPile = _item_system.get_pile(pile.pile_id)
+		if stored_pile == null:
+			continue
+		var survivors := maxi(0, stored_pile.count - ceili(float(stored_pile.count) * _item_damage_fraction))
+		stored_pile.reserved_count = mini(stored_pile.reserved_count, survivors)
+		stored_pile.count = survivors
+		if survivors <= 0:
+			continue
+		var relocated := Vector2i(-1, -1)
+		for neighbor: Vector2i in _world.get_cardinal_neighbors(pile.cell):
+			if collapsed.has(neighbor) or not _item_system.can_accept_unreserved_dropoff(neighbor, survivors):
+				continue
+			relocated = neighbor
+			break
+		if relocated.x < 0:
+			relocated = _nearest_walkable_cell(pile.cell)
+		if relocated.x >= 0:
+			stored_pile.cell = relocated
+	for mouse: MouseAgent in _mice:
+		if not collapsed.has(mouse.current_cell):
+			continue
+		var safe_cell := _nearest_walkable_cell(mouse.current_cell)
+		if safe_cell.x < 0:
+			continue
+		mouse.current_cell = safe_cell
+	for mouse: MouseAgent in _mice:
+		if collapsed.has(mouse.current_cell):
+			mouse.trigger_danger(cells)
+
+
+func _nearest_walkable_cell(from_cell: Vector2i) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_distance := 2147483647
+	for index: int in range(_world.width * _world.height):
+		var candidate: Vector2i = _world.index_to_cell(index)
+		if not _path_service.is_walkable(candidate):
+			continue
+		var distance := absi(candidate.x - from_cell.x) + absi(candidate.y - from_cell.y)
+		if distance < best_distance:
+			best = candidate
+			best_distance = distance
+	return best
+
+
+func _recover_mice_that_finished_water_escape() -> void:
+	var water_active: bool = _water_system != null and _water_system.is_danger_active()
+	var stability_active: bool = _stability_system != null and _stability_system.is_danger_active()
+	if not water_active and not stability_active:
+		return
+	for mouse: MouseAgent in _mice:
+		if not mouse.danger_state:
+			continue
+		if mouse.get_state_name() != "FLEEING":
+			continue
+		if water_active and _water_system.is_cell_in_danger_region(mouse.current_cell):
+			continue
+		if stability_active and _stability_system.is_cell_in_danger_region(mouse.current_cell):
+			continue
+		mouse.recover_from_danger()
 
 
 func _cancel_invalid_zone_jobs() -> void:

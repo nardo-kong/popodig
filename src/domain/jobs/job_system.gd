@@ -20,7 +20,9 @@ var _unreachable_retry_seconds := 2.0
 var _haul_priority := 20.0
 var _zone_setup_priority := 15.0
 var _seal_priority := 35.0
+var _reinforce_priority := 30.0
 var _emergency_priority := 100.0
+var _hazard_filter: Callable = Callable()
 var _completed_count := 0
 
 
@@ -41,7 +43,16 @@ func configure(path_service, item_system, balance: Dictionary = {}) -> void:
 	_haul_priority = float(jobs.get("haul_priority", 20.0))
 	_zone_setup_priority = float(jobs.get("zone_setup_priority", 15.0))
 	_seal_priority = float(jobs.get("seal_priority", 35.0))
+	_reinforce_priority = float(jobs.get("reinforce_priority", 30.0))
 	_emergency_priority = float(jobs.get("emergency_priority", 100.0))
+
+
+func set_hazard_filter(filter: Callable) -> void:
+	_hazard_filter = filter
+
+
+func _is_hazard_blocked(cell: Vector2i) -> bool:
+	return _hazard_filter.is_valid() and bool(_hazard_filter.call(cell))
 
 
 func enqueue_haul(
@@ -137,6 +148,29 @@ func enqueue_seal(source_pile_id: int, work_cell: Vector2i, seal_cell: Vector2i,
 	return job
 
 
+func enqueue_reinforce(source_pile_id: int, work_cell: Vector2i, reinforce_cell: Vector2i, count: int = 1):
+	if _item_system == null or count <= 0:
+		return null
+	var source_pile: ItemPile = _item_system.get_pile(source_pile_id)
+	if source_pile == null or source_pile.item_type != ItemSystemScript.GENERAL_MATERIAL:
+		return null
+	if _committed_source_count(source_pile_id) + count > source_pile.count:
+		return null
+	var job := ColonyJobScript.new()
+	job.job_id = _next_job_id
+	_next_job_id += 1
+	job.job_type = ColonyJobScript.Type.REINFORCE
+	job.priority = _reinforce_priority
+	job.source_pile_id = source_pile_id
+	job.target_cell = work_cell
+	job.action_cell = reinforce_cell
+	job.item_type = ItemSystemScript.GENERAL_MATERIAL
+	job.item_count = count
+	_jobs[job.job_id] = job
+	job_changed.emit(job.job_id, job.state)
+	return job
+
+
 func claim_best(worker_id: String, worker_cell: Vector2i, needs: Dictionary = {}):
 	if worker_id.is_empty() or _path_service == null or _item_system == null:
 		return null
@@ -157,6 +191,12 @@ func claim_best(worker_id: String, worker_cell: Vector2i, needs: Dictionary = {}
 			continue
 		if pile.available_count() < job.item_count:
 			continue
+		var reinforces_hazard := job.job_type == ColonyJobScript.Type.REINFORCE
+		if not reinforces_hazard:
+			if _is_hazard_blocked(job.target_cell):
+				continue
+			if job.action_cell.x >= 0 and _is_hazard_blocked(job.action_cell):
+				continue
 		var cooldown_key := _cooldown_key(worker_id, job.job_id)
 		if float(_cooldown_until.get(cooldown_key, 0.0)) > _time_seconds:
 			continue

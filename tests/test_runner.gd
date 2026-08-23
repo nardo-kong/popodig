@@ -7,6 +7,7 @@ const TEST_SCRIPTS: PackedStringArray = [
 	"res://tests/unit/test_structured_worldgen.gd",
 	"res://tests/unit/test_signal_system.gd",
 	"res://tests/unit/test_water_system.gd",
+	"res://tests/unit/test_stability_system.gd",
 	"res://tests/unit/test_terrain_atlas.gd",
 	"res://tests/integration/test_exterior_semantics.gd",
 	"res://tests/unit/test_dig_system.gd",
@@ -17,6 +18,7 @@ const TEST_SCRIPTS: PackedStringArray = [
 	"res://tests/integration/test_zone_colony_flow.gd",
 	"res://tests/integration/test_root_feature_flow.gd",
 	"res://tests/integration/test_seal_colony_flow.gd",
+	"res://tests/integration/test_stability_colony_flow.gd",
 	"res://tests/integration/test_water_colony_flow.gd",
 ]
 
@@ -28,6 +30,7 @@ const COMPILE_GATES: PackedStringArray = [
 	"res://src/domain/features/root_feature_system.gd",
 	"res://src/domain/features/water_system.gd",
 	"res://src/domain/features/seal_system.gd",
+	"res://src/domain/features/stability_system.gd",
 	"res://src/presentation/world/world_chunk_view.gd",
 	"res://src/presentation/debug/worldgen_debug_overlay.gd",
 	"res://src/domain/zones/zone_system.gd",

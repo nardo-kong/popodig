@@ -29,6 +29,7 @@
     "haul_priority": 20.0,
     "emergency_priority": 100.0,
     "seal_priority": 35.0,
+    "reinforce_priority": 30.0,
     "travel_cost_weight": 0.25,
     "unreachable_retry_seconds": 2.0
   },
@@ -50,5 +51,16 @@
     "storage_capacity_per_cell": 12,
     "sleeping_capacity_per_cell": 1,
     "dry_water_max_units": 0
+  },
+  "stability": {
+    "span_short": 6,
+    "span_moderate": 12,
+    "span_high": 24,
+    "crumbs_ratio": 0.6,
+    "cracking_ratio": 0.85,
+    "critical_grace_seconds": 8.0,
+    "max_collapse_radius": 3,
+    "reinforce_material_per_cell": 1,
+    "item_damage_fraction": 0.25
   }
 }

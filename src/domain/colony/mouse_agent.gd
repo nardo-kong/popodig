@@ -49,6 +49,7 @@ var _job_system
 var _item_system
 var _zone_system
 var _seal_system
+var _stability_system
 var _needs_enabled := false
 var _home_cell := Vector2i(-1, -1)
 var _sleep_zone_id := -1
@@ -93,6 +94,7 @@ func configure(world_grid, path_service, dig_system, balance: Dictionary = {}) -
 	_item_system = null
 	_zone_system = null
 	_seal_system = null
+	_stability_system = null
 	_needs_enabled = false
 	_apply_balance(balance)
 	_reset_action()
@@ -117,8 +119,9 @@ func configure_zones(zone_system, balance: Dictionary = {}) -> void:
 	_sleeping_capacity_per_cell = maxi(1, int(zones.get("sleeping_capacity_per_cell", 1)))
 
 
-func configure_environment(seal_system) -> void:
+func configure_environment(seal_system, stability_system = null) -> void:
 	_seal_system = seal_system
+	_stability_system = stability_system
 
 
 func fixed_tick(delta_seconds: float) -> Dictionary:
@@ -457,6 +460,21 @@ func _advance_hauling() -> Dictionary:
 		_job_system.complete(mouse_id, _current_general_job.job_id)
 		_reset_action()
 		return _tick_result(true, "SEAL_COMPLETED")
+	if _current_general_job.job_type == ColonyJobScript.Type.REINFORCE:
+		var reinforce_result: Dictionary = (
+			{"ok": false, "reason_code": "STABILITY_SYSTEM_UNAVAILABLE"}
+			if _stability_system == null
+			else _stability_system.complete_reinforcement(_current_general_job.action_cell, carried_item_count)
+		)
+		if not reinforce_result.ok:
+			_cancel_carried_job()
+			_reset_action()
+			return _tick_result(false, String(reinforce_result.reason_code))
+		carried_item_type = ""
+		carried_item_count = 0
+		_job_system.complete(mouse_id, _current_general_job.job_id)
+		_reset_action()
+		return _tick_result(true, "REINFORCE_COMPLETED")
 	var dropoff: Dictionary
 	if _current_general_job.dropoff_reservation_id >= 0:
 		dropoff = _job_system.complete_reserved_dropoff(

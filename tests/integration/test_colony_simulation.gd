@@ -290,6 +290,7 @@ func _balance(mouse_count: int) -> Dictionary:
 			"unreachable_retry_seconds": 2.0,
 		},
 		"pathfinding": {"max_walkable_water_units": 1},
+		"stability": {"span_short": 99, "span_moderate": 99, "span_high": 99},
 	}
 
 

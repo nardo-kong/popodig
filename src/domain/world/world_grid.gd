@@ -19,6 +19,7 @@ const CELL_FLAG_PROTECTED := 1
 const CELL_FLAG_EXTERIOR := 2
 const CELL_FLAG_LANDMARK := 4
 const CELL_FLAG_SEALED := 32
+const CELL_FLAG_REINFORCED := 64
 const CELL_FLAG_STRATUM_SHIFT := 3
 const CELL_FLAG_STRATUM_MASK := 24
 
@@ -94,6 +95,7 @@ func get_cell(cell_coord: Vector2i) -> CellData:
 	cell.protected_cell = (_cell_flags[index] & CELL_FLAG_PROTECTED) != 0
 	cell.exterior = (_cell_flags[index] & CELL_FLAG_EXTERIOR) != 0
 	cell.sealed = (_cell_flags[index] & CELL_FLAG_SEALED) != 0
+	cell.reinforced = (_cell_flags[index] & CELL_FLAG_REINFORCED) != 0
 	return cell
 
 
@@ -289,6 +291,26 @@ func set_sealed(cell_coord: Vector2i, value: bool) -> bool:
 	return true
 
 
+func is_reinforced(cell_coord: Vector2i) -> bool:
+	var index := cell_to_index(cell_coord)
+	return index >= 0 and (_cell_flags[index] & CELL_FLAG_REINFORCED) != 0
+
+
+func set_reinforced(cell_coord: Vector2i, value: bool) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or _excavated[index] == 1:
+		return false
+	var current := (_cell_flags[index] & CELL_FLAG_REINFORCED) != 0
+	if current == value:
+		return false
+	if value:
+		_cell_flags[index] |= CELL_FLAG_REINFORCED
+	else:
+		_cell_flags[index] &= ~CELL_FLAG_REINFORCED
+	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_STABILITY)
+	return true
+
+
 func set_dig_state(cell_coord: Vector2i, state: int) -> bool:
 	var index := cell_to_index(cell_coord)
 	if index < 0 or state < CellDataScript.DigState.NONE or state > CellDataScript.DigState.ACTIVE:
@@ -432,7 +454,7 @@ func complete_excavation_atomic(cell_coord: Vector2i) -> bool:
 	if (_cell_flags[index] & CELL_FLAG_SEALED) != 0:
 		if _dig_state[index] == CellDataScript.DigState.NONE:
 			return false
-		_cell_flags[index] &= ~CELL_FLAG_SEALED
+		_cell_flags[index] &= ~(CELL_FLAG_SEALED | CELL_FLAG_REINFORCED)
 		_dig_state[index] = CellDataScript.DigState.NONE
 		_dig_progress[index] = 0.0
 		_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_WATER | CHANGE_PATHING | CHANGE_STABILITY | CHANGE_DIG)
@@ -443,6 +465,7 @@ func complete_excavation_atomic(cell_coord: Vector2i) -> bool:
 		return false
 	if _dig_state[index] == CellDataScript.DigState.NONE:
 		return false
+	_cell_flags[index] &= ~CELL_FLAG_REINFORCED
 	_excavated[index] = 1
 	_dig_state[index] = CellDataScript.DigState.NONE
 	_dig_progress[index] = 0.0

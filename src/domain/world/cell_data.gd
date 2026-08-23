@@ -34,6 +34,7 @@ var zone_id := -1
 var protected_cell := false
 var exterior := false
 var sealed := false
+var reinforced := false
 
 
 func is_solid() -> bool:

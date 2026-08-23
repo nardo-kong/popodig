@@ -33,6 +33,15 @@ var _next_job_id := 1
 var _colony_reachable: Dictionary = {}
 var _colony_topology_revision := -1
 var _cached_colony_anchor := Vector2i(-1, -1)
+var _hazard_filter: Callable = Callable()
+
+
+func set_hazard_filter(filter: Callable) -> void:
+	_hazard_filter = filter
+
+
+func _is_hazard_blocked(cell: Vector2i) -> bool:
+	return _hazard_filter.is_valid() and bool(_hazard_filter.call(cell))
 
 
 func configure(world_grid, path_service, balance: Dictionary = {}) -> void:
@@ -137,6 +146,8 @@ func derive_frontier_jobs(worker_cell: Vector2i) -> Array[DigJob]:
 			continue
 		var work_result := _find_best_work_cell(cell, distances)
 		if not work_result.found:
+			continue
+		if _is_hazard_blocked(work_result.cell):
 			continue
 		var candidate: DigJob = job.snapshot()
 		candidate.work_cell = work_result.cell
