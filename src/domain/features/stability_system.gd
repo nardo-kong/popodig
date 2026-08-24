@@ -516,6 +516,7 @@ func _perform_collapse(expired_seeds: Array[Vector2i]) -> void:
 			_deadlines.erase(cell)
 			_note_critical_removed(cell)
 			_world.set_stability_base(cell, 0)
+			_world.set_rubble(cell, true)
 			filled.append(cell)
 	_collapsed_cells_total += filled.size()
 	if not filled.is_empty():

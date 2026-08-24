@@ -555,7 +555,7 @@ func _update_inspector() -> void:
 				String(feature.metadata.get("lifecycle_state", "REVEALED")),
 				int(feature.metadata.get("reserve_units", feature.metadata.get("food_reserve_units", 0))),
 			]
-	inspector_label.text = "Cell (%d, %d) · stratum %d\n%s · hardness %.2f · water %d%s\n%s · dig %s %.0f%%%s%s\n%s\n%s · %s" % [
+	inspector_label.text = "Cell (%d, %d) · stratum %d\n%s · hardness %.2f · water %d%s%s\n%s · dig %s %.0f%%%s%s\n%s\n%s · %s" % [
 		cell.coord.x,
 		cell.coord.y,
 		cell.stratum_id,
@@ -563,6 +563,7 @@ func _update_inspector() -> void:
 		cell.hardness,
 		cell.water_units,
 		" · SEALED" if cell.sealed else "",
+		" · RUBBLE" if cell.rubble else "",
 		"EXTERIOR" if cell.is_exterior() else ("Excavated" if cell.is_traversable() else "Solid"),
 		_dig_state_name(cell.dig_state),
 		cell.dig_progress * 100.0,
@@ -957,36 +958,43 @@ func _setup_qa_stability_demo(requested_mode: String) -> void:
 	match mode:
 		"reinforce":
 			var start_cell: Vector2i = world_grid.metadata.start_cell
-			var request_cell := Vector2i(-1, -1)
+			var request_cells: Array[Vector2i] = []
 			for candidate_cell: Vector2i in tunnel_cells:
 				if String(stability.inspect_request(candidate_cell)) != "OK":
 					continue
 				if path_service.find_path(start_cell, candidate_cell).is_empty():
 					continue
-				request_cell = candidate_cell
-				break
-			if request_cell.x < 0:
+				request_cells.append(candidate_cell)
+			if request_cells.is_empty():
 				GameLog.failure("QA", "Phase 8 Reinforce demo found no connected ceiling candidate")
 				return
-			var supply_cell := Vector2i(-1, -1)
-			for neighbor: Vector2i in world_grid.get_cardinal_neighbors(request_cell):
+			var supply_cell: Vector2i = world_grid.metadata.start_cell
+			for neighbor: Vector2i in world_grid.get_cardinal_neighbors(request_cells[0]):
 				if path_service.is_walkable(neighbor):
 					supply_cell = neighbor
 					break
-			colony_simulation.add_item_pile("GENERAL_MATERIAL", supply_cell if supply_cell.x >= 0 else request_cell, 2)
-			var request: Dictionary = colony_simulation.request_reinforce(request_cell)
-			if not bool(request.get("ok", false)):
-				GameLog.failure("QA", "Phase 8 Reinforce demo request rejected: %s" % String(request.get("reason_code", "?")))
-				return
-			for _tick: int in range(1200):
+			colony_simulation.add_item_pile("GENERAL_MATERIAL", supply_cell, request_cells.size() + 1)
+			for request_cell: Vector2i in request_cells:
+				var request: Dictionary = colony_simulation.request_reinforce(request_cell)
+				if not bool(request.get("ok", false)):
+					GameLog.failure("QA", "Phase 8 Reinforce demo request rejected: %s" % String(request.get("reason_code", "?")))
+					return
+			var reinforced_count := 0
+			for _tick: int in range(2400):
 				colony_simulation.fixed_tick(0.05)
-				if world_grid.is_reinforced(request_cell + Vector2i.UP):
+				reinforced_count = 0
+				for request_cell: Vector2i in request_cells:
+					if world_grid.is_reinforced(request_cell + Vector2i.UP):
+						reinforced_count += 1
+				if reinforced_count == request_cells.size():
 					break
-			if not world_grid.is_reinforced(request_cell + Vector2i.UP):
-				GameLog.failure("QA", "Phase 8 Reinforce demo never completed autonomously")
+			if reinforced_count < request_cells.size():
+				GameLog.failure("QA", "Phase 8 Reinforce demo completed %d/%d supports" % [reinforced_count, request_cells.size()])
 				return
-			for _tick: int in range(40):
+			for _tick: int in range(80):
 				colony_simulation.fixed_tick(0.05)
+			_last_feedback = "Reinforcement complete: %d supports stabilized the span." % request_cells.size()
+			_feedback_seconds_remaining = 30.0
 		"collapse":
 			var deadline := 6000
 			var demo_collapsed := false

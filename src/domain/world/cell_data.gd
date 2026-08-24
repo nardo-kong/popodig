@@ -35,6 +35,7 @@ var protected_cell := false
 var exterior := false
 var sealed := false
 var reinforced := false
+var rubble := false
 
 
 func is_solid() -> bool:

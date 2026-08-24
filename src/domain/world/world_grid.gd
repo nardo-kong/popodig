@@ -20,6 +20,7 @@ const CELL_FLAG_EXTERIOR := 2
 const CELL_FLAG_LANDMARK := 4
 const CELL_FLAG_SEALED := 32
 const CELL_FLAG_REINFORCED := 64
+const CELL_FLAG_RUBBLE := 128
 const CELL_FLAG_STRATUM_SHIFT := 3
 const CELL_FLAG_STRATUM_MASK := 24
 
@@ -96,6 +97,7 @@ func get_cell(cell_coord: Vector2i) -> CellData:
 	cell.exterior = (_cell_flags[index] & CELL_FLAG_EXTERIOR) != 0
 	cell.sealed = (_cell_flags[index] & CELL_FLAG_SEALED) != 0
 	cell.reinforced = (_cell_flags[index] & CELL_FLAG_REINFORCED) != 0
+	cell.rubble = (_cell_flags[index] & CELL_FLAG_RUBBLE) != 0
 	return cell
 
 
@@ -242,6 +244,8 @@ func set_excavated(cell_coord: Vector2i, value: bool, allow_protected: bool = fa
 	if _excavated[index] == encoded:
 		return false
 	_excavated[index] = encoded
+	if value:
+		_cell_flags[index] &= ~CELL_FLAG_RUBBLE
 	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_PATHING | CHANGE_STABILITY)
 	return true
 
@@ -308,6 +312,26 @@ func set_reinforced(cell_coord: Vector2i, value: bool) -> bool:
 	else:
 		_cell_flags[index] &= ~CELL_FLAG_REINFORCED
 	_mark_cell_changed(cell_coord, CHANGE_TERRAIN | CHANGE_STABILITY)
+	return true
+
+
+func is_rubble(cell_coord: Vector2i) -> bool:
+	var index := cell_to_index(cell_coord)
+	return index >= 0 and (_cell_flags[index] & CELL_FLAG_RUBBLE) != 0
+
+
+func set_rubble(cell_coord: Vector2i, value: bool) -> bool:
+	var index := cell_to_index(cell_coord)
+	if index < 0 or _excavated[index] == 1:
+		return false
+	var current := (_cell_flags[index] & CELL_FLAG_RUBBLE) != 0
+	if current == value:
+		return false
+	if value:
+		_cell_flags[index] |= CELL_FLAG_RUBBLE
+	else:
+		_cell_flags[index] &= ~CELL_FLAG_RUBBLE
+	_mark_cell_changed(cell_coord, CHANGE_TERRAIN)
 	return true
 
 

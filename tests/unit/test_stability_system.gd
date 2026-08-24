@@ -50,6 +50,12 @@ func _test_weak_over_span_warns_then_collapses() -> void:
 	_assert_true(not collapsed_cells.is_empty(), "A deliberately ignored critical span collapses after the grace period")
 	for x: int in range(3, 11):
 		_assert_true(not context.grid.is_excavated(Vector2i(x, 4)), "Collapsed rubble refills the excavated span (x=%d)" % x)
+		_assert_true(context.grid.is_rubble(Vector2i(x, 4)), "Collapsed cells keep a legible rubble marker (x=%d)" % x)
+	_assert_true(not context.grid.is_rubble(Vector2i(3, 6)), "Never-excavated terrain carries no rubble marker")
+	var reopened: bool = context.grid.set_excavated(Vector2i(5, 4), true, true)
+	_assert_true(reopened, "Ordinary dig can reopen a collapsed rubble cell")
+	_assert_true(context.grid.is_traversable(Vector2i(5, 4)), "Reopened rubble cell is traversable")
+	_assert_true(not context.grid.is_rubble(Vector2i(5, 4)), "Reopening a rubble cell clears the rubble marker")
 
 
 func _test_reinforcement_prevents_collapse() -> void:

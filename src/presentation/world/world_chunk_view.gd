@@ -249,6 +249,17 @@ func _draw_seal_information(cell_coord: Vector2i, rect: Rect2) -> void:
 func _draw_stability_information(cell_coord: Vector2i, rect: Rect2) -> void:
 	if world_grid.is_exterior(cell_coord):
 		return
+	# Collapsed rubble keeps the resolved area legible (docs/systems/09 spec §8):
+	# rough speckle over the refilled solid cells, distinct from natural terrain.
+	if world_grid.is_rubble(cell_coord) and not world_grid.is_traversable(cell_coord):
+		var rubble_hash := absi(cell_coord.x * 2246822519 + cell_coord.y * 3266489917)
+		for speck: int in range(6):
+			var sx := float((rubble_hash >> (speck * 4)) % 12) + 2.0
+			var sy := float((rubble_hash >> (speck * 5 + 3)) % 11) + 2.0
+			var radius := 0.8 + float((rubble_hash >> (speck * 2)) % 3) * 0.3
+			var tone := Color("9c8568", 0.72) if (rubble_hash >> speck) & 1 == 0 else Color("453424", 0.72)
+			draw_circle(rect.position + Vector2(sx, sy), radius, tone)
+		draw_rect(rect.grow(-1.0), Color("5d4934", 0.5), false, 1.0)
 	# Reinforced roof support (placeholder art until the Phase 11 pass).
 	if world_grid.is_reinforced(cell_coord):
 		draw_line(rect.position + Vector2(2.0, 3.0), Vector2(rect.end.x - 2.0, rect.position.y + 3.0), Color("c9a86a", 0.95), 2.0)
