@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ch6tcy0jmv3a1"
-path="res://.godot/imported/LooseSoil-removebg-preview.png-9c8653344ace548b5ba138044c96d337.ctex"
+uid="uid://blea3nfkvxq4o"
+path="res://.godot/imported/terrain_clay_damp_candidate_01.png-04513b11b3ee948a7ef6b893cacca30c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/candidates/pass_01/LooseSoil-removebg-preview.png"
-dest_files=["res://.godot/imported/LooseSoil-removebg-preview.png-9c8653344ace548b5ba138044c96d337.ctex"]
+source_file="res://art/candidates/pass_01/terrain_clay_damp_candidate_01.png"
+dest_files=["res://.godot/imported/terrain_clay_damp_candidate_01.png-04513b11b3ee948a7ef6b893cacca30c.ctex"]
 
 [params]
 

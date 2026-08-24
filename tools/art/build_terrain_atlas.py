@@ -34,11 +34,11 @@ EDGE_INSET_RATIO = 0.07
 
 # candidate filename stem -> (material key, art-bible asset name, variant index)
 CANDIDATE_MAP = {
-    "NormalSoil-removebg-preview": ("soft_soil", "terrain_soil_soft_center", 1),
-    "DampSoil-removebg-preview": ("damp_clay", "terrain_clay_damp_center", 1),
-    "LooseSoil-removebg-preview": ("loose_soil", "terrain_soil_loose_center", 1),
-    "Stone-removebg-preview": ("stone", "terrain_stone_center", 1),
-    "BurrowInterior-removebg-preview": ("burrow_interior", "terrain_burrow_interior_center", 1),
+    "terrain_soil_soft_candidate_01": ("soft_soil", "terrain_soil_soft_center", 1),
+    "terrain_clay_damp_candidate_01": ("damp_clay", "terrain_clay_damp_center", 1),
+    "terrain_soil_loose_candidate_01": ("loose_soil", "terrain_soil_loose_center", 1),
+    "terrain_stone_candidate_01": ("stone", "terrain_stone_center", 1),
+    "terrain_burrow_interior_candidate_01": ("burrow_interior", "terrain_burrow_interior_center", 1),
 }
 
 # Presentation slot order; FOUNDATION intentionally reuses the stone family for pass 01.

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b8136u3ptimkc"
-path="res://.godot/imported/BurrowInterior-removebg-preview.png-7c10b310f08d069324aad255d1096fbf.ctex"
+uid="uid://ch6tcy0jmv3a1"
+path="res://.godot/imported/terrain_soil_loose_candidate_01.png-6b7d6df7c47b1c31b7ab2a0fabdce5ce.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/candidates/pass_01/BurrowInterior-removebg-preview.png"
-dest_files=["res://.godot/imported/BurrowInterior-removebg-preview.png-7c10b310f08d069324aad255d1096fbf.ctex"]
+source_file="res://art/candidates/pass_01/terrain_soil_loose_candidate_01.png"
+dest_files=["res://.godot/imported/terrain_soil_loose_candidate_01.png-6b7d6df7c47b1c31b7ab2a0fabdce5ce.ctex"]
 
 [params]
 

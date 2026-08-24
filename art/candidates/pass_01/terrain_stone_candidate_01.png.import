@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cme8hu5dx2nby"
-path="res://.godot/imported/NormalSoil-removebg-preview.png-6f78412e9d3dfd986455ed6607a72347.ctex"
+uid="uid://tuyr0833y66m"
+path="res://.godot/imported/terrain_stone_candidate_01.png-eae03947a5c9ef02ee251a575346bc36.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/candidates/pass_01/NormalSoil-removebg-preview.png"
-dest_files=["res://.godot/imported/NormalSoil-removebg-preview.png-6f78412e9d3dfd986455ed6607a72347.ctex"]
+source_file="res://art/candidates/pass_01/terrain_stone_candidate_01.png"
+dest_files=["res://.godot/imported/terrain_stone_candidate_01.png-eae03947a5c9ef02ee251a575346bc36.ctex"]
 
 [params]
 

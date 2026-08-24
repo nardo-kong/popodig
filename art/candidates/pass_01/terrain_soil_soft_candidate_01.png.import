@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://tuyr0833y66m"
-path="res://.godot/imported/Stone-removebg-preview.png-41552f4d9618228d4cccd63c2b6d5bc0.ctex"
+uid="uid://cme8hu5dx2nby"
+path="res://.godot/imported/terrain_soil_soft_candidate_01.png-e33ecb07775107369f12e10f70ef4104.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/candidates/pass_01/Stone-removebg-preview.png"
-dest_files=["res://.godot/imported/Stone-removebg-preview.png-41552f4d9618228d4cccd63c2b6d5bc0.ctex"]
+source_file="res://art/candidates/pass_01/terrain_soil_soft_candidate_01.png"
+dest_files=["res://.godot/imported/terrain_soil_soft_candidate_01.png-e33ecb07775107369f12e10f70ef4104.ctex"]
 
 [params]
 

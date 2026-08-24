@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://blea3nfkvxq4o"
-path="res://.godot/imported/DampSoil-removebg-preview.png-a3a96544b5459aa2c594e037e08821f6.ctex"
+uid="uid://b8136u3ptimkc"
+path="res://.godot/imported/terrain_burrow_interior_candidate_01.png-ead64557390e226dab989a2dfd6934c1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/candidates/pass_01/DampSoil-removebg-preview.png"
-dest_files=["res://.godot/imported/DampSoil-removebg-preview.png-a3a96544b5459aa2c594e037e08821f6.ctex"]
+source_file="res://art/candidates/pass_01/terrain_burrow_interior_candidate_01.png"
+dest_files=["res://.godot/imported/terrain_burrow_interior_candidate_01.png-ead64557390e226dab989a2dfd6934c1.ctex"]
 
 [params]
 
