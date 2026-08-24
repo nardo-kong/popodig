@@ -79,13 +79,13 @@
 - [x] Conservation tests
 
 ## Phase 8 — Stability
-- [ ] Weak soil
-- [ ] Local span rules
-- [ ] Warning bands
-- [ ] Reinforcement
-- [ ] Collapse
-- [ ] Topology update
-- [ ] Bounded-collapse tests
+- [x] Weak soil
+- [x] Local span rules
+- [x] Warning bands
+- [x] Reinforcement
+- [x] Collapse
+- [x] Topology update
+- [x] Bounded-collapse tests
 
 ## Phase 9 — Slice UX
 - [ ] HUD
