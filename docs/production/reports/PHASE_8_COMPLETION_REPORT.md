@@ -128,7 +128,28 @@ domain and presentation scripts pass the compile gates in the test runner.
 5. Open gates carried from earlier phases: external naive-player Root cue readability,
    full out-of-sandbox one-command validation on clean hardware.
 
+## Completion record (all Phase 8 commits, in order)
+
+| Commit | Content |
+|--------|---------|
+| `9598455` | Stability core: `StabilitySystem` (span budgets, 4 warning levels, grace period, bounded collapse), colony/job/mouse/dig/signal wiring, balance values, 415 lines of unit+integration tests |
+| `3267ab7` | Presentation & QA: warning bands, support brackets, REINFORCE tool, inspector lines, STABILITY overlay, Phase 8 dev/release smoke, validate.ps1 gates, 4 screenshots |
+| `b150700` | Asset naming: terrain candidates renamed to standard English conventions |
+| `c40b502` | Rubble legibility (spec §8): `CELL_FLAG_RUBBLE` domain flag + speckle presentation + inspector marker + 12 assertions; reinforce demo fixed to demonstrate prevention with full-span supports |
+| `82a5417` | Documentation: this report, MILESTONE_CHECKLIST Phase 8 complete, README status, CHANGELOG |
+| `81ab230` | Screenshot evidence refresh |
+
+## Pending verification checklist (open items to inspect later)
+
+- [ ] **External naive-player readability (Phase 6 + Phase 8 combined)** — can a first-time player (a) read root cue density as "food nearby", (b) read crumb/crack/critical bands as "this may collapse", and (c) react by narrowing, rerouting, or reinforcing without tutorial text? Requires external playtest sessions; record observations in `art/qa/reports/`.
+- [ ] **Clean-hardware full validation** — one `tools/validate.ps1` pass on an idle machine including the Phase 5 seed batch under the 500 ms p95 budget (content already proven 288/288 valid, 0 replay mismatches on this host).
+- [ ] **Save persistence of stability state (Phase 10 gate)** — once the save system exists: rubble flags, reinforcement supports, and warning deadlines must survive save/load round-trips (spec §12 final case).
+- [ ] **Rubble art replacement (Phase 11 gate)** — placeholder speckle must be replaced by a rubble tile family; verify the resolved-area boundary stays legible at normal gameplay zoom after replacement.
+- [ ] **Performance re-check on target hardware matrix** — signal benchmark measured 190–311 fps across thermal states on the dev laptop; confirm against the release hardware matrix before Phase 12.
+- [ ] **Water × stability interaction (spec §10 PROVISIONAL)** — wet-soil stability reduction is intentionally not enabled; revisit only if playtests show players need it, and verify readability if enabled.
+
 ## Verdict
 
-Phase 8 milestone scope is complete and verified. Phase 9 (Slice UX) should not start
-until the PM reviews this report and the Phase 8 screenshots.
+Phase 8 milestone scope is complete and verified. The PM approved progression; Phase 9
+(Slice UX) may start. The verification checklist above carries every open inspection
+item forward with explicit owners-in-waiting (later phases or external playtests).
