@@ -88,11 +88,11 @@
 - [x] Bounded-collapse tests
 
 ## Phase 9 — Slice UX
-- [ ] HUD
-- [ ] Inspector
-- [ ] Context tutorial
-- [ ] Notifications
-- [ ] 30–45 min flow
+- [x] HUD
+- [x] Inspector
+- [x] Context tutorial
+- [x] Notifications
+- [x] 30–45 min flow
 - [ ] Touch pass if scoped
 
 ## Phase 10 — Persistence/Hardening

@@ -1,5 +1,10 @@
 # Documentation Changelog
 
+## Implementation sync — 2026-08-26
+- Completed Phase 9 Slice UX: compact Chinese player HUD with slice depth objective, dual-mode context inspector (qualitative player mode / numeric debug mode), ten-step contextual first-ten-minutes tutorial, deduplicated event notification queue with camera focus helpers, and Space pause control.
+- Localized all player-facing strings (tools, reasons, signal clues, feedback, notifications) to Chinese; debug-only chrome remains English.
+- Added Phase 9 UX smoke (Development/Release), notification/tutorial unit tests, three visual-QA captures, and validate.ps1 gates. 850/850 automated assertions pass.
+
 ## Implementation sync — 2026-08-25
 - Completed Phase 8 Stability engineering: material span budgets, four-level warning bands with critical grace, bounded-radius collapse with rubble refill, autonomous material-funded reinforcement, root/stone local supports, mouse danger avoidance, and zone/item/topology consistency on collapse.
 - Added legible rubble state (compact cell flag + placeholder speckle), REINFORCE tool, STABILITY WARNINGS debug overlay, inspector stability lines, and Phase 8 Development/Release smokes with four visual-QA captures.
