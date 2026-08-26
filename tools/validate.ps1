@@ -414,6 +414,46 @@ if (-not $SkipScreenshot) {
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 8 release-clean screenshot validation failed with exit code $LASTEXITCODE"
     }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/phase9_ux_development.log --script res://tests/phase9_ux_smoke.gd -- --profile=development --expect-debug=true
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 9 development UX smoke failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/phase9_ux_release.log --script res://tests/phase9_ux_smoke.gd -- --profile=release --expect-debug=false
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 9 release-clean UX smoke failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase9_hud.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase2-demo --output=res://art/qa/screenshots/phase_9_hud_tutorial.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 9 HUD/tutorial screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase9_hud.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_9_hud_tutorial.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 9 HUD/tutorial screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase9_discovery.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase6-demo=reveal --output=res://art/qa/screenshots/phase_9_root_discovery.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 9 discovery notification screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase9_discovery.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_9_root_discovery.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 9 discovery notification screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase9_release.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=release --output=res://art/qa/screenshots/phase_9_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 9 release-clean screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase9_release.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_9_release_clean.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 9 release-clean screenshot validation failed with exit code $LASTEXITCODE"
+    }
 }
 
 $ValidationLogs = @(
@@ -442,7 +482,9 @@ $ValidationLogs = @(
     "phase7_water_release.log",
     "phase7_water_benchmark.log",
     "phase8_stability_development.log",
-    "phase8_stability_release.log"
+    "phase8_stability_release.log",
+    "phase9_ux_development.log",
+    "phase9_ux_release.log"
 )
 if (-not $SkipScreenshot) {
     $ValidationLogs += @(
@@ -496,7 +538,13 @@ if (-not $SkipScreenshot) {
         "capture_phase8_collapse.log",
         "screenshot_validation_phase8_collapse.log",
         "capture_phase8_release.log",
-        "screenshot_validation_phase8_release.log"
+        "screenshot_validation_phase8_release.log",
+        "capture_phase9_hud.log",
+        "screenshot_validation_phase9_hud.log",
+        "capture_phase9_discovery.log",
+        "screenshot_validation_phase9_discovery.log",
+        "capture_phase9_release.log",
+        "screenshot_validation_phase9_release.log"
     )
 }
 

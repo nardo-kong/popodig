@@ -142,48 +142,48 @@ func get_qualitative_clue(channel: String, cell: Vector2i) -> String:
 	if channel == INSTABILITY:
 		match band:
 			Band.WEAK:
-				return "Soil crumbs drift down here."
+				return "这里的碎土屑在飘落。"
 			Band.NOTICEABLE:
-				return "Cracks creep along this ceiling."
+				return "天花板上的裂缝在蔓延。"
 			_:
 				return "Critical: this ceiling could collapse!"
 	if channel == MOISTURE:
 		var moisture_level := get_recognition_level(WATER_CATEGORY)
 		if moisture_level == RecognitionLevel.UNKNOWN:
-			return "The soil feels unusually damp."
+			return "土壤异常潮湿。"
 		if moisture_level == RecognitionLevel.ENCOUNTERED:
 			match band:
 				Band.WEAK:
 					return "A faint damp trace."
 				Band.NOTICEABLE:
-					return "Persistent seep marks."
+					return "持续的渗水痕迹。"
 				_:
-					return "Saturated soil suggests water is very close."
+					return "土壤饱和，水源已经很近。"
 		match band:
 			Band.WEAK:
 				return "A faint trace points toward a finite reservoir."
 			Band.NOTICEABLE:
-				return "Seep marks make a reservoir likely."
+				return "渗水痕迹表明附近可能有水库。"
 			_:
 				return "A finite reservoir is very close."
 	if channel != ROOT_DENSITY:
 		return get_band_name(band).capitalize()
 	var level := get_recognition_level(ROOT_CATEGORY)
 	if level == RecognitionLevel.UNKNOWN:
-		return "Unusual fibers mark the soil."
+		return "土壤里有不寻常的纤维痕迹。"
 	if level == RecognitionLevel.ENCOUNTERED:
 		match band:
 			Band.WEAK:
-				return "Fine root threads."
+				return "细小的根须。"
 			Band.NOTICEABLE:
-				return "Dense root threads."
+				return "密集的根须。"
 			_:
-				return "Thick roots are very close."
+				return "粗壮的根系就在附近。"
 	match band:
 		Band.WEAK:
-			return "Fine roots suggest a food-bearing cluster nearby."
+			return "细根暗示附近有可食用的根簇。"
 		Band.NOTICEABLE:
-			return "Dense roots make a food-bearing cluster likely."
+			return "密集的根须表明很可能存在食物根簇。"
 		_:
 			return "A major food-bearing Root Cluster is close."
 
