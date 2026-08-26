@@ -111,6 +111,36 @@ compile gates.
 5. The tutorial bar is fixed above the HUD; on very short viewport heights (<400 px)
    layouts may tighten — acceptable for supported slice resolutions.
 
+## Bilingual localization addendum (same-day follow-up)
+
+User review corrected the language scope: the slice must be **bilingual zh/en**, not
+Chinese-only. Implemented immediately after acceptance:
+
+- **Infrastructure**: `assets/localization/ui.csv` (≈100 keys, zh + en columns) imported
+  through Godot's CSV translation pipeline and registered in project settings;
+  `src/infrastructure/localization/localization_service.gd` resolves the default
+  language as `--language=zh|en` (QA override) → OS UI language when zh/en → English
+  fallback, and exposes `cycle()`.
+- **Switch**: `L` toggles zh/en at runtime; HUD/objective/inspector refresh
+  automatically, the tutorial bar re-resolves its current step, and new notifications
+  use the new language (short-lived toasts keep their push-time language by design).
+- **Migration**: every player-facing string now goes through translation keys — HUD,
+  objective, tools, dig/seal/reinforce feedback, all reason codes, hover hints,
+  inspector lines (including stability level and zone names), notification templates,
+  the ten tutorial steps, and the twelve signal-clue strings (the domain now returns
+  stable `clue.*` keys; presentation translates). Debug-only chrome intentionally
+  remains English.
+- **Tests**: `tests/unit/test_localization.gd` verifies both languages resolve for all
+  sampled keys (including every clue key), that translations differ, cycle works, and
+  missing keys fall back safely. The tutorial unit test asserts step ids/keys instead
+  of locked Chinese text. Suite: **915 passed, 0 failed**.
+- **Evidence**: `phase_9_hud_tutorial.png`, `phase_9_root_discovery.png`,
+  `phase_9_release_clean.png` captured with `--language=zh`, plus
+  `phase_9_release_clean_en.png` — all validated.
+- **Note**: this dev machine's Windows UI culture is en-US, so follow-system correctly
+  defaults to English here; Chinese is one `L` press away. Language preference
+  persistence is deferred to the Phase 10 save system.
+
 ## Verdict
 
 Phase 9 milestone scope is complete and verified. Phase 10 (Save/Load & Hardening) is
