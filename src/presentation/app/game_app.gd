@@ -74,8 +74,8 @@ var _selected_cell := Vector2i(-1, -1)
 var _paint_action := PaintAction.NONE
 var _current_tool := Tool.DIG
 var _last_painted_cell := Vector2i(-1, -1)
-var _last_feedback := "从任意合法的边界格开始挖掘。"
-var _hover_feedback := "从任意合法的边界格开始挖掘。"
+var _last_feedback := "feedback.choose_frontier"
+var _hover_feedback := "feedback.choose_frontier"
 var _feedback_seconds_remaining := 0.0
 var _qa_inspector_cell := Vector2i(-1, -1)
 var _current_seed := 0
@@ -177,10 +177,11 @@ func _ready() -> void:
 	colony_debug_overlay.visible = debug_visible
 	worldgen_debug_overlay.visible = debug_visible
 	_set_tool(Tool.DIG)
+	Localization.apply()
 	_notifications = NotificationModelScript.new()
 	notifications_view.bind(_notifications)
 	_tutorial = ContextTutorialModelScript.new()
-	tutorial_label.text = _tutorial.current_text()
+	tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	_objective_target_depth = int(world_grid.metadata.start_cell.y) + SLICE_OBJECTIVE_DEPTH_OFFSET
 	world_grid.cell_changed.connect(_on_world_cell_changed)
 	if (_has_user_argument("--qa-phase2-demo") or _has_user_argument("--qa-phase3-demo")) and AppConfig.cheats_enabled():
@@ -284,19 +285,19 @@ func _colony_reached_depth() -> int:
 
 func _update_objective() -> void:
 	var deepest := int(_tutorial_flags.get("_deepest", 0))
-	objective_label.text = "目标：向下探索，抵达深度 %d/%d" % [deepest, _objective_target_depth]
+	objective_label.text = tr("hud.objective") % [deepest, _objective_target_depth]
 	if deepest >= _objective_target_depth and not bool(_tutorial_flags.get("objective_reached", false)):
 		_tutorial_flags["objective_reached"] = true
 		if _tutorial.advance(_tutorial_flags):
 			tutorial_label.text = _tutorial.current_text()
-		_push_notification("milestone", "巢穴已抵达目标深度——垂直切片目标达成！", Vector2i(world_grid.metadata.start_cell.x, deepest), 30.0, 3600.0)
+		_push_notification("milestone", tr("notify.milestone"), Vector2i(world_grid.metadata.start_cell.x, deepest), 30.0, 3600.0)
 
 
 func _poll_notifications() -> void:
 	var item_system = colony_simulation.get_item_system()
 	var food_count: int = item_system.get_total_count(ItemSystemScript.FOOD)
 	if food_count <= FOOD_CRITICAL_COUNT:
-		_push_notification("food_low", "食物告急！只剩 %d 份——寻找根簇或规划觅食区。" % food_count, Vector2i(-1, -1), 6.0, 90.0)
+		_push_notification("food_low", tr("notify.food_low") % food_count, Vector2i(-1, -1), 6.0, 90.0)
 	var in_danger := false
 	var danger_cell := Vector2i(-1, -1)
 	for mouse in colony_simulation.get_mice():
@@ -304,7 +305,7 @@ func _poll_notifications() -> void:
 			in_danger = true
 			danger_cell = mouse.current_cell
 	if in_danger and not _mice_were_in_danger:
-		_push_notification("danger", "有鼠鼠遇险，正在自动撤离到安全处。", danger_cell, 6.0, 20.0)
+		_push_notification("danger", tr("notify.danger"), danger_cell, 6.0, 20.0)
 	_mice_were_in_danger = in_danger
 	var zone_system = colony_simulation.get_zone_system()
 	for zone: Zone in zone_system.get_zones():
@@ -314,7 +315,7 @@ func _poll_notifications() -> void:
 		if _notified_zone_keys.has(key):
 			continue
 		_notified_zone_keys[key] = true
-		_push_notification("zone_lost", "区划失效（%s）——物资和床位需要新家。" % String(zone.invalid_reasons[0]), zone.anchor, 6.0, 15.0)
+		_push_notification("zone_lost", tr("notify.zone_lost") % _reason_text(String(zone.invalid_reasons[0])), zone.anchor, 6.0, 15.0)
 
 
 func _push_notification(category: String, text: String, focus_cell: Vector2i, cooldown: float = 10.0, lifetime: float = 6.0) -> void:
@@ -348,7 +349,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif key_event.keycode == KEY_F4:
 			DisplayServer.clipboard_set(str(_current_seed))
-			_last_feedback = "已复制回放种子 %d。" % _current_seed
+			_last_feedback = tr("feedback.copied_seed") % _current_seed
 			_feedback_seconds_remaining = 2.0
 			get_viewport().set_input_as_handled()
 		elif key_event.keycode == KEY_F5:
@@ -358,7 +359,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_reload_debug_seed(_current_seed + 1)
 			get_viewport().set_input_as_handled()
 		elif key_event.keycode == KEY_F7:
-			_last_feedback = "世界生成叠加层：%s" % worldgen_debug_overlay.cycle_mode()
+			_last_feedback = tr("feedback.overlay") % worldgen_debug_overlay.cycle_mode()
 			_feedback_seconds_remaining = 2.0
 			get_viewport().set_input_as_handled()
 
@@ -370,6 +371,10 @@ func _handle_player_shortcuts(event: InputEvent) -> bool:
 	match key_event.keycode:
 		KEY_SPACE:
 			_paused = not _paused
+			return true
+		KEY_L:
+			Localization.cycle()
+			tutorial_label.text = Localization.text(_tutorial.current_text_key())
 			return true
 		KEY_HOME:
 			world_camera.focus_cell(world_grid.metadata.start_cell, _logical_cell_size)
@@ -416,13 +421,13 @@ func _set_tool(tool: int) -> void:
 	zone_overlay_view.set_editing(_is_zone_tool(), zone_type)
 	dig_cursor_view.set_tool_style(_tool_name())
 	if _current_tool == Tool.DIG:
-		_last_feedback = "从任意合法的边界格开始挖掘。"
+		_last_feedback = "feedback.choose_frontier"
 	elif _current_tool == Tool.SEAL:
-		_last_feedback = "指定一个洞穴格，鼠鼠会自动搬运材料封堵。"
+		_last_feedback = "feedback.seal_prompt"
 	elif _current_tool == Tool.REINFORCE:
-		_last_feedback = "指定一个天花板格，鼠鼠会自动搬运材料加固。"
+		_last_feedback = "feedback.reinforce_prompt"
 	else:
-		_last_feedback = "在合法的洞穴地面上涂抹区划。"
+		_last_feedback = "feedback.paint_zone"
 	_hover_feedback = _last_feedback
 	_feedback_seconds_remaining = 1.0
 
@@ -545,7 +550,7 @@ func _set_command_feedback(result: Dictionary) -> void:
 	if bool(result.get("ok", false)):
 		var changed: Array = result.get("accepted_cells", result.get("cancelled_cells", result.get("changed_cells", [])))
 		var changed_count: int = changed.size() + (result.get("removed_downstream", []) as Array).size()
-		_last_feedback = "已更新 %d 格。" % changed_count
+		_last_feedback = tr("feedback.updated") % changed_count
 		return
 	var rejected: Array = result.get("rejected", [])
 	var reason := String(result.get("reason_code", "NOT_EXCAVATABLE"))
@@ -575,10 +580,10 @@ func _update_cursor() -> void:
 	if _current_tool == Tool.SEAL:
 		var valid: bool = seal_system.has_request(cell_coord) if cancel_mode else seal_system.inspect_request(cell_coord) == "OK"
 		if cancel_mode:
-			_hover_feedback = "取消这个待处理的封堵。" if valid else _reason_text("REQUEST_NOT_FOUND")
+			_hover_feedback = tr("hover.cancel_seal") if valid else _reason_text("REQUEST_NOT_FOUND")
 		else:
 			var reason: String = seal_system.inspect_request(cell_coord)
-			_hover_feedback = "在此封堵；鼠鼠会带来 1 份材料。" if valid else _reason_text(reason)
+			_hover_feedback = tr("hover.seal_ok") if valid else _reason_text(reason)
 		dig_cursor_view.set_cursor(cell_coord, true, valid, cancel_mode)
 		return
 	var stability = colony_simulation.get_stability_system()
@@ -587,9 +592,9 @@ func _update_cursor() -> void:
 		var reason_code: String = stability.inspect_request(cell_coord)
 		var valid := has_request if cancel_mode else reason_code == "OK"
 		if cancel_mode:
-			_hover_feedback = "取消这个待处理的加固。" if has_request else _reason_text("REQUEST_NOT_FOUND")
+			_hover_feedback = tr("hover.cancel_reinforce") if has_request else _reason_text("REQUEST_NOT_FOUND")
 		else:
-			_hover_feedback = "加固此天花板；鼠鼠会带来 1 份材料。" if valid else _reason_text(reason_code)
+			_hover_feedback = tr("hover.reinforce_ok") if valid else _reason_text(reason_code)
 		dig_cursor_view.set_cursor(cell_coord, true, valid, cancel_mode)
 		return
 	if _is_zone_tool():
@@ -598,9 +603,9 @@ func _update_cursor() -> void:
 		var inspection: Dictionary = zone_system.inspect_cell(_current_zone_type(), cell_coord)
 		var valid := current_zone != null if cancel_mode else bool(inspection.ok) or String(inspection.reason_code) == "ALREADY_ASSIGNED"
 		if cancel_mode:
-			_hover_feedback = "擦除%s。" % _tool_name() if valid else _reason_text("NOT_ASSIGNED")
+			_hover_feedback = tr("hover.erase_zone") % _tool_name() if valid else _reason_text("NOT_ASSIGNED")
 		elif valid:
-			_hover_feedback = "%s · 在已挖掘的空间上涂抹。" % _tool_name()
+			_hover_feedback = tr("hover.paint_zone") % _tool_name()
 		else:
 			_hover_feedback = _reason_text(String(inspection.reason_code))
 		dig_cursor_view.set_cursor(cell_coord, true, valid, cancel_mode)
@@ -608,9 +613,9 @@ func _update_cursor() -> void:
 	var inspection: Dictionary = dig_system.inspect_designation(cell_coord)
 	var valid: bool = world_grid.get_dig_state(cell_coord) != CellDataScript.DigState.NONE if cancel_mode else bool(inspection.get("ok", false))
 	if cancel_mode:
-		_hover_feedback = "释放这个已规划的挖掘。" if valid else _reason_text("NOT_DESIGNATED")
+		_hover_feedback = tr("hover.release_dig") if valid else _reason_text("NOT_DESIGNATED")
 	else:
-		_hover_feedback = "合法边界——可以从这里自由规划。" if valid else _reason_text(String(inspection.get("reason_code", "NOT_EXCAVATABLE")))
+		_hover_feedback = tr("hover.legal_frontier") if valid else _reason_text(String(inspection.get("reason_code", "NOT_EXCAVATABLE")))
 	if signal_system != null:
 		var clue: String = signal_system.get_qualitative_clue("root_density", cell_coord)
 		if not clue.is_empty():
@@ -623,43 +628,46 @@ func _update_cursor() -> void:
 
 func _update_hud() -> void:
 	var stability = colony_simulation.get_stability_system()
-	dig_status_label.text = "左键涂抹 · 右键清除  |  待挖 %d · 封堵 %d · 加固 %d" % [
+	dig_status_label.text = tr("hud.dig_status") % [
 		dig_system.get_designated_count(),
 		seal_system.get_requests().size(),
 		stability.get_requests().size() if stability != null else 0,
 	]
-	tool_status_label.text = ("⏸ 已暂停（按空格继续） · " if _paused else "") + "1 挖掘 · 2 睡眠 · 3 存储 · 4 觅食 · 5 封堵 · 6 加固  |  当前：%s" % _tool_name()
+	tool_status_label.text = (tr("hud.paused_prefix") if _paused else "") + tr("hud.tools_line") % _tool_name()
 	var mice: Array = colony_simulation.get_mice()
 	var item_system = colony_simulation.get_item_system()
-	colony_status_label.text = "食物 %d · 材料 %d · 鼠鼠 %d" % [
+	colony_status_label.text = "%s %d · %s %d · %s %d" % [
+		tr("hud.food"),
 		item_system.get_total_count(ItemSystemScript.FOOD),
+		tr("hud.material"),
 		item_system.get_total_count(ItemSystemScript.GENERAL_MATERIAL),
+		tr("hud.mice"),
 		mice.size(),
 	]
-	dig_feedback_label.text = _last_feedback if _feedback_seconds_remaining > 0.0 else _hover_feedback
+	dig_feedback_label.text = tr(_last_feedback) if _feedback_seconds_remaining > 0.0 else tr(_hover_feedback)
 
 
 func _player_inspector_text(cell) -> String:
 	var lines: Array[String] = []
 	if cell.is_exterior():
-		return "地表"
+		return tr("hud.surface")
 	if cell.is_traversable():
-		lines.append("洞穴空间")
+		lines.append(tr("hud.open_cavity"))
 	else:
-		var difficulty := "低"
+		var difficulty_key := "inspector.difficulty_low"
 		if cell.hardness > 3.0:
-			difficulty = "极高"
+			difficulty_key = "inspector.difficulty_extreme"
 		elif cell.hardness > 1.5:
-			difficulty = "高"
+			difficulty_key = "inspector.difficulty_high"
 		elif cell.hardness > 1.0:
-			difficulty = "中"
-		lines.append("%s · 开挖难度：%s" % [cell.material_name(cell.terrain_material), difficulty])
+			difficulty_key = "inspector.difficulty_medium"
+		lines.append(tr("inspector.dig_difficulty") % [cell.material_name(cell.terrain_material), tr(difficulty_key)])
 	if cell.sealed:
-		lines.append("已封堵")
+		lines.append(tr("inspector.sealed"))
 	elif cell.rubble:
-		lines.append("坍塌碎石——可以重新挖开")
+		lines.append(tr("inspector.rubble"))
 	if cell.water_units > 0:
-		lines.append("有积水")
+		lines.append(tr("inspector.water"))
 	var clue_text := ""
 	if signal_system != null:
 		var root_clue: String = signal_system.get_qualitative_clue("root_density", _selected_cell)
@@ -669,32 +677,36 @@ func _player_inspector_text(cell) -> String:
 		if not moisture_clue.is_empty():
 			clue_text += (" · " if not clue_text.is_empty() else "") + moisture_clue
 	if not clue_text.is_empty():
-		lines.append("迹象：%s" % clue_text)
+		lines.append(tr("inspector.signs") % clue_text)
 	var stability = colony_simulation.get_stability_system()
 	if stability != null and world_grid.is_traversable(_selected_cell):
-		lines.append("稳定：%s" % stability.get_warning_level_name(stability.get_warning_level(_selected_cell)))
+		lines.append(tr("inspector.stability") % Localization.text("stability." + String(stability.get_warning_level_name(stability.get_warning_level(_selected_cell))).to_lower()))
 	var zone: Zone = colony_simulation.get_zone_system().get_zone_at(_selected_cell)
 	if zone != null:
-		lines.append("区划：%s" % zone.get_type_name().replace("_", "/").capitalize())
+		lines.append(tr("inspector.zone") % _zone_display_name(zone.get_type_name()))
 	if cell.feature_id >= 0:
 		var feature = worldgen_result.feature_registry.get_feature(cell.feature_id)
 		if feature != null and not feature.hidden:
-			lines.append("发现：%s" % _feature_display_name(feature.type_id))
+			lines.append(tr("inspector.discovered") % _feature_display_name(feature.type_id))
 	return "\n".join(lines)
+
+
+func _zone_display_name(type_name: String) -> String:
+	return tr("zone." + type_name.replace("/", "_").to_lower())
 
 
 func _feature_display_name(type_id: String) -> String:
 	match type_id:
 		"root_cluster":
-			return "根簇"
+			return tr("feature.root_cluster")
 		"water_reservoir":
-			return "水库"
+			return tr("feature.water_reservoir")
 		"unstable_pocket":
-			return "不稳定土层"
+			return tr("feature.unstable_pocket")
 		"rock_mass":
-			return "岩层"
+			return tr("feature.rock_mass")
 		"foundation":
-			return "地基遗迹"
+			return tr("feature.foundation")
 		_:
 			return type_id.capitalize()
 
@@ -706,7 +718,7 @@ func _need_percent(value: float) -> float:
 func _update_inspector() -> void:
 	var cell = world_grid.get_cell(_selected_cell)
 	if cell == null:
-		inspector_label.text = "移动鼠标检查任意格子。" if not AppConfig.debug_tools_enabled() else "Move over the world to inspect a cell."
+		inspector_label.text = tr("hud.inspector_hint") if not AppConfig.debug_tools_enabled() else "Move over the world to inspect a cell."
 		return
 	if not AppConfig.debug_tools_enabled():
 		inspector_label.text = _player_inspector_text(cell)
@@ -774,24 +786,24 @@ func _on_root_feature_reacted(_feature_id: int, reaction: Dictionary) -> void:
 	var feature = worldgen_result.feature_registry.get_feature(_feature_id)
 	if feature != null:
 		anchor = feature.anchor
-	_push_notification("discovery_root", "发现根簇！%d 份食物涌出——规划食物/觅食区可以稳定产出。" % produced, anchor, 25.0)
-	_last_feedback = "根簇暴露！涌出 %d 份食物；附近的觅食区可以让它稳定产出。" % produced
+	_push_notification("discovery_root", tr("notify.root_found") % produced, anchor, 25.0)
+	_last_feedback = tr("feedback.root_exposed") % produced
 	_feedback_seconds_remaining = 5.0
 
 
 func _on_reservoir_breached(_feature_id: int, cell: Vector2i, _danger_cells: Array, released_units: int) -> void:
 	_tutorial_flags["breach"] = true
-	_push_notification("breach", "水库破裂！%d 单位水涌出，鼠鼠们正在自动撤离。" % released_units, cell, 25.0)
-	_last_feedback = "水库破裂：泄出 %d 单位水。鼠鼠们正在撤离；挖排水道或使用封堵。" % released_units
+	_push_notification("breach", tr("notify.breach") % released_units, cell, 25.0)
+	_last_feedback = tr("feedback.reservoir_breach") % released_units
 	_feedback_seconds_remaining = 6.0
 
 
 func _on_region_collapsed(cells: Array, absorbed_water_units: int) -> void:
 	var water_note := "" if int(absorbed_water_units) <= 0 else " %d water sank into the rubble." % int(absorbed_water_units)
-	_last_feedback = "局部坍塌！%d 格被碎石填满。%s加固天花板，或下次挖窄一点。" % [cells.size(), water_note]
+	_last_feedback = tr("feedback.collapse") % [cells.size(), water_note]
 	_feedback_seconds_remaining = 6.0
 	if not cells.is_empty():
-		_push_notification("collapse", "局部坍塌！%d 格被碎石填满，路线被阻断。" % cells.size(), cells[0] as Vector2i)
+		_push_notification("collapse", tr("notify.collapse") % cells.size(), cells[0] as Vector2i)
 
 
 func _on_critical_warning(cells: Array) -> void:
@@ -799,8 +811,8 @@ func _on_critical_warning(cells: Array) -> void:
 	if _feedback_seconds_remaining > 0.0:
 		return
 	if not cells.is_empty():
-		_push_notification("stability_critical", "危急警告：附近天花板即将坍塌，鼠鼠们正在撤离。", cells[0] as Vector2i, 20.0)
-	_last_feedback = "危急警告：(%d, %d) 附近的天花板即将坍塌。鼠鼠们正在撤离；加固它，或任其坍塌。" % [
+		_push_notification("stability_critical", tr("notify.critical"), cells[0] as Vector2i, 20.0)
+	_last_feedback = tr("feedback.critical_warning") % [
 		(cells[0] as Vector2i).x,
 		(cells[0] as Vector2i).y,
 	]
@@ -1194,7 +1206,7 @@ func _setup_qa_stability_demo(requested_mode: String) -> void:
 				return
 			for _tick: int in range(80):
 				colony_simulation.fixed_tick(0.05)
-			_last_feedback = "Reinforcement complete: %d supports stabilized the span." % request_cells.size()
+			_last_feedback = tr("feedback.reinforce_done") % request_cells.size()
 			_feedback_seconds_remaining = 30.0
 		"collapse":
 			var deadline := 6000
@@ -1264,45 +1276,45 @@ func _dig_state_name(state: int) -> String:
 func _reason_text(reason_code: String) -> String:
 	match reason_code:
 		"OUT_OF_BOUNDS":
-			return "世界边界之外。"
+			return tr("reason.OUT_OF_BOUNDS")
 		"NOT_EXCAVATABLE":
-			return "这里已经挖开，或无法挖掘。"
+			return tr("reason.NOT_EXCAVATABLE")
 		"PROTECTED_FEATURE":
-			return "受保护的边界或结构。"
+			return tr("reason.PROTECTED_FEATURE")
 		"NOT_CONTIGUOUS":
-			return "请从当前规划路径继续。"
+			return tr("reason.NOT_CONTIGUOUS")
 		"NOT_CONNECTED_TO_EXCAVATED":
-			return "请从与巢穴连通的已挖掘边界开始。"
+			return tr("reason.NOT_CONNECTED_TO_EXCAVATED")
 		"NOT_DESIGNATED":
-			return "这里没有待取消的挖掘计划。"
+			return tr("reason.NOT_DESIGNATED")
 		"NOT_OPEN":
-			return "封堵需要内部的洞穴格。"
+			return tr("reason.NOT_OPEN")
 		"EXTERIOR":
-			return "地表竖井无法被封堵。"
+			return tr("reason.EXTERIOR")
 		"ALREADY_SEALED":
-			return "这里已经是封堵状态；用挖掘可以拆除。"
+			return tr("reason.ALREADY_SEALED")
 		"ALREADY_REQUESTED":
-			return "这里已规划了一个封堵。"
+			return tr("reason.ALREADY_REQUESTED")
 		"REQUEST_NOT_FOUND":
-			return "这里没有待取消的封堵。"
+			return tr("reason.REQUEST_NOT_FOUND")
 		"WATER_DISPLACEMENT_BLOCKED":
-			return "相邻格子需要空间，湿封堵才能完成。"
+			return tr("reason.WATER_DISPLACEMENT_BLOCKED")
 		"NO_ROOF":
-			return "加固需要正上方有实心天花板。"
+			return tr("reason.NO_ROOF")
 		"ALREADY_REINFORCED":
-			return "这个天花板已经加固过了。"
+			return tr("reason.ALREADY_REINFORCED")
 		"NOT_EXCAVATED":
-			return "区划只能使用已挖掘的空间。"
+			return tr("reason.NOT_EXCAVATED")
 		"NOT_CONNECTED":
-			return "这个洞穴未与巢穴连通。"
+			return tr("reason.NOT_CONNECTED")
 		"FLOODED":
-			return "积水让这里不再适用。"
+			return tr("reason.FLOODED")
 		"WET":
-			return "趁水变深之前把物资转移走。"
+			return tr("reason.WET")
 		"ALREADY_ASSIGNED":
-			return "这里已经有该类型的区划。"
+			return tr("reason.ALREADY_ASSIGNED")
 		"NOT_ASSIGNED":
-			return "这里没有可擦除的区划。"
+			return tr("reason.NOT_ASSIGNED")
 		_:
 			return reason_code.replace("_", " ").capitalize()
 
@@ -1345,14 +1357,14 @@ func _is_zone_tool() -> bool:
 func _tool_name() -> String:
 	match _current_tool:
 		Tool.SLEEPING:
-			return "睡眠区"
+			return tr("tool.sleeping")
 		Tool.STORAGE:
-			return "存储区"
+			return tr("tool.storage")
 		Tool.FOOD_FORAGE:
-			return "食物/觅食区"
+			return tr("tool.food_forage")
 		Tool.SEAL:
-			return "封堵"
+			return tr("tool.seal")
 		Tool.REINFORCE:
-			return "加固"
+			return tr("tool.reinforce")
 		_:
-			return "挖掘"
+			return tr("tool.dig")

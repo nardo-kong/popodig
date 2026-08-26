@@ -30,6 +30,10 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://assets/localization/ui.zh.translation", "res://assets/localization/ui.en.translation")
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

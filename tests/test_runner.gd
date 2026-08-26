@@ -11,6 +11,7 @@ const TEST_SCRIPTS: PackedStringArray = [
 	"res://tests/unit/test_terrain_atlas.gd",
 	"res://tests/unit/test_notification_model.gd",
 	"res://tests/unit/test_context_tutorial.gd",
+	"res://tests/unit/test_localization.gd",
 	"res://tests/integration/test_exterior_semantics.gd",
 	"res://tests/unit/test_dig_system.gd",
 	"res://tests/integration/test_mouse_dig_flow.gd",

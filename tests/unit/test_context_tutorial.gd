@@ -18,7 +18,8 @@ func run() -> Array[Dictionary]:
 func _test_starts_on_intro_step() -> void:
 	var model = TutorialModelScript.new()
 	_assert(model.current_id() == "dig", "Tutorial starts on the dig intro step")
-	_assert(String(model.current_text()).contains("挖一点空间"), "Intro text matches the UX script prompt")
+	_assert(model.current_text_key() == "tutorial.dig", "Intro step carries its translation key")
+	_assert(not Localization.text(model.current_text_key()).is_empty(), "Intro step resolves a localized sentence")
 
 
 func _test_stays_without_flags() -> void:
