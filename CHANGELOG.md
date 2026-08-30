@@ -1,5 +1,10 @@
 # Documentation Changelog
 
+## Implementation sync — 2026-08-30 (Phase 14)
+- Completed Phase 14 Chapter 2: Adapt. Water × instability is live (spec 09 §10 enabled): each ceiling bay over standing water counts double toward its roof span — a fully flooded run is one band weaker — with live re-rating on flood/drain via CHANGE_WATER; one unstable pocket is authored directly beneath the required reservoir so a breach floods weak terrain. Per-bay model chosen after the whole-run halving collapsed storage rooms from a single water cell (4 colony-flow regressions caught by the suite).
+- Richer water: second additional reservoir, first one authored elevated in the transition band so its breach drains through mid-world routes. Foundation walls vary authored ride-height per seed. Pipe/heat/sound intentionally deferred ("if validated" unmet — no playtests yet).
+- Worldgen v5. Tests +10 (wet-ceiling stable→critical→recovery lifecycle, chapter-2 knot assertions) → 1164/1164; seed batch 288/288 at 100% raw; full validate VALIDATION_PASS.
+
 ## Implementation sync — 2026-08-30 (Phase 13)
 - Recorded the Phase 12 gate outcome: GO by PM end-to-end authorization (external naive playtests waived for now; docs/qa/19_PLAYTEST_KIT.md retained for Chapter 1 sessions).
 - Completed Phase 13 Chapter 1 Production: chapter milestone progression (ChapterModel — Settle completes on dry sleeping + storage + secured food + learned signals + transition-band depth; Adapt gates on old-burrow depth with settled water and a completed reinforcement), +2 mice per milestone (spec 10 §14), localized chapter HUD prefix and milestone notifications, chapter persisted as an additive progression key (old v2 saves default to Chapter 1).

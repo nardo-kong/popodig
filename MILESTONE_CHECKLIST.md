@@ -131,8 +131,8 @@
 - [ ] GO / ITERATE / PIVOT decision recorded
 
 ## Phase 13–15 — Full Campaign
-- [ ] Chapter 1 complete
-- [ ] Chapter 2 complete
+- [ ] Chapter 1 complete (milestone system live; PM run pending)
+- [ ] Chapter 2 complete (content + gate live; PM run pending)
 - [ ] Chapter 3 Old Burrow complete
 - [ ] Final warm-home objective
 - [ ] Post-completion sandbox
