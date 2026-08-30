@@ -1,5 +1,12 @@
 # Documentation Changelog
 
+## Implementation sync — 2026-08-30 (Phase 13)
+- Recorded the Phase 12 gate outcome: GO by PM end-to-end authorization (external naive playtests waived for now; docs/qa/19_PLAYTEST_KIT.md retained for Chapter 1 sessions).
+- Completed Phase 13 Chapter 1 Production: chapter milestone progression (ChapterModel — Settle completes on dry sleeping + storage + secured food + learned signals + transition-band depth; Adapt gates on old-burrow depth with settled water and a completed reinforcement), +2 mice per milestone (spec 10 §14), localized chapter HUD prefix and milestone notifications, chapter persisted as an additive progression key (old v2 saves default to Chapter 1).
+- Authored worldgen variations on v4: optional root silhouettes (runner/forked/taproot in metadata.shape_id; required roots keep the inward tap), topsoil stone scatter (0.6%, stabilising-only), density tuning (optional roots 3, cavities 6). New EARLY_FOOD_PREEXPOSED validator guard + generation-time self-trim keeps food roots reveal-driven (a longer shape had let optional roots spawn walkable against natural cavities — seed batch raw rate fell to 63% until the trim landed; now 99.65% at p95 433 ms).
+- Stability demo fixtures made ceiling-aware: spans are now sized from the ceiling run's weakest material (warn/reinforce 90% of allowed, collapse 2×), fixing a 0/8-supports collapse race the v4 RNG stream exposed; Phase 8 smoke ported to the same finder.
+- Tests: +50 (chapter model suite, authored-shape assertions) → 1154/1154.
+
 ## Implementation sync — 2026-08-30 (Phase 12)
 - Phase 12 Vertical Slice Decision Gate support: new Esc settings overlay (quick-load with explicit confirmation — the decision deferred from Phase 10, live master/SFX/ambience volume sliders, language switch, reduced-particles/reduced-shake accessibility flags) persisted to user://settings.cfg via a closed-key SettingsStore; Esc no longer resets the DIG tool (key 1 does). Simulation pauses and world input is blocked while the overlay is open.
 - Added docs/qa/19_PLAYTEST_KIT.md: functional-acceptance checklist mapping every spec §6 criterion to automated evidence, verbatim naive-player briefing, beat-structured observation sheets targeting §7 observations and §8 red flags, and the GO/ITERATE/NO-GO decision rule. The gate decision itself remains deliberately open pending PM external playtests.

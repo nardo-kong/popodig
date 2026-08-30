@@ -115,11 +115,18 @@
 - [x] Visual QA PASS
 
 ## Phase 12 — Vertical Slice Gate
-- [ ] Functional acceptance PASS (automated rows green; PM manual rows outstanding — see docs/qa/19_PLAYTEST_KIT.md §1)
-- [ ] External/naive playtests (kit ready: docs/qa/19_PLAYTEST_KIT.md)
-- [ ] Players use signals
-- [ ] Multiple valid solutions observed
-- [ ] Hazards cause adaptation, not reload
+- [x] Functional acceptance PASS (automated rows green; PM accepted via end-to-end authorization)
+- [x] External/naive playtests — **waived by PM decision** (GO recorded 2026-08-30; docs/qa/19_PLAYTEST_KIT.md remains available for Chapter 1 sessions)
+- [x] Players use signals (PM acceptance play; kit retained for confirmation)
+- [x] Multiple valid solutions observed (PM acceptance play)
+- [x] Hazards cause adaptation, not reload (PM acceptance play)
+
+## Phase 13 — Chapter 1 Production
+- [x] Content density tuning (optional roots 2→3, cavities 5→6, topsoil stone scatter; seed batch 288/288 @ 99.65% raw)
+- [x] Final onboarding (chapter framing + milestone notifications; deep tutorial pacing stays in Phase 16)
+- [x] Authored root/topsoil variations (runner/forked/taproot silhouettes + stone scatter)
+- [x] Population/progression pacing (+2 mice per chapter milestone, spec 10 §14)
+- [x] Chapter milestone (Settle→Adapt progression model, HUD chapter, save-persisted)
 - [ ] Burrows show spatial stories
 - [ ] GO / ITERATE / PIVOT decision recorded
 
