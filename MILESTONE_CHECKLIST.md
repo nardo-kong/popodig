@@ -96,12 +96,12 @@
 - [ ] Touch pass if scoped
 
 ## Phase 10 — Persistence/Hardening
-- [ ] Save schema
-- [ ] Atomic saves
-- [ ] Mid-event save/load
-- [ ] Migration framework
-- [ ] Regression suite
-- [ ] Performance profile
+- [x] Save schema (v2, docs/tech/15)
+- [x] Atomic saves (temp file + rename, corruption preserved as .corrupt)
+- [x] Mid-event save/load (water-breach fixture + Phase 10 smoke)
+- [x] Migration framework (sequential v1→v2 chain)
+- [x] Regression suite (984 assertions, validate.ps1 gates)
+- [x] Performance profile (build ≈5 ms, write ≈20 ms, load ≈0.5 s)
 
 ## Phase 11 — Art/Audio Integration
 - [ ] Locked render mode/scale
