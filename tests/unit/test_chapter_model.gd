@@ -15,6 +15,7 @@ func run() -> Array[Dictionary]:
 	_test_chapter_1_completes_and_grants_growth()
 	_test_advancement_is_monotonic()
 	_test_chapter_2_gate()
+	_test_chapter_3_campaign_completion()
 	_test_save_data_round_trip_and_old_saves()
 	return results
 
@@ -90,6 +91,24 @@ func _test_chapter_2_gate() -> void:
 	no_supports["supports_built"] = false
 	partial.evaluate(no_supports)
 	_assert(partial.current_chapter == ChapterModelScript.CHAPTER_2_ADAPT, "Chapter 2 holds without completed reinforcements")
+
+
+## GDD §14: the campaign completes when the final home is stable in the deep
+## warm area — a set-up sleeping zone inside the revealed warm chamber.
+func _test_chapter_3_campaign_completion() -> void:
+	var model := _make_model()
+	var context := _complete_ch1_context()
+	context["colony_depth"] = 55
+	model.evaluate(context)
+	_assert(model.current_chapter == ChapterModelScript.CHAPTER_3_OLD_BURROW, "Fixture reaches Chapter 3")
+	var no_home := context.duplicate(true)
+	no_home["warm_home_ready"] = false
+	model.evaluate(no_home)
+	_assert(not model.campaign_complete, "Campaign holds without the warm-chamber home")
+	context["warm_home_ready"] = true
+	model.evaluate(context)
+	_assert(model.campaign_complete, "A warm-chamber sleeping zone completes the campaign")
+	_assert(model.evaluate(context) == 0, "Campaign completion fires exactly once")
 
 
 func _test_save_data_round_trip_and_old_saves() -> void:

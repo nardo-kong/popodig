@@ -42,6 +42,8 @@ func get_growth_for_chapter(chapter: int) -> int:
 ##   signals_learned   — root AND water signals recognised beyond UNKNOWN
 ##   water_settled     — no active flowing water (chapter 2 gate)
 ##   supports_built    — at least one reinforcement completed (chapter 2 gate)
+##   warm_home_ready   — a set-up sleeping zone inside the revealed warm
+##                       chamber (GDD §14 final-home stability condition)
 ## Returns the number of chapters advanced (0, 1, or 2).
 func evaluate(context: Dictionary) -> int:
 	var advanced := 0
@@ -53,6 +55,9 @@ func evaluate(context: Dictionary) -> int:
 		current_chapter = CHAPTER_3_OLD_BURROW
 		advanced += 1
 		chapter_advanced.emit(current_chapter, get_growth_for_chapter(3))
+	if current_chapter == CHAPTER_3_OLD_BURROW and not campaign_complete and bool(context.get("warm_home_ready", false)):
+		campaign_complete = true
+		advanced += 1
 	return advanced
 
 

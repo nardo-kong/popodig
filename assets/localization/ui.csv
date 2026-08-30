@@ -129,3 +129,7 @@ keys,zh,en
 "chapter.3_old_burrow","第 3 章 · 老鼠洞","Chapter 3 · Old Burrow"
 "notify.chapter_advanced","章节推进：%s！鼠鼠家族迎来了 %d 位新成员。","Chapter advanced: %s! %d new mice joined the family."
 "notify.campaign_hint","地下深处传来熟悉的气味——去找到旧鼠洞。","A familiar scent rises from below — find the old burrow."
+"notify.old_burrow_found","旧鼠洞的遗迹！这里曾是某个鼠鼠家族的家。","Remnants of an old burrow! Another mouse family once lived here."
+"notify.warm_chamber_found","一处温暖稳定的深处洞窟——适合作为最终的家。","A warm, stable deep chamber — a fitting final home."
+"notify.campaign_complete","鼠鼠们的新家落成了！季节的挑战再也难不倒这个家族。继续以沙盒方式经营吧。","The mice's new home is complete! The season holds no more fears for this family. The burrow continues as a sandbox."
+"hud.campaign_done","✦ 家园落成","✦ Home established"

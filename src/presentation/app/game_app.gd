@@ -79,6 +79,7 @@ var _audio_director: AudioDirector
 var _settings_view: SettingsView
 var _settings_open := false
 var chapter_model
+var _campaign_celebrated := false
 var _logical_cell_size := 16
 var _simulation_step := 0.05
 var _simulation_accumulator := 0.0
@@ -361,6 +362,7 @@ func _apply_loaded_document(document: Dictionary) -> Dictionary:
 	_tutorial.index = clampi(int(progression.get("tutorial_step", 0)), 0, _tutorial.STEPS.size() - 1)
 	_tutorial_flags = (progression.get("tutorial_flags", {}) as Dictionary).duplicate(true)
 	chapter_model.apply_save_data(progression.get("chapter_model", {}))
+	_campaign_celebrated = chapter_model.campaign_complete
 	tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	var saved_language := String(progression.get("language", ""))
 	if saved_language in Localization.SUPPORTED:
@@ -427,7 +429,37 @@ func _evaluate_chapter_milestones() -> void:
 		"signals_learned": signals_learned,
 		"water_settled": water_settled,
 		"supports_built": stability != null and stability.get_completed_count() > 0,
+		"warm_home_ready": _warm_home_ready(zone_system),
 	})
+	if chapter_model.campaign_complete and not _campaign_celebrated:
+		_campaign_celebrated = true
+		_push_notification("campaign", tr("notify.campaign_complete"), _warm_chamber_anchor(), 60.0, 3600.0)
+		if _audio_director != null:
+			_audio_director.play_discovery_stinger()
+
+
+## GDD §14: the campaign completes when the final home is stable in the deep
+## warm area — a set-up sleeping zone inside the warm chamber's cells.
+func _warm_home_ready(zone_system) -> bool:
+	var warm_cells: Dictionary = {}
+	for feature in worldgen_result.feature_registry.get_features("warm_chamber"):
+		for warm_cell: Vector2i in feature.cells:
+			warm_cells[warm_cell] = true
+	if warm_cells.is_empty():
+		return false
+	for zone: Zone in zone_system.get_zones_by_type(ZoneScript.Type.SLEEPING, true):
+		if zone.setup_state != ZoneScript.SetupState.SET_UP:
+			continue
+		for zone_cell: Vector2i in zone.cells:
+			if warm_cells.has(zone_cell):
+				return true
+	return false
+
+
+func _warm_chamber_anchor() -> Vector2i:
+	for feature in worldgen_result.feature_registry.get_features("warm_chamber"):
+		return feature.anchor
+	return world_grid.metadata.start_cell
 
 
 func _zone_ready(zone_system, zone_type: int) -> bool:
@@ -541,7 +573,10 @@ func _colony_reached_depth() -> int:
 func _update_objective() -> void:
 	var deepest := int(_tutorial_flags.get("_deepest", 0))
 	var chapter_name := tr("chapter.1_settle") if chapter_model == null else _chapter_display_name(chapter_model.current_chapter)
-	objective_label.text = "%s · %s" % [chapter_name, tr("hud.objective") % [deepest, _objective_target_depth]]
+	var objective_text := "%s · %s" % [chapter_name, tr("hud.objective") % [deepest, _objective_target_depth]]
+	if chapter_model != null and chapter_model.campaign_complete:
+		objective_text = "%s · %s" % [objective_text, tr("hud.campaign_done")]
+	objective_label.text = objective_text
 	if deepest >= _objective_target_depth and not bool(_tutorial_flags.get("objective_reached", false)):
 		_tutorial_flags["objective_reached"] = true
 		if _tutorial.advance(_tutorial_flags):
@@ -1129,12 +1164,49 @@ func _on_critical_warning(cells: Array) -> void:
 
 
 ## Dig impact feedback: debris/dust burst + material-specific impact sound.
+## Adjacent digs also reveal buried Chapter 3 landmarks (old burrow, warm
+## chamber) — the same Signal → Reveal courtesy the other features get.
 func _on_cell_excavated(cell: Vector2i) -> void:
 	var material := int(world_grid.get_material(cell))
 	if _vfx_view != null:
 		_vfx_view.burst_dig((Vector2(cell) + Vector2(0.5, 0.5)) * _logical_cell_size, material)
 	if _audio_director != null:
 		_audio_director.play_material_dig(material)
+	_check_buried_landmark_discovery(cell)
+
+
+func _check_buried_landmark_discovery(cell: Vector2i) -> void:
+	for feature_type: String in ["old_burrow", "warm_chamber"]:
+		var feature_id := _find_hidden_feature_adjacent(cell, feature_type)
+		if feature_id < 0:
+			continue
+		var feature = worldgen_result.feature_registry.get_feature(feature_id)
+		if feature != null:
+			feature.hidden = false
+		world_grid.mark_region_dirty(
+			Rect2i(cell - Vector2i(2, 2), Vector2i(5, 5)),
+			world_grid.CHANGE_TERRAIN
+		)
+		_push_notification(
+			"discovery_" + feature_type,
+			tr("notify.%s_found" % feature_type),
+			cell,
+			30.0,
+			3600.0
+		)
+		if _audio_director != null:
+			_audio_director.play_discovery_stinger()
+
+
+func _find_hidden_feature_adjacent(cell: Vector2i, type_id: String) -> int:
+	for neighbor: Vector2i in world_grid.get_cardinal_neighbors(cell):
+		var feature_id := int(world_grid.get_feature_id(neighbor))
+		if feature_id < 0:
+			continue
+		var feature = worldgen_result.feature_registry.get_feature(feature_id)
+		if feature != null and feature.type_id == type_id and bool(feature.hidden):
+			return feature_id
+	return -1
 
 
 ## Zone dressing completion gets its own soft assign cue (spec §2 Interaction).

@@ -119,6 +119,7 @@ func _draw() -> void:
 			var rect := Rect2(Vector2(local_x, local_y) * cell_size, Vector2.ONE * cell_size)
 			if world_grid.is_excavated(cell_coord):
 				_draw_excavated_shading(cell_coord, rect)
+				_draw_landmark_dressing(cell_coord, rect)
 			_draw_root_information(cell_coord, rect)
 			_draw_water_information(cell_coord, rect)
 			_draw_seal_information(cell_coord, rect)
@@ -128,6 +129,38 @@ func _draw() -> void:
 			if show_cell_grid:
 				draw_rect(rect, Color(0.9, 0.82, 0.68, 0.12), false, 1.0)
 	world_chunk.consume_dirty(WorldChunkScript.DIRTY_TERRAIN | WorldChunkScript.DIRTY_SIGNALS | WorldChunkScript.DIRTY_WATER | WorldChunkScript.DIRTY_STABILITY)
+
+
+## Phase 15 spatial storytelling: revealed old-burrow cells carry faint
+## nest-trace relics, and warm-chamber cells carry a soft warm tint (art
+## bible §4 — decoration must never compete with signal cues).
+func _draw_landmark_dressing(cell_coord: Vector2i, rect: Rect2) -> void:
+	var feature = _feature_at(cell_coord)
+	if feature == null or bool(feature.hidden):
+		return
+	var cell_hash := absi(cell_coord.x * 15487 + cell_coord.y * 3313)
+	match String(feature.type_id):
+		"old_burrow":
+			var relic := cell_hash % 3
+			var center := rect.get_center()
+			if relic == 0:
+				# Old nest: faded bedding ring.
+				draw_arc(center + Vector2(0.0, 2.0), 3.4, 0.0, TAU, 12, Color("a08b6a", 0.3), 1.2)
+				draw_circle(center + Vector2(0.0, 2.0), 2.0, Color("6b5a42", 0.28))
+			elif relic == 1:
+				# Scattered hoard debris.
+				for index: int in range(3):
+					var offset := Vector2(float((cell_hash >> (index * 3)) % 9) - 4.0, float((cell_hash >> (index * 4 + 2)) % 7) - 3.0)
+					draw_circle(center + offset, 0.9, Color("8f7a58", 0.34))
+			else:
+				# Twig remains from the old structure.
+				var flip := -1.0 if (cell_hash & 1) == 0 else 1.0
+				draw_line(center + Vector2(-3.5, 2.5), center + Vector2(2.5 * flip, -1.5), Color("7a674c", 0.32), 0.9)
+				draw_line(center + Vector2(0.5, 3.5), center + Vector2(4.0 * flip, 1.0), Color("7a674c", 0.26), 0.8)
+		"warm_chamber":
+			draw_rect(rect.grow(-0.5), Color(0.86, 0.62, 0.36, 0.10), true)
+			if cell_hash % 4 == 0:
+				draw_circle(rect.get_center(), 1.2, Color(0.94, 0.72, 0.42, 0.16))
 
 
 func _legacy_material_color(material: int, cell_coord: Vector2i) -> Color:

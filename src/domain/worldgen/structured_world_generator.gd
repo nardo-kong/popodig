@@ -258,6 +258,8 @@ func _stage_terrain(context: WorldGenContext) -> void:
 				match owner.type_id:
 					"root_cluster":
 						material = CellDataScript.TerrainMaterial.ROOT_SOIL
+					"old_burrow" when (owner.metadata.get("weak_cells", []) as Array).has(cell):
+						material = CellDataScript.TerrainMaterial.LOOSE_SOIL
 					"water_reservoir":
 						material = CellDataScript.TerrainMaterial.DAMP_CLAY
 					"rock_mass":
@@ -566,19 +568,55 @@ func _add_foundation(context: WorldGenContext, anchor: Vector2i, rng) -> void:
 	context.feature_registry.add_feature(feature)
 
 
+## Phase 15 prefab mutation system: the old burrow is assembled from authored
+## prefab pieces and one authored mutation, deterministically per seed. Every
+## mutation keeps the required-landmark contract (anchor + approach cells).
+const OLD_BURROW_MUTATIONS: Array[String] = ["two_room_sealed", "collapsed_wing", "triple_nest"]
+
+
 func _add_old_burrow(context: WorldGenContext, anchor: Vector2i, rng) -> void:
 	var cells := _ellipse_cells(context, anchor, Vector2i(5, 3))
-	var second := _clamp_underground(context, anchor + Vector2i(rng.next_int(7, 10) * (-1 if rng.next_int(0, 1) == 0 else 1), rng.next_int(-2, 2)))
-	for cell: Vector2i in _ellipse_cells(context, second, Vector2i(4, 2)):
-		if not cells.has(cell):
-			cells.append(cell)
-	var cursor := anchor
-	while cursor.x != second.x:
-		cursor.x += signi(second.x - cursor.x)
-		if not cells.has(cursor):
-			cells.append(cursor)
+	var mutation := String(OLD_BURROW_MUTATIONS[rng.next_int(0, OLD_BURROW_MUTATIONS.size() - 1)])
+	var weak_cells: Array[Vector2i] = []
+	match mutation:
+		"two_room_sealed":
+			var second := _clamp_underground(context, anchor + Vector2i(rng.next_int(7, 10) * (-1 if rng.next_int(0, 1) == 0 else 1), rng.next_int(-2, 2)))
+			for cell: Vector2i in _ellipse_cells(context, second, Vector2i(4, 2)):
+				if not cells.has(cell):
+					cells.append(cell)
+			var cursor := anchor
+			while cursor.x != second.x:
+				cursor.x += signi(second.x - cursor.x)
+				if not cells.has(cursor):
+					cells.append(cursor)
+		"collapsed_wing":
+			# A second wing partially choked with loose fill: the shortcut
+			# exists but must be re-dug through weak terrain.
+			var wing := _clamp_underground(context, anchor + Vector2i(rng.next_int(6, 9) * (-1 if rng.next_int(0, 1) == 0 else 1), rng.next_int(-1, 2)))
+			var wing_cells := _ellipse_cells(context, wing, Vector2i(4, 2))
+			var cursor := anchor
+			while cursor.x != wing.x:
+				cursor.x += signi(wing.x - cursor.x)
+				wing_cells.append(cursor)
+			for index: int in range(wing_cells.size()):
+				var cell: Vector2i = wing_cells[index]
+				if not cells.has(cell):
+					cells.append(cell)
+				if index % 2 == 0:
+					weak_cells.append(cell)
+		"triple_nest":
+			# Three chamber hints around the main hall — the old family nest.
+			for direction: Vector2i in [Vector2i(-1, -1), Vector2i(1, -1), Vector2i(0, 1)]:
+				var nest := _clamp_underground(context, anchor + Vector2i(direction.x * rng.next_int(6, 8), direction.y * rng.next_int(3, 4)))
+				for cell: Vector2i in _ellipse_cells(context, nest, Vector2i(3, 2)):
+					if not cells.has(cell):
+						cells.append(cell)
 	var feature := GeneratedFeatureScript.new("old_burrow", anchor, cells, true)
-	feature.metadata = {"approach_cells": _cardinal_approaches(context, anchor, Vector2i(6, 4)), "mutation": "two_room_sealed"}
+	feature.metadata = {
+		"approach_cells": _cardinal_approaches(context, anchor, Vector2i(6, 4)),
+		"mutation": mutation,
+		"weak_cells": weak_cells,
+	}
 	context.feature_registry.add_feature(feature)
 
 

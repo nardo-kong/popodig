@@ -27,7 +27,27 @@ func run() -> Array[Dictionary]:
 	_test_seed_boundaries(config)
 	_test_authored_root_shapes(config)
 	_test_chapter2_knots(config)
+	_test_old_burrow_mutations(config)
 	return results
+
+
+## Phase 15: the old burrow assembles from authored prefab mutations, and the
+## final warm chamber exists in the deep band.
+func _test_old_burrow_mutations(config: Dictionary) -> void:
+	var seen: Dictionary = {}
+	for seed_value: int in [137042, 137043, 137044, 137045, 137046, 137047, 137048, 137049]:
+		var result = GeneratorScript.new().generate_result(config, seed_value)
+		if not result.success:
+			continue
+		for feature in result.feature_registry.get_features("old_burrow"):
+			var mutation := String(feature.metadata.get("mutation", ""))
+			_assert_true(GeneratorScript.OLD_BURROW_MUTATIONS.has(mutation), "Old-burrow mutation '%s' is authored (seed %d)" % [mutation, seed_value])
+			seen[mutation] = true
+	_assert_true(seen.size() >= 2, "Old-burrow mutations vary across seeds (%d distinct)" % seen.size())
+	var warm = GeneratorScript.new().generate_result(config, 137042)
+	var warm_features: Array = warm.feature_registry.get_features("warm_chamber")
+	_assert_true(not warm_features.is_empty() and not (warm_features[0].cells as Array).is_empty(), "Final warm chamber generates with cells")
+	_assert_true(int(warm_features[0].anchor.y) >= int(warm.world.metadata.depth_targets.get("chapter_3", 1 << 28)), "Warm chamber sits in the deep campaign band")
 
 
 ## Phase 14: the required reservoir overlaps an unstable pocket below it, and
