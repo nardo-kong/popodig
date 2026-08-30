@@ -526,6 +526,17 @@ if (-not $SkipScreenshot) {
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 11 zone-dressing screenshot validation failed with exit code $LASTEXITCODE"
     }
+
+    # Phase 12: player settings overlay (quick-load confirm, volumes, a11y).
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase12_settings.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-open-settings --output=res://art/qa/screenshots/phase_12_settings_menu.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 12 settings-menu screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase12_settings.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_12_settings_menu.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 12 settings-menu screenshot validation failed with exit code $LASTEXITCODE"
+    }
 }
 
 $ValidationLogs = @(
@@ -630,7 +641,9 @@ if (-not $SkipScreenshot) {
         "capture_phase11_water_closeup.log",
         "screenshot_validation_phase11_water_closeup.log",
         "capture_phase11_zone_dressing.log",
-        "screenshot_validation_phase11_zone_dressing.log"
+        "screenshot_validation_phase11_zone_dressing.log",
+        "capture_phase12_settings.log",
+        "screenshot_validation_phase12_settings.log"
     )
 }
 

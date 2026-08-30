@@ -5,8 +5,9 @@ const SAMPLE_SECONDS := 3.0
 const MINIMUM_AVERAGE_FPS := 55.0
 const MAXIMUM_P95_FRAME_MS := 33.4
 # Phase 11 added the persistent presentation layers (WaterFxView, VfxView,
-# AudioDirector + player pool = +9 nodes); the budget follows the scene graph.
-const MAXIMUM_NODE_COUNT := 125
+# AudioDirector + player pool = +9 nodes); Phase 12 added the settings
+# overlay (~+23 nodes); the budget follows the scene graph.
+const MAXIMUM_NODE_COUNT := 150
 
 
 func _initialize() -> void:

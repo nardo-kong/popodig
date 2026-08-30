@@ -17,6 +17,7 @@ const ContextTutorialModelScript = preload("res://src/presentation/hud/context_t
 const WaterFxViewScript = preload("res://src/presentation/world/water_fx_view.gd")
 const VfxViewScript = preload("res://src/presentation/fx/vfx_view.gd")
 const AudioDirectorScript = preload("res://src/presentation/audio/audio_director.gd")
+const SettingsViewScript = preload("res://src/presentation/hud/settings_view.gd")
 
 # Slice objective (docs/qa/18 Beat H): a marked depth goal below the start.
 const SLICE_OBJECTIVE_DEPTH_OFFSET := 30
@@ -74,6 +75,8 @@ var mouse_agent
 var worldgen_result
 var _vfx_view: VfxView
 var _audio_director: AudioDirector
+var _settings_view: SettingsView
+var _settings_open := false
 var _logical_cell_size := 16
 var _simulation_step := 0.05
 var _simulation_accumulator := 0.0
@@ -164,6 +167,7 @@ func _ready() -> void:
 		_audio_director.name = "AudioDirector"
 		add_child(_audio_director)
 		_audio_director.apply_volumes(audio_config)
+	_setup_settings_view(accessibility, audio_config)
 	dig_system.cell_excavated.connect(_on_cell_excavated)
 	if root_feature_system != null:
 		root_feature_system.feature_reacted.connect(_on_root_feature_reacted)
@@ -506,6 +510,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	var viewport := get_viewport()
 	if viewport == null:
 		return
+	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_ESCAPE:
+		_toggle_settings()
+		viewport.set_input_as_handled()
+		return
+	# The settings overlay owns the screen; world input stays blocked until it
+	# closes so sliders can't accidentally paint designations underneath.
+	if _settings_open:
+		viewport.set_input_as_handled()
+		return
 	if _handle_player_shortcuts(event):
 		viewport.set_input_as_handled()
 		return
@@ -553,6 +566,8 @@ func _handle_player_shortcuts(event: InputEvent) -> bool:
 		KEY_L:
 			Localization.cycle()
 			tutorial_label.text = Localization.text(_tutorial.current_text_key())
+			if _settings_view != null and _settings_view.is_open():
+				_settings_view.refresh_localization()
 			return true
 		# F9 quick-load. Editor note: F9 is also the Godot editor debugger's
 		# pause shortcut, so an editor-launched game comes up paused after
@@ -583,7 +598,7 @@ func _handle_tool_shortcut(event: InputEvent) -> bool:
 		return false
 	var key_event := event as InputEventKey
 	match key_event.keycode:
-		KEY_1, KEY_ESCAPE:
+		KEY_1:
 			_set_tool(Tool.DIG)
 			return true
 		KEY_2:
@@ -1047,6 +1062,56 @@ func _on_cell_excavated(cell: Vector2i) -> void:
 func _on_zone_setup_state_changed(_zone_id: int, setup_state: int) -> void:
 	if setup_state == ZoneScript.SetupState.SET_UP and _audio_director != null:
 		_audio_director.play_zone_assign()
+
+
+## Player settings overlay: saved options override the config defaults for
+## this session, and live changes apply to audio/vfx/camera immediately.
+func _setup_settings_view(accessibility: Dictionary, audio_config: Dictionary) -> void:
+	_settings_view = SettingsViewScript.new()
+	_settings_view.name = "Settings"
+	($UI/Root as Control).add_child(_settings_view)
+	var saved := _settings_view.store
+	var effective_audio := audio_config.duplicate(true)
+	if saved.load_settings():
+		var player := saved.as_audio_accessibility()
+		effective_audio["master_volume"] = player.master_volume
+		effective_audio["sfx_volume"] = player.sfx_volume
+		effective_audio["ambience_volume"] = player.ambience_volume
+		accessibility = {
+			"reduced_particles": player.reduced_particles,
+			"reduced_shake": player.reduced_shake,
+		}
+		_apply_accessibility(accessibility)
+	if _audio_director != null:
+		_audio_director.apply_volumes(effective_audio)
+	_settings_view.settings_changed.connect(_on_settings_changed)
+	_settings_view.resume_requested.connect(_toggle_settings)
+	_settings_view.quick_load_confirmed.connect(func() -> void:
+		_toggle_settings()
+		_request_load("quicksave")
+	)
+
+
+func _apply_accessibility(accessibility: Dictionary) -> void:
+	if _vfx_view != null:
+		_vfx_view.set_reduced_particles(bool(accessibility.get("reduced_particles", false)))
+	world_camera.reduced_shake = bool(accessibility.get("reduced_shake", false))
+
+
+func _on_settings_changed(audio_accessibility: Dictionary) -> void:
+	if _audio_director != null:
+		_audio_director.apply_volumes(audio_accessibility)
+	_apply_accessibility(audio_accessibility)
+
+
+func _toggle_settings() -> void:
+	_settings_open = not _settings_open
+	if _settings_open:
+		_settings_view.open()
+	else:
+		_settings_view.close()
+	# Settings pause the simulation; the Space pause flag stays independent.
+	_paused = _settings_open
 
 
 func _mouse_cell() -> Vector2i:

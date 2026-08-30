@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_phase": 11,
+  "current_phase": 12,
   "checks": [
     {"id": "project_import", "status": "PASS", "evidence": "tools/validate.ps1 import step"},
     {"id": "main_scene_launch", "status": "PASS", "evidence": "scenes/app/game_app.tscn"},
@@ -25,6 +25,7 @@
     {"id": "stability_colony_reaction", "status": "PASS", "evidence": "tests/integration/test_stability_colony_flow.gd and tests/phase8_stability_smoke.gd"},
     {"id": "bounded_collapse_topology", "status": "PASS", "evidence": "tests/unit/test_stability_system.gd and tests/integration/test_stability_colony_flow.gd"},
     {"id": "save_load", "status": "PASS", "evidence": "tests/phase10_save_smoke.gd, tests/unit/test_save_service.gd, tests/unit/test_save_roundtrip.gd and tests/fixtures/saves/"},
-    {"id": "art_audio_integration", "status": "PASS", "evidence": "tests/unit/test_terrain_edge_rules.gd, tests/unit/test_vfx_pool.gd, tests/unit/test_audio_bank.gd and art/qa/screenshots/phase_11_*.png"}
+    {"id": "art_audio_integration", "status": "PASS", "evidence": "tests/unit/test_terrain_edge_rules.gd, tests/unit/test_vfx_pool.gd, tests/unit/test_audio_bank.gd and art/qa/screenshots/phase_11_*.png"},
+    {"id": "player_settings", "status": "PASS", "evidence": "tests/unit/test_settings_store.gd and art/qa/screenshots/phase_12_settings_menu.png"}
   ]
 }

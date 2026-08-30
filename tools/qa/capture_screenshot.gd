@@ -34,6 +34,14 @@ func _capture() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
+	if _has_user_argument("--qa-open-settings"):
+		var settings: Control = scene.get("_settings_view")
+		if settings == null:
+			push_error("Scene has no settings view for --qa-open-settings")
+			quit(1)
+			return
+		scene._toggle_settings()
+		await process_frame
 	if not _apply_qa_camera_override(scene):
 		quit(1)
 		return
