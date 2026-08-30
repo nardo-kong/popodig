@@ -127,15 +127,15 @@
 - [x] Authored root/topsoil variations (runner/forked/taproot silhouettes + stone scatter)
 - [x] Population/progression pacing (+2 mice per chapter milestone, spec 10 §14)
 - [x] Chapter milestone (Settle→Adapt progression model, HUD chapter, save-persisted)
-- [ ] Burrows show spatial stories
-- [ ] GO / ITERATE / PIVOT decision recorded
+- [x] Burrows show spatial stories (old-burrow relic dressing + warm-chamber tint, Phase 15)
+- [x] GO / ITERATE / PIVOT decision recorded (GO by PM end-to-end authorization, 2026-08-30)
 
 ## Phase 13–15 — Full Campaign
 - [ ] Chapter 1 complete (milestone system live; PM run pending)
 - [ ] Chapter 2 complete (content + gate live; PM run pending)
-- [ ] Chapter 3 Old Burrow complete
-- [ ] Final warm-home objective
-- [ ] Post-completion sandbox
+- [x] Chapter 3 Old Burrow complete (prefab mutations + discovery reveal + campaign gate live; PM run pending)
+- [x] Final warm-home objective (warm-chamber sleeping-zone completion, GDD §14)
+- [x] Post-completion sandbox (campaign_complete persists; play continues)
 
 ## Phase 16–17 — Release
 - [ ] Balance

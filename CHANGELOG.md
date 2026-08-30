@@ -1,5 +1,9 @@
 # Documentation Changelog
 
+## Implementation sync — 2026-08-30 (Phase 15)
+- Completed Phase 15 Chapter 3: Old Burrow — the campaign is now completable. Old-burrow prefab mutation system (two_room_sealed / collapsed_wing / triple_nest, deterministic per seed, weak-cell fill for the collapsed wing); old burrow and warm chamber reveal through adjacent excavation with localized discovery notifications and stingers; spatial storytelling dressing (faded nest rings, hoard debris, twig remains at alpha ≤ 0.34; warm tint + glow specks in the final chamber); campaign completion (GDD §14) when a set-up sleeping zone stands inside the revealed warm chamber — fires once, persists in saves, HUD gains a "✦ Home established" suffix, sandbox continues.
+- Worldgen v6. Tests +15 (campaign completion lifecycle, mutation membership/variety, warm-chamber depth placement) → 1179/1179; seed batch 288/288 at 100% raw, p95 ~440 ms; full validate VALIDATION_PASS.
+
 ## Implementation sync — 2026-08-30 (Phase 14)
 - Completed Phase 14 Chapter 2: Adapt. Water × instability is live (spec 09 §10 enabled): each ceiling bay over standing water counts double toward its roof span — a fully flooded run is one band weaker — with live re-rating on flood/drain via CHANGE_WATER; one unstable pocket is authored directly beneath the required reservoir so a breach floods weak terrain. Per-bay model chosen after the whole-run halving collapsed storage rooms from a single water cell (4 colony-flow regressions caught by the suite).
 - Richer water: second additional reservoir, first one authored elevated in the transition band so its breach drains through mid-world routes. Foundation walls vary authored ride-height per seed. Pipe/heat/sound intentionally deferred ("if validated" unmet — no playtests yet).
