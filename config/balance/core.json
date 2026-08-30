@@ -62,5 +62,10 @@
     "max_collapse_radius": 3,
     "reinforce_material_per_cell": 1,
     "item_damage_fraction": 0.25
+  },
+  "population": {
+    "chapter_2_growth": 2,
+    "chapter_3_growth": 2,
+    "chapter1_food_target": 10
   }
 }

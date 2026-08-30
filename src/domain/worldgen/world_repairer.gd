@@ -72,6 +72,18 @@ func repair(context: WorldGenContext, validation_report: Dictionary, repair_pass
 				if invalid_feature != null and not invalid_feature.required:
 					_remove_optional_feature(context, invalid_feature)
 					actions.append(_action(repair_pass, code, "remove_invalid_optional_feature", Vector2i.ZERO))
+			"EARLY_FOOD_PREEXPOSED":
+				var exposed_feature = context.feature_registry.get_feature(int(failure.get("feature_id", -1)))
+				if exposed_feature != null and not exposed_feature.required:
+					var trimmed: Array[Vector2i] = []
+					for cell_value: Variant in failure.get("cells", []):
+						if cell_value is Vector2i:
+							trimmed.append(cell_value)
+					if not trimmed.is_empty() and _trim_feature_cells(context, exposed_feature, trimmed):
+						actions.append(_action(repair_pass, "EARLY_FOOD_PREEXPOSED", "trim_preexposed_food_cells", exposed_feature.anchor))
+					elif _feature_is_still_preexposed(context, exposed_feature):
+						_remove_optional_feature(context, exposed_feature)
+						actions.append(_action(repair_pass, "EARLY_FOOD_PREEXPOSED", "remove_preexposed_food_root", exposed_feature.anchor))
 			"RESERVOIR_MISSING":
 				var reservoir_anchor: Vector2i = context.world.metadata.start_cell + Vector2i(10, 14)
 				_add_repair_reservoir(context, reservoir_anchor)
@@ -353,6 +365,42 @@ func _rebuild_signal_hooks(context: WorldGenContext) -> bool:
 		return false
 	context.signal_emitters = rebuilt
 	return true
+
+
+## Phase 13: drop exactly the pre-exposed fringe cells of an optional food
+## Root so the cluster keeps its body but discovery still requires digging.
+## Returns false when the trim cannot keep a coherent feature (caller should
+## then remove the whole optional feature).
+func _trim_feature_cells(context: WorldGenContext, feature: GeneratedFeature, cells: Array[Vector2i]) -> bool:
+	if feature.required or cells.is_empty() or feature.cells.has(feature.anchor) and cells.has(feature.anchor):
+		return false
+	var retained: Array[Vector2i] = []
+	for cell: Vector2i in feature.cells:
+		if cells.has(cell):
+			if context.world.get_feature_id(cell) == feature.id:
+				context.world.set_feature_id(cell, -1)
+				context.world.set_material(cell, _material_for_stratum(context.world.get_stratum_id(cell)))
+			continue
+		retained.append(cell)
+	if retained.size() < 3 or not retained.has(feature.anchor):
+		# Undo nothing destructive: put the trimmed cells back so the whole
+		# feature can be removed uniformly by the caller.
+		for cell: Vector2i in cells:
+			context.world.set_feature_id(cell, feature.id)
+			context.world.set_material(cell, CellDataScript.TerrainMaterial.ROOT_SOIL)
+		return false
+	feature.cells = retained
+	return true
+
+
+func _feature_is_still_preexposed(context: WorldGenContext, feature: GeneratedFeature) -> bool:
+	for feature_cell: Vector2i in feature.cells:
+		for neighbor: Vector2i in context.world.get_cardinal_neighbors(feature_cell):
+			if feature.cells.has(neighbor):
+				continue
+			if context.world.is_in_bounds(neighbor) and context.world.is_traversable(neighbor):
+				return true
+	return false
 
 
 func _remove_optional_feature(context: WorldGenContext, feature: GeneratedFeature) -> void:

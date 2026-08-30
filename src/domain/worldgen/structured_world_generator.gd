@@ -216,6 +216,10 @@ func _stage_terrain(context: WorldGenContext) -> void:
 	for feature_id: int in empty_optional_ids:
 		context.feature_registry.remove_feature(feature_id)
 	var margin := maxi(1, int(context.config.get("protected_margin", 1)))
+	# Phase 13 authored topsoil variation: sparse small stones knit the soft
+	# topsoil band so uniform regions read less tiled. Stabilising-only (stone
+	# raises allowed spans), so the content validator stays authoritative.
+	var topsoil_stone_ratio := clampf(float(context.config.get("topsoil_stone_ratio", 0.006)), 0.0, 0.05)
 	for y: int in range(context.height):
 		for x: int in range(context.width):
 			var cell := Vector2i(x, y)
@@ -226,6 +230,8 @@ func _stage_terrain(context: WorldGenContext) -> void:
 				continue
 			var stratum_id := _stratum_at(context, cell)
 			var material := _base_material(stratum_id, rng)
+			if stratum_id == 0 and rng.next_float() < topsoil_stone_ratio:
+				material = CellDataScript.TerrainMaterial.STONE
 			var excavated := false
 			var owner: GeneratedFeature = owner_by_cell.get(cell)
 			if owner != null:
@@ -253,11 +259,50 @@ func _stage_terrain(context: WorldGenContext) -> void:
 	_reconcile_registry_with_owner_layer(context)
 	_ensure_decision_knot_safe_route(context)
 	_reconcile_registry_with_owner_layer(context)
+	_trim_preexposed_food_roots(context)
 	for landmark: GeneratedFeature in context.feature_registry.get_features_by_role("landmark"):
 		for cell: Vector2i in landmark.cells:
 			if context.world.is_in_bounds(cell):
 				context.world.set_landmark(cell, true)
 	context.world.mark_all_chunks_dirty()
+
+
+## Phase 13: optional food Roots may not touch generated open cells — the
+## Signal → Reveal lifecycle requires excavation before exposure, so trim the
+## exposed fringe here, deterministically, before validation sees the world.
+func _trim_preexposed_food_roots(context: WorldGenContext) -> void:
+	var restore_rng := DeterministicRng.new(0)
+	for pass_index: int in range(3):
+		var any_trimmed := false
+		for feature in context.feature_registry.get_features("root_cluster"):
+			if feature.required or not bool(feature.metadata.get("food_opportunity", false)):
+				continue
+			var exposed: Array[Vector2i] = []
+			for feature_cell: Vector2i in feature.cells:
+				for neighbor: Vector2i in context.world.get_cardinal_neighbors(feature_cell):
+					if feature.cells.has(neighbor):
+						continue
+					if context.world.is_in_bounds(neighbor) and context.world.is_traversable(neighbor):
+						exposed.append(feature_cell)
+						break
+			if exposed.is_empty():
+				continue
+			if not (feature.cells.has(feature.anchor) and exposed.has(feature.anchor)) and feature.cells.size() - exposed.size() >= 3:
+				for cell: Vector2i in exposed:
+					feature.cells.erase(cell)
+					if context.world.get_feature_id(cell) == feature.id:
+						context.world.set_feature_id(cell, -1)
+						context.world.set_material(cell, _base_material(context.world.get_stratum_id(cell), restore_rng))
+				any_trimmed = true
+			else:
+				context.feature_registry.remove_feature(feature.id)
+				for cell: Vector2i in feature.cells:
+					if context.world.get_feature_id(cell) == feature.id:
+						context.world.set_feature_id(cell, -1)
+						context.world.set_material(cell, _base_material(context.world.get_stratum_id(cell), restore_rng))
+				any_trimmed = true
+		if not any_trimmed:
+			break
 
 
 func _reconcile_registry_with_owner_layer(context: WorldGenContext) -> void:
@@ -379,28 +424,54 @@ func _add_landmark(context: WorldGenContext, type_id: String, anchor: Vector2i, 
 	context.feature_registry.add_feature(landmark)
 
 
+## Authored root-cluster silhouettes (Phase 13 "authored root variations").
+## All shapes stay ellipse-anchored around the anchor so validator assumptions
+## (approach cells, signal falloff) hold; only the trailing growth differs.
+const ROOT_SHAPES: Array[String] = ["runner", "forked", "taproot"]
+
+
 func _add_root_cluster(context: WorldGenContext, anchor: Vector2i, required: bool, rng) -> void:
 	var cells := _ellipse_cells(context, anchor, Vector2i(3, 2))
-	var directions: Array[int] = [-1]
-	if not required:
-		directions.append(1)
-	for direction: int in directions:
-		var cursor := anchor
-		for step: int in range(rng.next_int(4, 8)):
-			cursor += Vector2i(direction, rng.next_int(-1, 1))
-			cursor = _clamp_underground(context, cursor)
-			if not cells.has(cursor):
-				cells.append(cursor)
+	var shape := "taproot"
 	if required:
+		# Required roots keep the authored inward tap so the early-food
+		# witness path geometry stays predictable.
 		for step: int in range(1, 5):
 			var inward_cell := _clamp_underground(context, anchor + Vector2i(step, 0))
 			if not cells.has(inward_cell):
 				cells.append(inward_cell)
+	else:
+		shape = String(ROOT_SHAPES[rng.next_int(0, ROOT_SHAPES.size() - 1)])
+		match shape:
+			"runner":
+				var runner_direction: int = 1 if rng.next_int(0, 1) == 0 else -1
+				var runner_cursor := anchor
+				for step: int in range(rng.next_int(4, 7)):
+					runner_cursor += Vector2i(runner_direction, rng.next_int(-1, 1))
+					runner_cursor = _clamp_underground(context, runner_cursor)
+					if not cells.has(runner_cursor):
+						cells.append(runner_cursor)
+			"forked":
+				for fork_direction: int in [-1, 1]:
+					var fork_cursor := anchor
+					for step: int in range(rng.next_int(2, 4)):
+						fork_cursor += Vector2i(fork_direction, rng.next_int(-1, 1))
+						fork_cursor = _clamp_underground(context, fork_cursor)
+						if not cells.has(fork_cursor):
+							cells.append(fork_cursor)
+			"taproot":
+				var tap_cursor := anchor
+				for step: int in range(rng.next_int(3, 6)):
+					tap_cursor += Vector2i(rng.next_int(-1, 1), 1)
+					tap_cursor = _clamp_underground(context, tap_cursor)
+					if not cells.has(tap_cursor):
+						cells.append(tap_cursor)
 	var feature := GeneratedFeatureScript.new("root_cluster", anchor, cells, required)
 	var root_config: Dictionary = context.config.get("root_feature", {})
 	var food_opportunity: bool = required or int(rng.next_int(0, 99)) < 60
 	var food_reserve: int = int(root_config.get("required_food_reserve", 12) if required else root_config.get("optional_food_reserve", 8))
 	feature.metadata = {
+		"shape_id": shape,
 		"food_opportunity": food_opportunity,
 		"signal_strength": 5,
 		"signal_falloff": 1,

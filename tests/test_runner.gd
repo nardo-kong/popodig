@@ -13,6 +13,7 @@ const TEST_SCRIPTS: PackedStringArray = [
 	"res://tests/unit/test_vfx_pool.gd",
 	"res://tests/unit/test_audio_bank.gd",
 	"res://tests/unit/test_settings_store.gd",
+	"res://tests/unit/test_chapter_model.gd",
 	"res://tests/unit/test_notification_model.gd",
 	"res://tests/unit/test_context_tutorial.gd",
 	"res://tests/unit/test_localization.gd",
@@ -52,6 +53,7 @@ const COMPILE_GATES: PackedStringArray = [
 	"res://src/domain/jobs/job_system.gd",
 	"res://src/domain/colony/mouse_agent.gd",
 	"res://src/domain/colony/colony_simulation.gd",
+	"res://src/domain/progression/chapter_model.gd",
 	"res://src/presentation/app/game_app.gd",
 ]
 

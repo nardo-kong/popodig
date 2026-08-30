@@ -2,8 +2,11 @@
   "schema_version": 2,
   "status": "PROVISIONAL",
   "default_seed": 137042,
-  "worldgen_version": 3,
-  "world_size": [96, 72],
+  "worldgen_version": 4,
+  "world_size": [
+    96,
+    72
+  ],
   "chunk_size": 16,
   "protected_margin": 1,
   "max_repair_passes": 4,
@@ -13,16 +16,32 @@
     "maximum_ratio": 0.12
   },
   "strata": [
-    {"id": 0, "name": "topsoil", "end_ratio": 0.30},
-    {"id": 1, "name": "root_moisture_transition", "end_ratio": 0.54},
-    {"id": 2, "name": "wet_foundation", "end_ratio": 0.78},
-    {"id": 3, "name": "old_burrow", "end_ratio": 1.00}
+    {
+      "id": 0,
+      "name": "topsoil",
+      "end_ratio": 0.3
+    },
+    {
+      "id": 1,
+      "name": "root_moisture_transition",
+      "end_ratio": 0.54
+    },
+    {
+      "id": 2,
+      "name": "wet_foundation",
+      "end_ratio": 0.78
+    },
+    {
+      "id": 3,
+      "name": "old_burrow",
+      "end_ratio": 1.0
+    }
   ],
   "feature_counts": {
-    "additional_root_clusters": 2,
+    "additional_root_clusters": 3,
     "additional_reservoirs": 1,
     "rock_masses": 5,
-    "natural_cavities": 5,
+    "natural_cavities": 6,
     "unstable_pockets": 3
   },
   "validation": {
@@ -33,9 +52,27 @@
     "minimum_decision_knots": 1
   },
   "signal_fields": {
-    "root_density": {"thresholds": [1, 3, 5]},
-    "moisture": {"thresholds": [1, 3, 5]},
-    "instability": {"thresholds": [35, 60, 80]}
+    "root_density": {
+      "thresholds": [
+        1,
+        3,
+        5
+      ]
+    },
+    "moisture": {
+      "thresholds": [
+        1,
+        3,
+        5
+      ]
+    },
+    "instability": {
+      "thresholds": [
+        35,
+        60,
+        80
+      ]
+    }
   },
   "root_feature": {
     "required_food_reserve": 12,
@@ -51,5 +88,6 @@
     "minimum_raw_valid_rate": 0.95,
     "maximum_retry_rate": 0.01,
     "maximum_repair_rate": 0.05
-  }
+  },
+  "topsoil_stone_ratio": 0.006
 }

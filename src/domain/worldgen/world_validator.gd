@@ -218,6 +218,23 @@ func _validate_food(context: WorldGenContext, failures: Array[Dictionary], metri
 			blocked_cells.append(feature.anchor)
 		_fail(failures, "EARLY_FOOD_UNREACHABLE", "Root food opportunities have no legal boundary approach.", blocked_cells)
 		return
+	# Phase 13 lifecycle guard (docs/systems/07 §3): discovery runs
+	# Signal → Reveal through excavation, so an optional food Root may not
+	# touch generated open cells — a pre-exposed boundary would let the
+	# colony walk to food with zero digging.
+	for feature: GeneratedFeature in food_features:
+		if feature.required:
+			continue
+		var exposed_cells: Array[Vector2i] = []
+		for feature_cell: Vector2i in feature.cells:
+			for neighbor: Vector2i in context.world.get_cardinal_neighbors(feature_cell):
+				if feature.cells.has(neighbor):
+					continue
+				if context.world.is_in_bounds(neighbor) and context.world.is_traversable(neighbor):
+					exposed_cells.append(feature_cell)
+					break
+		if not exposed_cells.is_empty():
+			_fail(failures, "EARLY_FOOD_PREEXPOSED", "Optional food Root is pre-exposed to generated open cells; the reveal loop would be skipped.", exposed_cells, feature.id)
 	var start: Vector2i = context.world.metadata.start_cell
 	var maximum_cost := int(_validation_config(context).get("early_food_max_dig_cost", 34))
 	var path: Dictionary = minimum_potential_dig_cost(context.world, start, goals, maximum_cost)

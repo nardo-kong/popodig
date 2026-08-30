@@ -1,6 +1,7 @@
 extends SceneTree
 
 const StabilitySystemScript = preload("res://src/domain/features/stability_system.gd")
+const AppConfigService = preload("res://src/infrastructure/config/app_config.gd")
 const ItemSystemScript = preload("res://src/domain/colony/item_system.gd")
 
 
@@ -23,14 +24,19 @@ func _run() -> void:
 	if stability == null:
 		_fail("Runtime StabilitySystem is missing")
 		return
-	var seam: Dictionary = scene._find_qa_soft_soil_seam(scene.world_grid.metadata.start_cell)
+	# Phase 13: the span is sized from the CEILING run's weakest material
+	# (the stability system rates roof spans), 90% of allowed so warnings
+	# appear without tipping into critical before reinforcement lands.
+	var stability_balance: Dictionary = AppConfigService.load_json_document("res://config/balance/core.json").data.get("stability", {})
+	var seam: Dictionary = scene._find_qa_teaching_ceiling(scene.world_grid.metadata.start_cell, stability_balance)
 	print("PHASE8_SMOKE_STAGE seam=%s" % str(seam))
-	if int(seam.row) < 0 or int(seam.length) < 9:
-		_fail("Runtime world has no long soft-soil seam for the stability witness")
+	var span_count := clampi(int(float(int(seam.allowed)) * 0.9), 4, mini(9, int(seam.length)))
+	if int(seam.ceiling_row) < 0 or span_count < 4:
+		_fail("Runtime world has no teachable ceiling run for the stability witness")
 		return
 	var goals: Array[Vector2i] = []
-	for x: int in range(int(seam.start), int(seam.start) + 9):
-		goals.append(Vector2i(x, int(seam.row)))
+	for x: int in range(int(seam.start), int(seam.start) + span_count):
+		goals.append(Vector2i(x, int(seam.ceiling_row) + 1))
 	var witness := _potential_path(scene.world_grid, scene.world_grid.metadata.start_cell, goals)
 	print("PHASE8_SMOKE_STAGE witness cells=%d" % witness.size())
 	if witness.is_empty():
@@ -80,12 +86,12 @@ func _run() -> void:
 	for goal: Vector2i in goals:
 		if scene.world_grid.is_traversable(goal):
 			excavated += 1
-	if excavated < 8:
+	if excavated < span_count:
 		_fail("Stability witness tunnel could not be excavated")
 		return
 	for _tick: int in range(12):
 		scene.colony_simulation.fixed_tick(0.05)
-	var row: int = int(seam.row)
+	var row: int = int(seam.ceiling_row) + 1
 	var levels: Dictionary = {}
 	for x: int in range(int(seam.start), int(seam.start) + excavated):
 		levels[stability.get_warning_level(Vector2i(x, row))] = true

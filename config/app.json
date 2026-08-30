@@ -2,9 +2,12 @@
   "schema_version": 1,
   "game_version": "0.1.0-dev",
   "save_schema_version": 1,
-  "worldgen_version": 3,
+  "worldgen_version": 4,
   "simulation_tick_hz": 5,
-  "default_viewport": [1280, 720],
+  "default_viewport": [
+    1280,
+    720
+  ],
   "audio": {
     "enabled": true,
     "master_volume": 0.8,

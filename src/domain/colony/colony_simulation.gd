@@ -623,6 +623,11 @@ func _prune_emergency_relocation_piles() -> void:
 			_emergency_relocation_piles.erase(pile_id_value)
 
 
+## Public spawn-cell query for milestone population growth (spec 10 §14).
+func find_spawn_cells_near(anchor: Vector2i, count: int) -> Array[Vector2i]:
+	return _find_spawn_cells(anchor, count)
+
+
 func _find_spawn_cells(start_cell: Vector2i, count: int) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	var distances: PackedInt32Array = _path_service.build_distance_field(start_cell)

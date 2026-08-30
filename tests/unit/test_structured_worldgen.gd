@@ -25,7 +25,26 @@ func run() -> Array[Dictionary]:
 	_test_repair_revalidates(config)
 	_test_repair_adversarial_fixtures(config)
 	_test_seed_boundaries(config)
+	_test_authored_root_shapes(config)
 	return results
+
+
+## Phase 13: optional root clusters carry one of the authored silhouettes,
+## required roots keep the inward tap, and shapes actually vary across seeds.
+func _test_authored_root_shapes(config: Dictionary) -> void:
+	var seen_shapes: Dictionary = {}
+	for seed_value: int in [137042, 137043, 137044, 137045, 137046, 137047, 137048, 137049]:
+		var result = GeneratorScript.new().generate_result(config, seed_value)
+		if not result.success:
+			continue
+		for feature in result.feature_registry.get_features("root_cluster"):
+			var shape := String(feature.metadata.get("shape_id", ""))
+			if feature.required:
+				_assert_true(shape == "taproot", "Required root keeps the authored tap shape (seed %d)" % seed_value)
+			else:
+				_assert_true(GeneratorScript.ROOT_SHAPES.has(shape), "Optional root shape '%s' is authored (seed %d)" % [shape, seed_value])
+				seen_shapes[shape] = true
+	_assert_true(seen_shapes.size() >= 2, "Root silhouettes vary across seeds (%d distinct)" % seen_shapes.size())
 
 
 func _test_pipeline_and_contract(config: Dictionary) -> void:
@@ -34,7 +53,7 @@ func _test_pipeline_and_contract(config: Dictionary) -> void:
 		print("WORLDGEN_TEST_FAILURES %s" % result.report.get("validation", {}).get("failure_codes", []))
 	_assert_true(result.success, "Structured pipeline produces a validator-approved default world")
 	_assert_equal(result.report.stage_order, GeneratorScript.STAGE_ORDER, "Worldgen executes the locked eight-stage order")
-	_assert_equal(result.world.metadata.worldgen_version, 3, "Structured topology records worldgen version 3")
+	_assert_equal(result.world.metadata.worldgen_version, int(config.worldgen_version), "Structured topology records the configured worldgen version")
 	_assert_true(result.world.metadata.generation_valid, "Final world metadata records validation success")
 	_assert_equal(result.world.metadata.content_hash, result.get_content_hash(), "Generation result and world share the canonical content hash")
 	_assert_true(result.world.is_traversable(result.world.metadata.start_cell), "Structured start burrow is traversable interior")

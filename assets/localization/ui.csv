@@ -124,3 +124,8 @@ keys,zh,en
 "settings.reduced_particles","减少粒子特效","Reduced particles"
 "settings.reduced_shake","减少镜头震动","Reduced screen shake"
 "settings.resume","继续游戏","Resume"
+"chapter.1_settle","第 1 章 · 定居","Chapter 1 · Settle"
+"chapter.2_adapt","第 2 章 · 适应","Chapter 2 · Adapt"
+"chapter.3_old_burrow","第 3 章 · 老鼠洞","Chapter 3 · Old Burrow"
+"notify.chapter_advanced","章节推进：%s！鼠鼠家族迎来了 %d 位新成员。","Chapter advanced: %s! %d new mice joined the family."
+"notify.campaign_hint","地下深处传来熟悉的气味——去找到旧鼠洞。","A familiar scent rises from below — find the old burrow."

@@ -18,6 +18,7 @@ const WaterFxViewScript = preload("res://src/presentation/world/water_fx_view.gd
 const VfxViewScript = preload("res://src/presentation/fx/vfx_view.gd")
 const AudioDirectorScript = preload("res://src/presentation/audio/audio_director.gd")
 const SettingsViewScript = preload("res://src/presentation/hud/settings_view.gd")
+const ChapterModelScript = preload("res://src/domain/progression/chapter_model.gd")
 
 # Slice objective (docs/qa/18 Beat H): a marked depth goal below the start.
 const SLICE_OBJECTIVE_DEPTH_OFFSET := 30
@@ -77,6 +78,7 @@ var _vfx_view: VfxView
 var _audio_director: AudioDirector
 var _settings_view: SettingsView
 var _settings_open := false
+var chapter_model
 var _logical_cell_size := 16
 var _simulation_step := 0.05
 var _simulation_accumulator := 0.0
@@ -169,6 +171,9 @@ func _ready() -> void:
 		_audio_director.apply_volumes(audio_config)
 	_setup_settings_view(accessibility, audio_config)
 	dig_system.cell_excavated.connect(_on_cell_excavated)
+	chapter_model = ChapterModelScript.new()
+	chapter_model.configure(balance_config)
+	chapter_model.chapter_advanced.connect(_on_chapter_advanced)
 	if root_feature_system != null:
 		root_feature_system.feature_reacted.connect(_on_root_feature_reacted)
 	if water_system != null:
@@ -308,6 +313,9 @@ func _build_save_document() -> Dictionary:
 			"tutorial_step": _tutorial.index,
 			"tutorial_flags": _tutorial_flags.duplicate(true),
 			"language": Localization.current(),
+			# Additive optional key (docs/tech/15): v2 saves without it
+			# restore to Chapter 1 via the model's default.
+			"chapter_model": chapter_model.to_save_data(),
 		},
 	}
 	if signal_system != null:
@@ -352,6 +360,7 @@ func _apply_loaded_document(document: Dictionary) -> Dictionary:
 		_tutorial = ContextTutorialModelScript.new()
 	_tutorial.index = clampi(int(progression.get("tutorial_step", 0)), 0, _tutorial.STEPS.size() - 1)
 	_tutorial_flags = (progression.get("tutorial_flags", {}) as Dictionary).duplicate(true)
+	chapter_model.apply_save_data(progression.get("chapter_model", {}))
 	tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	var saved_language := String(progression.get("language", ""))
 	if saved_language in Localization.SUPPORTED:
@@ -393,6 +402,75 @@ func _slow_poll() -> void:
 	notifications_view.refresh(_now_seconds)
 	_update_water_proximity()
 	_emit_warning_dust()
+	_evaluate_chapter_milestones()
+
+
+## Phase 13 chapter milestones (GDD §13, world/04 §6, colony/10 §14): chapter
+## advancement is judged from a context snapshot and grants population growth.
+func _evaluate_chapter_milestones() -> void:
+	if chapter_model == null or chapter_model.campaign_complete:
+		return
+	var zone_system = colony_simulation.get_zone_system()
+	var water_settled: bool = water_system == null or water_system.get_active_cell_count() == 0
+	var stability = colony_simulation.get_stability_system()
+	var signals_learned: bool = (
+		signal_system != null
+		and signal_system.get_recognition_name("root_cluster") != "UNKNOWN"
+		and signal_system.get_recognition_name("water_reservoir") != "UNKNOWN"
+	)
+	chapter_model.evaluate({
+		"colony_depth": int(_tutorial_flags.get("_deepest", 0)),
+		"chapter_depths": world_grid.metadata.get("depth_targets", {}),
+		"sleeping_ready": _zone_ready(zone_system, ZoneScript.Type.SLEEPING),
+		"storage_ready": _zone_ready(zone_system, ZoneScript.Type.STORAGE),
+		"food_total": colony_simulation.get_item_system().get_total_count(ItemSystemScript.FOOD),
+		"signals_learned": signals_learned,
+		"water_settled": water_settled,
+		"supports_built": stability != null and stability.get_completed_count() > 0,
+	})
+
+
+func _zone_ready(zone_system, zone_type: int) -> bool:
+	for zone: Zone in zone_system.get_zones_by_type(zone_type, true):
+		if zone.setup_state == ZoneScript.SetupState.SET_UP:
+			return true
+	return false
+
+
+func _on_chapter_advanced(new_chapter: int, growth_count: int) -> void:
+	var spawned := _spawn_growth_mice(growth_count)
+	_push_notification(
+		"chapter",
+		tr("notify.chapter_advanced") % [_chapter_display_name(new_chapter), spawned],
+		world_grid.metadata.start_cell,
+		30.0,
+		3600.0
+	)
+	if new_chapter >= ChapterModelScript.CHAPTER_3_OLD_BURROW:
+		_push_notification("chapter", tr("notify.campaign_hint"), world_grid.metadata.start_cell, 30.0, 3600.0)
+
+
+## Spec 10 §14: population grows at milestone points; new mice spawn near the
+## start burrow and demand food/sleep like the founding three.
+func _spawn_growth_mice(count: int) -> int:
+	var start: Vector2i = world_grid.metadata.start_cell
+	var spawn_cells: Array[Vector2i] = colony_simulation.find_spawn_cells_near(start, count)
+	var spawned := 0
+	for index: int in range(spawn_cells.size()):
+		var mouse = colony_simulation.add_mouse("mouse_%d" % (colony_simulation.get_mice().size() + 1), spawn_cells[index])
+		if mouse != null:
+			spawned += 1
+	return spawned
+
+
+func _chapter_display_name(chapter: int) -> String:
+	match chapter:
+		ChapterModelScript.CHAPTER_2_ADAPT:
+			return tr("chapter.2_adapt")
+		ChapterModelScript.CHAPTER_3_OLD_BURROW:
+			return tr("chapter.3_old_burrow")
+		_:
+			return tr("chapter.1_settle")
 
 
 ## The drip layer follows the camera toward active water (spec §3): proximity
@@ -462,7 +540,8 @@ func _colony_reached_depth() -> int:
 
 func _update_objective() -> void:
 	var deepest := int(_tutorial_flags.get("_deepest", 0))
-	objective_label.text = tr("hud.objective") % [deepest, _objective_target_depth]
+	var chapter_name := tr("chapter.1_settle") if chapter_model == null else _chapter_display_name(chapter_model.current_chapter)
+	objective_label.text = "%s · %s" % [chapter_name, tr("hud.objective") % [deepest, _objective_target_depth]]
 	if deepest >= _objective_target_depth and not bool(_tutorial_flags.get("objective_reached", false)):
 		_tutorial_flags["objective_reached"] = true
 		if _tutorial.advance(_tutorial_flags):
@@ -1405,21 +1484,31 @@ func _replay_qa_excavation_witness(witness: Array) -> bool:
 func _setup_qa_stability_demo(requested_mode: String) -> void:
 	var mode := requested_mode.strip_edges().to_lower()
 	var home: Vector2i = world_grid.metadata.start_cell
-	var seam := _find_qa_soft_soil_seam(home)
-	if seam.row < 0:
-		GameLog.failure("QA", "Phase 8 Stability demo found no soft-soil seam")
+	# Phase 13: the stability system rates the CEILING run, so the demo picks
+	# a ceiling run and sizes the tunnel span from its weakest material.
+	var stability_balance: Dictionary = AppConfig.get_document("balance").get("stability", {})
+	var seam := _find_qa_teaching_ceiling(home, stability_balance)
+	if int(seam.ceiling_row) < 0:
+		GameLog.failure("QA", "Phase 8 Stability demo found no teachable ceiling run")
 		return
 	var span_count: int
 	match mode:
 		"clue":
-			span_count = mini(int(seam.length), 4)
+			span_count = mini(4, int(seam.length))
 		"collapse":
-			span_count = mini(int(seam.length), 14)
+			# Deliberate over-span: twice the allowed span guarantees the
+			# critical band and a bounded collapse.
+			span_count = clampi(int(seam.longest_allowed) * 2, 4, mini(14, int(seam.longest_length)))
 		_:
-			span_count = mini(int(seam.length), 9)
+			# Warn/reinforce: 90% of the allowed span shows crumb/crack
+			# warnings but never reaches critical, so reinforcement can land.
+			span_count = clampi(int(float(seam.allowed) * 0.9), 4, mini(9, int(seam.length)))
 	var goals: Array[Vector2i] = []
 	for index: int in range(span_count):
-		goals.append(Vector2i(int(seam.start) + index, int(seam.row)))
+		if mode == "collapse":
+			goals.append(Vector2i(int(seam.longest_start) + index, int(seam.longest_ceiling_row) + 1))
+		else:
+			goals.append(Vector2i(int(seam.start) + index, int(seam.ceiling_row) + 1))
 	var witness := _qa_potential_path(goals)
 	if witness.is_empty() or not _replay_qa_excavation_witness(witness):
 		GameLog.failure("QA", "Phase 8 Stability demo could not excavate a witness span")
@@ -1459,7 +1548,7 @@ func _setup_qa_stability_demo(requested_mode: String) -> void:
 		return
 	var tunnel_cells: Array[Vector2i] = []
 	for x: int in range(int(seam.start), int(seam.start) + excavated):
-		tunnel_cells.append(Vector2i(x, int(seam.row)))
+		tunnel_cells.append(Vector2i(x, int(seam.ceiling_row) + 1))
 	world_camera.focus_cell(tunnel_cells[tunnel_cells.size() / 2], _logical_cell_size)
 	set_qa_inspector_cell(tunnel_cells[tunnel_cells.size() / 2])
 	_set_tool(Tool.REINFORCE)
@@ -1524,30 +1613,78 @@ func _setup_qa_stability_demo(requested_mode: String) -> void:
 			pass
 
 
-func _find_qa_soft_soil_seam(home: Vector2i) -> Dictionary:
-	var best := {"row": -1, "start": -1, "length": 0}
-	for candidate_row: int in range(home.y + 4, mini(world_grid.height - 4, home.y + 16)):
-		var length := 0
-		var start := -1
-		for x: int in range(4, world_grid.width - 4):
-			var cell := Vector2i(x, candidate_row)
-			var usable: bool = (
-				world_grid.is_solid(cell)
-				and not world_grid.is_exterior(cell)
-				and not world_grid.is_protected(cell)
-				and world_grid.get_feature_id(cell) < 0
-				and world_grid.get_material(cell) != CellDataScript.TerrainMaterial.STONE
+## Phase 13: the stability demo fixtures evaluate the CEILING run (the
+## stability system rates roof spans), choosing the teaching band nearest the
+## start so the witness path stays short. `allowed` mirrors the stability
+## balance spans for the weakest ceiling material in the run.
+func _find_qa_teaching_ceiling(home: Vector2i, stability_balance: Dictionary) -> Dictionary:
+	var span_short := maxi(1, int(stability_balance.get("span_short", 6)))
+	var span_moderate := maxi(1, int(stability_balance.get("span_moderate", 12)))
+	var best := {"ceiling_row": -1, "start": -1, "length": 0, "allowed": span_moderate, "distance": 1 << 28}
+	var longest := {"ceiling_row": -1, "start": -1, "length": 0, "allowed": span_moderate}
+	for ceiling_row: int in range(home.y + 3, mini(world_grid.height - 4, home.y + 16)):
+		var tunnel_row := ceiling_row + 1
+		var run_start := -1
+		var run_allowed := span_moderate
+		var run_usable := true
+		for x: int in range(2, world_grid.width - 2):
+			var ceiling := Vector2i(x, ceiling_row)
+			var tunnel := Vector2i(x, tunnel_row)
+			var material := int(world_grid.get_material(ceiling))
+			var ceiling_usable: bool = (
+				world_grid.is_solid(ceiling)
+				and not world_grid.is_exterior(ceiling)
+				and not world_grid.is_protected(ceiling)
+				and world_grid.get_feature_id(ceiling) < 0
 			)
-			if usable:
-				if start < 0:
-					start = x
-				length += 1
-				if length > int(best.length):
-					best = {"row": candidate_row, "start": start, "length": length}
+			var is_support: bool = material == CellDataScript.TerrainMaterial.STONE or material == CellDataScript.TerrainMaterial.FOUNDATION
+			var tunnel_usable: bool = (
+				world_grid.is_solid(tunnel)
+				and not world_grid.is_exterior(tunnel)
+				and not world_grid.is_protected(tunnel)
+				and world_grid.get_feature_id(tunnel) < 0
+				and world_grid.get_material(tunnel) != CellDataScript.TerrainMaterial.STONE
+			)
+			if ceiling_usable and not is_support and tunnel_usable:
+				if run_start < 0:
+					run_start = x
+					run_allowed = span_moderate
+				run_allowed = mini(run_allowed, span_short if material in [CellDataScript.TerrainMaterial.DAMP_CLAY, CellDataScript.TerrainMaterial.LOOSE_SOIL] else span_moderate)
 			else:
-				length = 0
-				start = -1
+				if run_start >= 0:
+					_consider_teaching_run(home, best, ceiling_row, run_start, x - run_start, run_allowed)
+					_consider_longest_run(longest, ceiling_row, run_start, x - run_start, run_allowed)
+				run_start = -1
+		if run_start >= 0:
+			_consider_teaching_run(home, best, ceiling_row, run_start, world_grid.width - 2 - run_start, run_allowed)
+			_consider_longest_run(longest, ceiling_row, run_start, world_grid.width - 2 - run_start, run_allowed)
+	if int(longest.length) > int(best.length):
+		best["longest_ceiling_row"] = longest.ceiling_row
+		best["longest_start"] = longest.start
+		best["longest_length"] = longest.length
+		best["longest_allowed"] = longest.allowed
 	return best
+
+
+func _consider_longest_run(longest: Dictionary, ceiling_row: int, run_start: int, run_length: int, run_allowed: int) -> void:
+	if run_length > int(longest.length):
+		longest["ceiling_row"] = ceiling_row
+		longest["start"] = run_start
+		longest["length"] = run_length
+		longest["allowed"] = run_allowed
+
+
+func _consider_teaching_run(home: Vector2i, best: Dictionary, ceiling_row: int, run_start: int, run_length: int, run_allowed: int) -> void:
+	if run_length < 4:
+		return
+	var center_x := run_start + run_length / 2
+	var distance: int = absi(center_x - home.x) + absi(ceiling_row - home.y)
+	if distance < int(best.distance) or (distance == int(best.distance) and run_length > int(best.length)):
+		best["ceiling_row"] = ceiling_row
+		best["start"] = run_start
+		best["length"] = run_length
+		best["allowed"] = run_allowed
+		best["distance"] = distance
 
 
 func _find_traversable_cell(anchor: Vector2i, offsets: Array[Vector2i]) -> Vector2i:
