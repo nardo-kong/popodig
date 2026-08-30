@@ -152,6 +152,36 @@ if ($LASTEXITCODE -ne 0) {
     throw "Phase 8 release-clean stability lifecycle smoke failed with exit code $LASTEXITCODE"
 }
 
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase10_save_smoke.log --script res://tests/phase10_save_smoke.gd -- --profile=development
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 10 save/load smoke failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase10_fixture_new_game.log --script res://tools/qa/export_phase10_fixtures.gd -- --profile=development --fixture=new_game
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 10 new_game fixture export failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase10_fixture_zones_mice.log --script res://tools/qa/export_phase10_fixtures.gd -- --profile=development --fixture=zones_mice --qa-phase4-demo
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 10 zones_mice fixture export failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase10_fixture_root_reveal.log --script res://tools/qa/export_phase10_fixtures.gd -- --profile=development --fixture=root_reveal --qa-phase6-demo=reveal
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 10 root_reveal fixture export failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase10_fixture_water_breach.log --script res://tools/qa/export_phase10_fixtures.gd -- --profile=development --fixture=water_breach --qa-phase7-demo=breach
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 10 water_breach fixture export failed with exit code $LASTEXITCODE"
+}
+
+& $Godot --headless --path $ProjectRoot --log-file .godot/phase10_fixture_post_collapse.log --script res://tools/qa/export_phase10_fixtures.gd -- --profile=development --fixture=post_collapse --qa-phase8-demo=collapse
+if ($LASTEXITCODE -ne 0) {
+    throw "Phase 10 post_collapse fixture export failed with exit code $LASTEXITCODE"
+}
+
 & $Godot --headless --path $ProjectRoot --log-file .godot/phase7_water_benchmark.log --script res://tools/qa/benchmark_phase7_water.gd
 if ($LASTEXITCODE -ne 0) {
     throw "Phase 7 bounded water benchmark failed with exit code $LASTEXITCODE"
@@ -484,7 +514,13 @@ $ValidationLogs = @(
     "phase8_stability_development.log",
     "phase8_stability_release.log",
     "phase9_ux_development.log",
-    "phase9_ux_release.log"
+    "phase9_ux_release.log",
+    "phase10_save_smoke.log",
+    "phase10_fixture_new_game.log",
+    "phase10_fixture_zones_mice.log",
+    "phase10_fixture_root_reveal.log",
+    "phase10_fixture_water_breach.log",
+    "phase10_fixture_post_collapse.log"
 )
 if (-not $SkipScreenshot) {
     $ValidationLogs += @(
@@ -550,7 +586,16 @@ if (-not $SkipScreenshot) {
 
 foreach ($LogName in $ValidationLogs) {
     $LogPath = Join-Path $ProjectRoot ".godot\$LogName"
-    if ((Test-Path -LiteralPath $LogPath) -and (Select-String -LiteralPath $LogPath -Pattern '^ERROR:' -Quiet)) {
+    if (-not (Test-Path -LiteralPath $LogPath)) {
+        continue
+    }
+    # The corruption-recovery unit test deliberately feeds a truncated save
+    # to SaveService.load_game, so Godot prints one expected engine-level
+    # JSON parse error; everything else must stay clean. SCRIPT ERROR lines
+    # are matched too — runtime script errors must fail the gate.
+    $UnexpectedErrors = Select-String -LiteralPath $LogPath -Pattern '^(ERROR|SCRIPT ERROR):' |
+        Where-Object { $_.Line -notmatch '^ERROR: Parse JSON failed\. Error at line 0: Unterminated string' }
+    if ($UnexpectedErrors) {
         throw "Godot reported an error in validation log: $LogPath"
     }
 }

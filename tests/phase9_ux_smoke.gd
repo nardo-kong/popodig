@@ -48,11 +48,14 @@ func _run() -> void:
 		var flags: Dictionary = scene._tutorial_flags
 		flags["designated"] = true
 		flags["open_space"] = true
+		var text_before := tutorial_label.text
 		scene._slow_poll()
 		if String(scene._tutorial.current_id()) != "sleep":
 			_fail("Tutorial did not advance to the sleeping step after flags were set")
 			return
-		if tutorial_label.text.is_empty() or tutorial_label.text == "这里有点挤，挖一点空间吧——按住左键在附近泥土上拖动，指定要挖的格子。":
+		# Language-agnostic refresh proof: the label must show the NEW step's
+		# text, not merely differ from one hard-coded language's string.
+		if tutorial_label.text.is_empty() or tutorial_label.text == text_before:
 			_fail("Tutorial label did not refresh after advancement")
 			return
 		scene._push_notification("qa_smoke", "冒烟测试通知：发现事件推送正常。", Vector2i(10, 12))

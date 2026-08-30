@@ -761,3 +761,70 @@ func _make_dressing_seed(zone_id: int, zone_type: int) -> int:
 
 func _storage_request_key(pile_id: int) -> String:
 	return "pile:%d" % pile_id
+
+
+## Phase 10 persistence (docs/tech/15 §7): zone identity, membership, dressing
+## seed and setup progress. Occupancy refs are runtime state; validity resyncs
+## from world state on the next colony tick.
+func to_save_data() -> Dictionary:
+	var zones: Array = []
+	for zone: Zone in _zones.values():
+		var anchors: Array = []
+		for cell: Vector2i in zone.dressing_anchors:
+			anchors.append([cell.x, cell.y])
+		var cells: Array = []
+		for cell: Vector2i in zone.cells:
+			cells.append([cell.x, cell.y])
+		zones.append({
+			"zone_id": zone.zone_id,
+			"zone_type": zone.zone_type,
+			"cells": cells,
+			"identity_anchor": [zone.identity_anchor.x, zone.identity_anchor.y],
+			"valid": zone.valid,
+			"suitability": zone.suitability,
+			"setup_state": zone.setup_state,
+			"setup_material_required": zone.setup_material_required,
+			"setup_material_delivered": zone.setup_material_delivered,
+			"dressing_seed": zone.dressing_seed,
+			"dressing_revision": zone.dressing_revision,
+			"dressing_anchors": anchors,
+		})
+	return {"zones": zones, "next_zone_id": _next_zone_id}
+
+
+func apply_save_data(data: Dictionary) -> Dictionary:
+	_zones.clear()
+	_cell_types.clear()
+	_zone_by_cell.clear()
+	_invalidated_storage_requests.clear()
+	_invalidated_storage_keys.clear()
+	_next_zone_id = maxi(1, int(data.get("next_zone_id", 1)))
+	for entry: Variant in data.get("zones", []):
+		if entry is not Dictionary:
+			return {"ok": false, "error": "malformed zone entry"}
+		var zone := ZoneScript.new()
+		zone.zone_id = int(entry.zone_id)
+		zone.zone_type = int(entry.zone_type)
+		for cell_entry: Variant in entry.cells:
+			if cell_entry is not Array or cell_entry.size() != 2:
+				return {"ok": false, "error": "malformed zone cell"}
+			var cell := Vector2i(int(cell_entry[0]), int(cell_entry[1]))
+			zone.cells.append(cell)
+			_cell_types[cell] = zone.zone_type
+			_zone_by_cell[cell] = zone.zone_id
+		var identity_anchor_entry: Array = entry.identity_anchor
+		if identity_anchor_entry.size() == 2:
+			zone.identity_anchor = Vector2i(int(identity_anchor_entry[0]), int(identity_anchor_entry[1]))
+		zone.valid = bool(entry.valid)
+		zone.suitability = float(entry.suitability)
+		zone.setup_state = int(entry.setup_state)
+		zone.setup_material_required = int(entry.setup_material_required)
+		zone.setup_material_delivered = int(entry.setup_material_delivered)
+		zone.dressing_seed = int(entry.dressing_seed)
+		zone.dressing_revision = int(entry.dressing_revision)
+		for anchor_entry: Variant in entry.get("dressing_anchors", []):
+			if anchor_entry is Array and anchor_entry.size() == 2:
+				zone.dressing_anchors.append(Vector2i(int(anchor_entry[0]), int(anchor_entry[1])))
+		_zones[zone.zone_id] = zone
+		_next_zone_id = maxi(_next_zone_id, zone.zone_id + 1)
+	return {"ok": true, "error": ""}

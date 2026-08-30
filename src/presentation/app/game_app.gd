@@ -11,6 +11,7 @@ const CancelDigCommandScript = preload("res://src/application/commands/cancel_di
 const PaintZoneCommandScript = preload("res://src/application/commands/paint_zone_command.gd")
 const EraseZoneCommandScript = preload("res://src/application/commands/erase_zone_command.gd")
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
+const SaveServiceScript = preload("res://src/infrastructure/persistence/save_service.gd")
 const NotificationModelScript = preload("res://src/presentation/hud/notification_model.gd")
 const ContextTutorialModelScript = preload("res://src/presentation/hud/context_tutorial_model.gd")
 
@@ -18,6 +19,7 @@ const ContextTutorialModelScript = preload("res://src/presentation/hud/context_t
 const SLICE_OBJECTIVE_DEPTH_OFFSET := 30
 const FOOD_CRITICAL_COUNT := 2
 const OPEN_SPACE_TUTORIAL_CELLS := 12
+const AUTOSAVE_INTERVAL_SECONDS := 60.0
 
 enum PaintAction {
 	NONE,
@@ -89,9 +91,12 @@ var _notified_zone_keys: Dictionary = {}
 var _mice_were_in_danger := false
 var _now_seconds := 0.0
 var _objective_target_depth := 0
+var _autosave_accumulator := 0.0
+var _loaded_from_save := false
 
 static var _debug_seed_override_set := false
 static var _debug_seed_override := 0
+static var _pending_load_path := ""
 
 
 func _ready() -> void:
@@ -144,7 +149,20 @@ func _ready() -> void:
 	if stability != null:
 		stability.region_collapsed.connect(_on_region_collapsed)
 		stability.critical_warning.connect(_on_critical_warning)
-	_seed_initial_supplies()
+	if _pending_load_path != "":
+		var pending_path := _pending_load_path
+		_pending_load_path = ""
+		var load_result: Dictionary = SaveServiceScript.load_game(pending_path)
+		if bool(load_result.ok):
+			var apply_result := _apply_loaded_document(load_result.data)
+			if bool(apply_result.ok):
+				_loaded_from_save = true
+			else:
+				GameLog.failure("SAVE", "Loaded save could not be applied: %s" % String(apply_result.error))
+		else:
+			GameLog.failure("SAVE", "Save could not be loaded: %s" % String(load_result.error))
+	if not _loaded_from_save:
+		_seed_initial_supplies()
 	var mice: Array = colony_simulation.get_mice()
 	mouse_agent = mice[0] if not mice.is_empty() else null
 	colony_view.configure(colony_simulation, _logical_cell_size)
@@ -180,7 +198,8 @@ func _ready() -> void:
 	Localization.apply()
 	_notifications = NotificationModelScript.new()
 	notifications_view.bind(_notifications)
-	_tutorial = ContextTutorialModelScript.new()
+	if _tutorial == null:
+		_tutorial = ContextTutorialModelScript.new()
 	tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	_objective_target_depth = int(world_grid.metadata.start_cell.y) + SLICE_OBJECTIVE_DEPTH_OFFSET
 	world_grid.cell_changed.connect(_on_world_cell_changed)
@@ -210,6 +229,10 @@ func _process(delta: float) -> void:
 	_now_seconds += delta
 	if not _paused:
 		_simulation_accumulator = minf(_simulation_accumulator + delta, 0.4)
+		_autosave_accumulator += delta
+		if _autosave_accumulator >= AUTOSAVE_INTERVAL_SECONDS:
+			_autosave_accumulator = 0.0
+			_save_to_slot("autosave")
 	_poll_accumulator += delta
 	if _poll_accumulator >= 0.5:
 		_slow_poll()
@@ -238,11 +261,103 @@ func _on_world_cell_changed(cell_coord: Vector2i, change_flags: int) -> void:
 		_tutorial_flags["designated"] = true
 
 
+## Phase 10: full-document persistence (docs/tech/15). World mutated state is
+## saved in full (never seed-derived); jobs/paths/reservations are rebuilt on
+## load per spec §8. Progression carries tutorial state and language choice.
+func _build_save_document() -> Dictionary:
+	var stability = colony_simulation.get_stability_system()
+	var document: Dictionary = {
+		"header": SaveServiceScript.build_header(
+			int(world_grid.metadata.worldgen_version),
+			_current_seed
+		),
+		"world": world_grid.to_save_data(),
+		"features": worldgen_result.feature_registry.to_save_data(),
+		"colony": colony_simulation.to_save_data(),
+		"progression": {
+			"tutorial_step": _tutorial.index,
+			"tutorial_flags": _tutorial_flags.duplicate(true),
+			"language": Localization.current(),
+		},
+	}
+	if signal_system != null:
+		document["signals"] = signal_system.to_save_data()
+	if water_system != null:
+		document["water"] = water_system.to_save_data()
+	if stability != null:
+		document["stability"] = stability.to_save_data()
+	return document
+
+
+func _apply_loaded_document(document: Dictionary) -> Dictionary:
+	var header: Dictionary = document.get("header", {})
+	var config_worldgen_version := int(AppConfig.get_document("worldgen").get("worldgen_version", 0))
+	if int(header.worldgen_version) != config_worldgen_version:
+		return {"ok": false, "error": "save worldgen version %d does not match the current %d" % [int(header.worldgen_version), config_worldgen_version]}
+	var world_result: Dictionary = world_grid.apply_save_data(document.get("world", {}))
+	if not bool(world_result.ok):
+		return world_result
+	# Bulk world restore bypasses per-cell change notifications, so the path
+	# service's walkability cache still reflects the fresh generated world;
+	# rebuild it before any system consumes restored state (mice may only be
+	# placed on restored walkable cells).
+	path_service.configure(world_grid, AppConfig.get_document("balance"))
+	var feature_result: Dictionary = worldgen_result.feature_registry.apply_save_data(document.get("features", {}))
+	if not bool(feature_result.ok):
+		return feature_result
+	if signal_system != null and document.has("signals"):
+		signal_system.apply_save_data(document.signals)
+	if water_system != null and document.has("water"):
+		water_system.apply_save_data(document.water)
+	var stability = colony_simulation.get_stability_system()
+	if stability != null and document.has("stability"):
+		stability.apply_save_data(document.stability)
+	var colony_result: Dictionary = colony_simulation.apply_save_data(document.get("colony", {}))
+	if not bool(colony_result.ok):
+		return colony_result
+	var progression: Dictionary = document.get("progression", {})
+	# _ready applies pending saves before the tutorial model is created, so
+	# materialize it lazily here to avoid overwriting the restored step later.
+	if _tutorial == null:
+		_tutorial = ContextTutorialModelScript.new()
+	_tutorial.index = clampi(int(progression.get("tutorial_step", 0)), 0, _tutorial.STEPS.size() - 1)
+	_tutorial_flags = (progression.get("tutorial_flags", {}) as Dictionary).duplicate(true)
+	tutorial_label.text = Localization.text(_tutorial.current_text_key())
+	var saved_language := String(progression.get("language", ""))
+	if saved_language in Localization.SUPPORTED:
+		TranslationServer.set_locale(saved_language)
+	return {"ok": true, "error": ""}
+
+
+func _save_to_slot(slot_name: String) -> void:
+	var path := SaveServiceScript.get_save_directory().path_join(slot_name + ".json")
+	var document := _build_save_document()
+	var result: Dictionary = SaveServiceScript.save_game(path, document)
+	if bool(result.ok):
+		_push_notification("save", tr("notify.saved"), Vector2i(-1, -1), 2.0, 3.0)
+		GameLog.info("SAVE", "Saved slot=%s path=%s" % [slot_name, path])
+	else:
+		_push_notification("save_failed", tr("notify.save_failed") % String(result.error), Vector2i(-1, -1), 4.0, 4.0)
+		GameLog.failure("SAVE", "Save failed slot=%s error=%s" % [slot_name, String(result.error)])
+
+
+func _request_load(slot_name: String) -> void:
+	var path := SaveServiceScript.get_save_directory().path_join(slot_name + ".json")
+	if not FileAccess.file_exists(path):
+		_push_notification("load_missing", tr("notify.load_missing") % slot_name, Vector2i(-1, -1), 4.0, 4.0)
+		return
+	_pending_load_path = path
+	_autosave_accumulator = 0.0
+	# Deferred: reload must not tear down the scene tree while the F9 input
+	# event is still being processed (editor-embedded sessions froze here).
+	get_tree().reload_current_scene.call_deferred()
+
+
 func _slow_poll() -> void:
 	_poll_accumulator = 0.0
 	_update_tutorial_flags()
 	if _tutorial.advance(_tutorial_flags):
-		tutorial_label.text = _tutorial.current_text()
+		tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	_update_objective()
 	_poll_notifications()
 	notifications_view.refresh(_now_seconds)
@@ -289,7 +404,7 @@ func _update_objective() -> void:
 	if deepest >= _objective_target_depth and not bool(_tutorial_flags.get("objective_reached", false)):
 		_tutorial_flags["objective_reached"] = true
 		if _tutorial.advance(_tutorial_flags):
-			tutorial_label.text = _tutorial.current_text()
+			tutorial_label.text = Localization.text(_tutorial.current_text_key())
 		_push_notification("milestone", tr("notify.milestone"), Vector2i(world_grid.metadata.start_cell.x, deepest), 30.0, 3600.0)
 
 
@@ -315,7 +430,7 @@ func _poll_notifications() -> void:
 		if _notified_zone_keys.has(key):
 			continue
 		_notified_zone_keys[key] = true
-		_push_notification("zone_lost", tr("notify.zone_lost") % _reason_text(String(zone.invalid_reasons[0])), zone.anchor, 6.0, 15.0)
+		_push_notification("zone_lost", tr("notify.zone_lost") % _reason_text(String(zone.invalid_reasons[0])), zone.identity_anchor, 6.0, 15.0)
 
 
 func _push_notification(category: String, text: String, focus_cell: Vector2i, cooldown: float = 10.0, lifetime: float = 6.0) -> void:
@@ -328,14 +443,19 @@ func _push_notification(category: String, text: String, focus_cell: Vector2i, co
 func _unhandled_input(event: InputEvent) -> void:
 	if world_grid == null:
 		return
+	# F9's reload_current_scene removes this instance from the tree while
+	# queued input events are still in flight; get_viewport() is null then.
+	var viewport := get_viewport()
+	if viewport == null:
+		return
 	if _handle_player_shortcuts(event):
-		get_viewport().set_input_as_handled()
+		viewport.set_input_as_handled()
 		return
 	if _handle_tool_shortcut(event):
-		get_viewport().set_input_as_handled()
+		viewport.set_input_as_handled()
 		return
 	if _handle_dig_input(event):
-		get_viewport().set_input_as_handled()
+		viewport.set_input_as_handled()
 		return
 	if not AppConfig.debug_tools_enabled():
 		return
@@ -343,25 +463,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key_event := event as InputEventKey
 		if key_event.keycode == KEY_F2:
 			world_view.set_grid_visible(not world_view.is_grid_visible())
-			get_viewport().set_input_as_handled()
+			viewport.set_input_as_handled()
 		elif key_event.keycode == KEY_F3:
 			colony_debug_overlay.visible = not colony_debug_overlay.visible
-			get_viewport().set_input_as_handled()
+			viewport.set_input_as_handled()
 		elif key_event.keycode == KEY_F4:
 			DisplayServer.clipboard_set(str(_current_seed))
 			_last_feedback = tr("feedback.copied_seed") % _current_seed
 			_feedback_seconds_remaining = 2.0
-			get_viewport().set_input_as_handled()
+			viewport.set_input_as_handled()
 		elif key_event.keycode == KEY_F5:
 			_reload_debug_seed(_current_seed)
-			get_viewport().set_input_as_handled()
+			viewport.set_input_as_handled()
 		elif key_event.keycode == KEY_F6:
 			_reload_debug_seed(_current_seed + 1)
-			get_viewport().set_input_as_handled()
+			viewport.set_input_as_handled()
 		elif key_event.keycode == KEY_F7:
 			_last_feedback = tr("feedback.overlay") % worldgen_debug_overlay.cycle_mode()
 			_feedback_seconds_remaining = 2.0
-			get_viewport().set_input_as_handled()
+			viewport.set_input_as_handled()
 
 
 func _handle_player_shortcuts(event: InputEvent) -> bool:
@@ -376,6 +496,18 @@ func _handle_player_shortcuts(event: InputEvent) -> bool:
 			Localization.cycle()
 			tutorial_label.text = Localization.text(_tutorial.current_text_key())
 			return true
+		# F9 quick-load. Editor note: F9 is also the Godot editor debugger's
+		# pause shortcut, so an editor-launched game comes up paused after
+		# the load; resume via the toolbar play button (or run standalone).
+		KEY_F9:
+			_request_load("quicksave")
+			return true
+		# Ctrl+S, not F8: F8 is the Godot editor's "stop running project"
+		# shortcut and kills an editor-launched game before the input arrives.
+		KEY_S:
+			if key_event.ctrl_pressed:
+				_save_to_slot("quicksave")
+				return true
 		KEY_HOME:
 			world_camera.focus_cell(world_grid.metadata.start_cell, _logical_cell_size)
 			return true
@@ -1324,7 +1456,7 @@ func _reload_debug_seed(seed_value: int) -> void:
 		return
 	_debug_seed_override_set = true
 	_debug_seed_override = seed_value
-	get_tree().reload_current_scene()
+	get_tree().reload_current_scene.call_deferred()
 
 
 func _has_user_argument(argument_name: String) -> bool:

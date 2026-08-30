@@ -643,3 +643,58 @@ func _find_spawn_cells(start_cell: Vector2i, count: int) -> Array[Vector2i]:
 		if result.size() >= count:
 			break
 	return result
+
+
+## Phase 10 persistence (docs/tech/15 §5-§9): mice, piles, and zones. Job
+## reservations, paths, and occupancy are runtime state — rebuilt from world
+## state on load per the spec's recommendation.
+func to_save_data() -> Dictionary:
+	var mice: Array = []
+	for mouse: MouseAgent in _mice:
+		mice.append({
+			"id": mouse.mouse_id,
+			"cell": [mouse.current_cell.x, mouse.current_cell.y],
+			"hunger": snappedf(mouse.hunger, 0.001),
+			"rest": snappedf(mouse.rest, 0.001),
+			"carried_item_type": mouse.carried_item_type,
+			"carried_item_count": mouse.carried_item_count,
+		})
+	return {
+		"mice": mice,
+		"items": _item_system.to_save_data(),
+		"zones": _zone_system.to_save_data(),
+	}
+
+
+func apply_save_data(data: Dictionary) -> Dictionary:
+	var item_result: Dictionary = _item_system.apply_save_data(data.get("items", {}))
+	if not bool(item_result.ok):
+		return item_result
+	var zone_result: Dictionary = _zone_system.apply_save_data(data.get("zones", {}))
+	if not bool(zone_result.ok):
+		return zone_result
+	for mouse: MouseAgent in _mice.duplicate():
+		remove_mouse(mouse.mouse_id)
+	for entry: Variant in data.get("mice", []):
+		if entry is not Dictionary:
+			return {"ok": false, "error": "malformed mouse entry"}
+		var cell_entry: Array = entry.cell
+		if cell_entry.size() != 2:
+			return {"ok": false, "error": "malformed mouse cell"}
+		var cell := Vector2i(int(cell_entry[0]), int(cell_entry[1]))
+		var mouse = add_mouse(String(entry.id), cell)
+		if mouse == null:
+			# Spec §5 safe fallback: a saved cell can be unwalkable when the
+			# save's surroundings changed; recover the mouse at the nearest
+			# walkable colony cell instead of failing the whole colony load.
+			var anchor: Vector2i = _world.metadata.get("start_cell", cell)
+			var fallback := _find_spawn_cells(anchor, 1)
+			var fallback_cell: Vector2i = fallback[0] if not fallback.is_empty() else cell
+			mouse = add_mouse(String(entry.id), fallback_cell)
+			if mouse == null:
+				return {"ok": false, "error": "no walkable cell to recover mouse: %s" % String(entry.id)}
+		mouse.hunger = float(entry.hunger)
+		mouse.rest = float(entry.rest)
+		mouse.carried_item_type = String(entry.carried_item_type)
+		mouse.carried_item_count = int(entry.carried_item_count)
+	return {"ok": true, "error": ""}

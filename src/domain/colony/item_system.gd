@@ -324,3 +324,42 @@ func _is_known_type(item_type: String) -> bool:
 
 func _result(ok: bool, reason_code: String) -> Dictionary:
 	return {"ok": ok, "reason_code": reason_code}
+
+
+## Phase 10 persistence (docs/tech/15 §6): logical piles only. Reservations are
+## runtime state and are rebuilt from world state on load; Storage cell
+## capacities are re-derived from restored zones by the colony tick sync.
+func to_save_data() -> Dictionary:
+	var piles: Array = []
+	for pile: ItemPile in _piles.values():
+		piles.append({
+			"id": pile.pile_id,
+			"item_type": pile.item_type,
+			"cell": [pile.cell.x, pile.cell.y],
+			"count": pile.count,
+		})
+	return {"piles": piles, "next_pile_id": _next_pile_id}
+
+
+func apply_save_data(data: Dictionary) -> Dictionary:
+	_piles.clear()
+	_reservations.clear()
+	_worker_reservations.clear()
+	_dropoff_reservations.clear()
+	_next_pile_id = maxi(1, int(data.get("next_pile_id", 1)))
+	for entry: Variant in data.get("piles", []):
+		if entry is not Dictionary:
+			return {"ok": false, "error": "malformed item pile entry"}
+		var cell_entry: Array = entry.cell
+		if cell_entry.size() != 2:
+			return {"ok": false, "error": "malformed item pile cell"}
+		var pile := ItemPileScript.new(
+			int(entry.id),
+			String(entry.item_type),
+			Vector2i(int(cell_entry[0]), int(cell_entry[1])),
+			int(entry.count)
+		)
+		_next_pile_id = maxi(_next_pile_id, pile.pile_id + 1)
+		_piles[pile.pile_id] = pile
+		pile_changed.emit(pile.pile_id)
+	return {"ok": true, "error": ""}

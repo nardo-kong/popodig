@@ -22,18 +22,28 @@ func _run() -> void:
 	var node_count := _count_nodes(scene)
 	var cell_count: int = scene.world_grid.width * scene.world_grid.height
 	var chunk_view_count: int = world_view.get_chunk_view_count()
-	if node_count >= 100:
+	# The guardrail targets per-cell presentation (~6900 nodes for 96x72).
+	# The current budget: 30 chunk views + 30 dig overlays + mice views plus
+	# the Phase 9 UI panels (HUD, tutorial, notifications, inspector) sits at
+	# ~103 nodes, so the threshold keeps generous headroom above that.
+	if node_count >= 160:
 		_fail("Scene node count indicates per-cell presentation: %d" % node_count)
 		return
 	if scene.world_grid.width != 96 or scene.world_grid.height != 72:
 		_fail("Unexpected world size")
 		return
 	var expected_debug := _get_expected_debug_visibility()
-	for debug_control_name: String in ["TopBar", "Inspector", "Footer"]:
+	for debug_control_name: String in ["TopBar", "Footer"]:
 		var debug_control: CanvasItem = scene.get_node("%%%s" % debug_control_name)
 		if debug_control.visible != expected_debug:
 			_fail("Debug visibility mismatch for %s" % debug_control_name)
 			return
+	# Since Phase 9 the inspector is dual-mode: the qualitative player panel
+	# stays visible in every profile, so it is exempt from the debug gate.
+	var inspector: CanvasItem = scene.get_node("%Inspector")
+	if not inspector.visible:
+		_fail("Dual-mode inspector must stay visible in every profile")
+		return
 	if expected_debug:
 		if not _validate_layout(scene, Vector2i(1280, 720)):
 			return

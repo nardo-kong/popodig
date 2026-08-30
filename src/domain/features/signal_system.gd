@@ -192,6 +192,23 @@ func get_recognition_level(category: String) -> int:
 	return int(_recognition.get(category, RecognitionLevel.UNKNOWN))
 
 
+## Phase 10 persistence (docs/tech/15 §9): recognition progression only. Signal
+## fields themselves are deterministic from world state and rebuilt on load.
+func to_save_data() -> Dictionary:
+	var recognition: Dictionary = {}
+	for category: String in _recognition.keys():
+		recognition[category] = int(_recognition[category])
+	return {"recognition": recognition}
+
+
+func apply_save_data(data: Dictionary) -> Dictionary:
+	var saved: Dictionary = data.get("recognition", {})
+	for category: String in saved.keys():
+		if _recognition.has(category):
+			_recognition[category] = int(saved[category])
+	return {"ok": true, "error": ""}
+
+
 func get_recognition_name(category: String) -> String:
 	match get_recognition_level(category):
 		RecognitionLevel.ENCOUNTERED:

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_phase": 8,
+  "current_phase": 10,
   "checks": [
     {"id": "project_import", "status": "PASS", "evidence": "tools/validate.ps1 import step"},
     {"id": "main_scene_launch", "status": "PASS", "evidence": "scenes/app/game_app.tscn"},
@@ -24,6 +24,6 @@
     {"id": "stability_warning_lifecycle", "status": "PASS", "evidence": "tests/unit/test_stability_system.gd and tests/phase8_stability_smoke.gd"},
     {"id": "stability_colony_reaction", "status": "PASS", "evidence": "tests/integration/test_stability_colony_flow.gd and tests/phase8_stability_smoke.gd"},
     {"id": "bounded_collapse_topology", "status": "PASS", "evidence": "tests/unit/test_stability_system.gd and tests/integration/test_stability_colony_flow.gd"},
-    {"id": "save_load", "status": "SKIPPED_NOT_IMPLEMENTED", "target_phase": 10}
+    {"id": "save_load", "status": "PASS", "evidence": "tests/phase10_save_smoke.gd, tests/unit/test_save_service.gd, tests/unit/test_save_roundtrip.gd and tests/fixtures/saves/"}
   ]
 }

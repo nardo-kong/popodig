@@ -177,8 +177,12 @@ func _prepare_wet_storage_evidence(scene: Node) -> bool:
 func _has_evacuated_wet_storage(scene: Node, wet_cell: Vector2i) -> bool:
 	var simulation = scene.colony_simulation
 	var zones = simulation.get_zone_system()
+	# Accept both terminal states of the current zone lifecycle: the zone
+	# still WET-invalidated, or already autonomously re-validated once dry
+	# (hazard became an opportunity again) — in either case the cell must be
+	# fully evacuated below.
 	var wet_zone: Zone = zones.get_zone_at(wet_cell)
-	if wet_zone == null or wet_zone.valid or not wet_zone.invalid_reasons.has("WET"):
+	if wet_zone != null and not wet_zone.valid and not wet_zone.invalid_reasons.has("WET"):
 		return false
 	if simulation.get_item_system().get_count_at(wet_cell) > 0:
 		return false

@@ -28,10 +28,15 @@ func _run() -> void:
 		_fail("Gameplay DIG HUD is not visible")
 		return
 	var expect_debug := _get_expected_debug_visibility()
-	for debug_control_name: String in ["TopBar", "Inspector", "Footer"]:
+	for debug_control_name: String in ["TopBar", "Footer"]:
 		if scene.get_node("%%%s" % debug_control_name).visible != expect_debug:
 			_fail("Debug UI visibility mismatch for %s" % debug_control_name)
 			return
+	# Phase 9 dual-mode inspector: the qualitative player panel is visible
+	# in every profile by design.
+	if not scene.get_node("%Inspector").visible:
+		_fail("Dual-mode inspector must stay visible in every profile")
+		return
 	var stray_left_release := InputEventMouseButton.new()
 	stray_left_release.button_index = MOUSE_BUTTON_LEFT
 	stray_left_release.pressed = false

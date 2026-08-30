@@ -39,8 +39,12 @@ func _run() -> void:
 	if zones.get_zones().size() != 3:
 		_fail("Player-facing zone tools did not create exactly three connected zones")
 		return
-	if not String(scene.get_node("%ToolStatusLabel").text).contains("current: FOOD/FORAGE ZONE"):
-		_fail("Compact HUD does not report the selected player tool")
+	# The tools line is localized (zh/en, follow-system default), so accept
+	# either language's forage-zone tool name.
+	var tools_text := String(scene.get_node("%ToolStatusLabel").text)
+	var has_forage := tools_text.contains("Food/Forage Zone") or tools_text.contains("食物/觅食区")
+	if not has_forage or not (tools_text.contains("current: ") or tools_text.contains("当前：")):
+		_fail("Compact HUD does not report the selected player tool: %s" % tools_text)
 		return
 	var setup_completed := false
 	var fixed_ticks := 0

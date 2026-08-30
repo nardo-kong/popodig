@@ -626,3 +626,71 @@ func _result(ok: bool, reason_code: String, request_id: int, cell: Vector2i) -> 
 		"request_id": request_id,
 		"cell": cell,
 	}
+
+
+## Phase 10 persistence (docs/tech/15 spec 09 §12): warning deadlines, pending
+## reinforcement requests, and counters. Rubble/support flags live in the grid.
+func to_save_data() -> Dictionary:
+	var deadlines: Array = []
+	for cell: Vector2i in _deadlines.keys():
+		deadlines.append([cell.x, cell.y, snappedf(float(_deadlines[cell]), 0.01)])
+	var requests: Array = []
+	for cell: Vector2i in _requests.keys():
+		var request: Dictionary = _requests[cell]
+		requests.append({
+			"request_id": int(request.request_id),
+			"cell": [cell.x, cell.y],
+			"material_required": int(request.material_required),
+		})
+	var critical: Array = []
+	for cell: Vector2i in _critical_cells.keys():
+		critical.append([cell.x, cell.y])
+	var pending_rows: Array = []
+	for row: Variant in _pending_rows.keys():
+		pending_rows.append(int(row))
+	return {
+		"deadlines": deadlines,
+		"requests": requests,
+		"next_request_id": _next_request_id,
+		"completed_count": _completed_count,
+		"critical_cells": critical,
+		"pending_rows": pending_rows,
+		"collapsed_cells_total": _collapsed_cells_total,
+		"absorbed_water_units": _absorbed_water_units,
+	}
+
+
+func apply_save_data(data: Dictionary) -> Dictionary:
+	_deadlines.clear()
+	for entry: Variant in data.get("deadlines", []):
+		if entry is not Array or entry.size() != 3:
+			return {"ok": false, "error": "malformed stability deadline"}
+		_deadlines[Vector2i(int(entry[0]), int(entry[1]))] = float(entry[2])
+	_requests.clear()
+	for entry: Variant in data.get("requests", []):
+		if entry is not Dictionary:
+			return {"ok": false, "error": "malformed stability request"}
+		var cell_entry: Array = entry.cell
+		if cell_entry.size() != 2:
+			return {"ok": false, "error": "malformed stability request cell"}
+		var cell := Vector2i(int(cell_entry[0]), int(cell_entry[1]))
+		_requests[cell] = {
+			"request_id": int(entry.request_id),
+			"cell": cell,
+			"material_type": "GENERAL_MATERIAL",
+			"material_required": int(entry.material_required),
+		}
+		_next_request_id = maxi(_next_request_id, int(entry.request_id) + 1)
+	_critical_cells.clear()
+	for entry: Variant in data.get("critical_cells", []):
+		if entry is not Array or entry.size() != 2:
+			return {"ok": false, "error": "malformed stability critical cell"}
+		_critical_cells[Vector2i(int(entry[0]), int(entry[1]))] = true
+	_pending_rows.clear()
+	for row: Variant in data.get("pending_rows", []):
+		_pending_rows[int(row)] = true
+	_next_request_id = maxi(1, int(data.get("next_request_id", 1)))
+	_completed_count = int(data.get("completed_count", 0))
+	_collapsed_cells_total = int(data.get("collapsed_cells_total", 0))
+	_absorbed_water_units = int(data.get("absorbed_water_units", 0))
+	return {"ok": true, "error": ""}

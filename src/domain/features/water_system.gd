@@ -472,3 +472,29 @@ func _result(ok: bool, reason_code: String, feature_id: int, cell: Vector2i) -> 
 		"feature_id": feature_id,
 		"cell": cell,
 	}
+
+
+## Phase 10 persistence (docs/tech/15 §3/§16): the active flow set and pool
+## sleep state; water units themselves live in the world grid arrays.
+func to_save_data() -> Dictionary:
+	var active: Array = []
+	for cell: Vector2i in _active_cells.keys():
+		active.append([cell.x, cell.y])
+	return {
+		"active_cells": active,
+		"quiet_steps": _quiet_steps,
+		"sleeping": _sleeping,
+		"accumulator": snappedf(_accumulator, 0.0001),
+	}
+
+
+func apply_save_data(data: Dictionary) -> Dictionary:
+	_active_cells.clear()
+	for entry: Variant in data.get("active_cells", []):
+		if entry is not Array or entry.size() != 2:
+			return {"ok": false, "error": "malformed water active cell"}
+		_active_cells[Vector2i(int(entry[0]), int(entry[1]))] = true
+	_quiet_steps = int(data.get("quiet_steps", 0))
+	_sleeping = bool(data.get("sleeping", false))
+	_accumulator = float(data.get("accumulator", 0.0))
+	return {"ok": true, "error": ""}
