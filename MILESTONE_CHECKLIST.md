@@ -115,8 +115,8 @@
 - [x] Visual QA PASS
 
 ## Phase 12 — Vertical Slice Gate
-- [ ] Functional acceptance PASS
-- [ ] External/naive playtests
+- [ ] Functional acceptance PASS (automated rows green; PM manual rows outstanding — see docs/qa/19_PLAYTEST_KIT.md §1)
+- [ ] External/naive playtests (kit ready: docs/qa/19_PLAYTEST_KIT.md)
 - [ ] Players use signals
 - [ ] Multiple valid solutions observed
 - [ ] Hazards cause adaptation, not reload
