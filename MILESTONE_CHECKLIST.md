@@ -104,15 +104,15 @@
 - [x] Performance profile (build ≈5 ms, write ≈20 ms, load ≈0.5 s)
 
 ## Phase 11 — Art/Audio Integration
-- [ ] Locked render mode/scale
-- [ ] Terrain transitions
-- [ ] Mouse animation set
-- [ ] Root complete states
-- [ ] Water complete states
-- [ ] Stability complete states
-- [ ] Zone dressing
-- [ ] Audio/VFX
-- [ ] Visual QA PASS
+- [x] Locked render mode/scale
+- [x] Terrain transitions
+- [x] Mouse animation set
+- [x] Root complete states
+- [x] Water complete states
+- [x] Stability complete states
+- [x] Zone dressing
+- [x] Audio/VFX
+- [x] Visual QA PASS
 
 ## Phase 12 — Vertical Slice Gate
 - [ ] Functional acceptance PASS
