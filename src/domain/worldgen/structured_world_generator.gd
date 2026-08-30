@@ -181,13 +181,33 @@ func _stage_features(context: WorldGenContext) -> void:
 	var counts: Dictionary = context.config.get("feature_counts", {})
 	for _index: int in range(maxi(0, int(counts.get("additional_root_clusters", 2)))):
 		_add_root_cluster(context, _random_anchor(context, rng, 0.28, 0.68), false, rng)
-	for _index: int in range(maxi(0, int(counts.get("additional_reservoirs", 1)))):
-		_add_reservoir(context, _random_anchor(context, rng, 0.42, 0.76), false, rng)
+	for index: int in range(maxi(0, int(counts.get("additional_reservoirs", 1)))):
+		# Chapter 2 richer water (docs/production/19): the first additional
+		# reservoir sits elevated in the transition band so its breach drains
+		# through the mid-world; later ones stay in the wet stratum.
+		if index == 0:
+			_add_reservoir(context, _random_anchor(context, rng, 0.38, 0.50), false, rng)
+		else:
+			_add_reservoir(context, _random_anchor(context, rng, 0.42, 0.76), false, rng)
 	for _index: int in range(maxi(0, int(counts.get("rock_masses", 5)))):
 		_add_rock_mass(context, _random_anchor(context, rng, 0.18, 0.84), Vector2i(rng.next_int(2, 5), rng.next_int(1, 3)), rng)
 	for _index: int in range(maxi(0, int(counts.get("natural_cavities", 5)))):
 		_add_natural_cavity(context, _random_anchor(context, rng, 0.22, 0.82), Vector2i(rng.next_int(2, 5), rng.next_int(1, 3)))
-	for _index: int in range(maxi(0, int(counts.get("unstable_pockets", 3)))):
+	var pocket_count := maxi(0, int(counts.get("unstable_pockets", 3)))
+	# Chapter 2 overlap knot (docs/production/19): one unstable pocket sits
+	# directly below the required reservoir, so a breach floods weak terrain
+	# and the two hazards compound instead of living in separate strata.
+	if pocket_count > 0:
+		var required_reservoir: GeneratedFeature = null
+		for feature in context.feature_registry.get_features("water_reservoir"):
+			if feature.required:
+				required_reservoir = feature
+				break
+		if required_reservoir != null:
+			var overlap_anchor := _clamp_underground(context, required_reservoir.anchor + Vector2i(rng.next_int(-2, 2), rng.next_int(4, 6)))
+			_add_unstable_pocket(context, overlap_anchor, Vector2i(rng.next_int(2, 4), rng.next_int(2, 3)))
+			pocket_count -= 1
+	for _index: int in range(pocket_count):
 		_add_unstable_pocket(context, _random_anchor(context, rng, 0.34, 0.82), Vector2i(rng.next_int(2, 4), rng.next_int(2, 3)))
 	_add_foundation(context, anchors.foundation_segment, rng)
 	_add_old_burrow(context, anchors.old_burrow_entrance, rng)
@@ -530,10 +550,14 @@ func _add_foundation(context: WorldGenContext, anchor: Vector2i, rng) -> void:
 	var cells: Array[Vector2i] = []
 	var half_width := mini(12, maxi(7, context.width / 8))
 	var gap_x: int = anchor.x + int(rng.next_int(-3, 3))
+	# Authored variation (Phase 14): the wall rides high or low in its band.
+	var tall: bool = rng.next_int(0, 1) == 0
+	var y_from := anchor.y - 2 if tall else anchor.y - 1
+	var y_to := anchor.y + 2 if tall else anchor.y + 3
 	for x: int in range(anchor.x - half_width, anchor.x + half_width + 1):
 		if absi(x - gap_x) <= 2:
 			continue
-		for y: int in range(anchor.y - 1, anchor.y + 2):
+		for y: int in range(y_from, y_to):
 			var cell := Vector2i(x, y)
 			if context.world.is_in_bounds(cell) and not _is_above_surface(context, cell):
 				cells.append(cell)

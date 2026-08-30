@@ -371,6 +371,14 @@ func _evaluate_run(
 func _rate_segment(row_y: int, members: Array[int], left_anchor: bool, right_anchor: bool, desired: Dictionary) -> void:
 	var allowed := _allowed_span(members, row_y)
 	var effective_length := float(members.size())
+	# Phase 14 (spec 09 §10, provisional rule enabled): standing water against
+	# a ceiling weakens it — each flooded bay counts double toward the span,
+	# so a fully flooded run carries one band weaker while a single wet cell
+	# only stresses its own bay. Moisture visuals telegraph the wet cells.
+	if _world != null:
+		for member_x: Variant in members:
+			if int(_world.get_water_units(Vector2i(int(member_x), row_y + 1))) > 0:
+				effective_length += 1.0
 	if not left_anchor:
 		effective_length += 0.5
 	if not right_anchor:
@@ -604,7 +612,9 @@ func _mark_region_dirty(cell: Vector2i) -> void:
 func _on_world_cell_changed(cell: Vector2i, change_flags: int) -> void:
 	if _mutating:
 		return
-	if (change_flags & (WorldGridScript.CHANGE_TERRAIN | WorldGridScript.CHANGE_STABILITY)) != 0:
+	# CHANGE_WATER included: flooded ceilings weaken spans (Phase 14, spec 09
+	# §10), so water entering or leaving a tunnel must re-rate the roof run.
+	if (change_flags & (WorldGridScript.CHANGE_TERRAIN | WorldGridScript.CHANGE_STABILITY | WorldGridScript.CHANGE_WATER)) != 0:
 		_queue_row_range(cell.y - 2, cell.y + 2)
 
 

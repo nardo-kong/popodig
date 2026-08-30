@@ -26,7 +26,33 @@ func run() -> Array[Dictionary]:
 	_test_repair_adversarial_fixtures(config)
 	_test_seed_boundaries(config)
 	_test_authored_root_shapes(config)
+	_test_chapter2_knots(config)
 	return results
+
+
+## Phase 14: the required reservoir overlaps an unstable pocket below it, and
+## the world carries richer water (elevated additional reservoir).
+func _test_chapter2_knots(config: Dictionary) -> void:
+	var result = GeneratorScript.new().generate_result(config, 137042)
+	_assert_true(result.success, "Chapter 2 knot fixture world generates")
+	var reservoirs: Array = result.feature_registry.get_features("water_reservoir")
+	_assert_true(reservoirs.size() >= 2, "Richer water generates at least two reservoirs (%d)" % reservoirs.size())
+	var required_reservoir: GeneratedFeature = null
+	for feature in reservoirs:
+		if feature.required:
+			required_reservoir = feature
+			break
+	_assert_true(required_reservoir != null, "Required reservoir exists for the overlap knot")
+	if required_reservoir == null:
+		return
+	var overlap_found := false
+	for feature in result.feature_registry.get_features("unstable_pocket"):
+		for pocket_cell: Vector2i in feature.cells:
+			for reservoir_cell: Vector2i in required_reservoir.cells:
+				if absi(pocket_cell.x - reservoir_cell.x) <= 4 and absi(pocket_cell.y - reservoir_cell.y) <= 6:
+					overlap_found = true
+					break
+	_assert_true(overlap_found, "An unstable pocket overlaps the required reservoir's under-region")
 
 
 ## Phase 13: optional root clusters carry one of the authored silhouettes,

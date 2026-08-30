@@ -22,6 +22,7 @@ func run() -> Array[Dictionary]:
 	_test_support_only_improves_local_score()
 	_test_reinforce_request_rules()
 	_test_collapse_absorbs_trapped_water()
+	_test_water_weakened_ceiling()
 	return results
 
 
@@ -197,6 +198,24 @@ func _worst_level(stability: StabilitySystem, from_x: int, to_x: int, row: int) 
 	for x: int in range(from_x, to_x):
 		worst = maxi(worst, stability.get_warning_level(Vector2i(x, row)))
 	return worst
+
+
+## Phase 14 (spec 09 §10): standing water against a ceiling halves its
+## allowed span — a dry-stable 3-wide soft span turns critical when flooded,
+## and recovers once drained.
+func _test_water_weakened_ceiling() -> void:
+	var context := _tunnel(11, 7, 4, 4, 6)
+	var stability: StabilitySystem = context.stability
+	for x: int in range(4, 7):
+		_assert_equal(stability.get_warning_level(Vector2i(x, 4)), StabilitySystemScript.LEVEL_STABLE, "Dry 3-wide soft span starts stable (x=%d)" % x)
+		context.grid.set_water_units(Vector2i(x, 4), 2)
+	_tick_seconds(stability, 0.2)
+	var flooded_level := stability.get_warning_level(Vector2i(5, 4))
+	_assert_true(flooded_level >= StabilitySystemScript.LEVEL_CRACKING, "Flooding the ceiling escalates the warning (%d)" % flooded_level)
+	for x: int in range(4, 7):
+		context.grid.set_water_units(Vector2i(x, 4), 0)
+	_tick_seconds(stability, 0.5)
+	_assert_true(stability.get_warning_level(Vector2i(5, 4)) == StabilitySystemScript.LEVEL_STABLE, "Draining the water recovers the span to stable")
 
 
 func _tunnel(width: int, height: int, row: int, from_x: int, to_x: int) -> Dictionary:
