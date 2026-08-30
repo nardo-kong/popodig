@@ -5,6 +5,7 @@ const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const WorldChunkScript = preload("res://src/domain/world/world_chunk.gd")
 const DigOverlayChunkViewScript = preload("res://src/presentation/world/dig_overlay_chunk_view.gd")
 const TerrainAtlasViewScript = preload("res://src/presentation/world/terrain_atlas.gd")
+const TerrainEdgeRulesScript = preload("res://src/presentation/world/terrain_edge_rules.gd")
 
 # Overlap that hides filtering seams between adjacent organic tile silhouettes.
 const TILE_OVERSHOOT_UNITS := 0.5
@@ -109,10 +110,15 @@ func _draw() -> void:
 			Rect2(texture_cells[quad_index], Vector2.ONE * cell_size).grow(TILE_OVERSHOOT_UNITS),
 			tile.source_rect
 		)
+	# Terrain-transition pass (docs/art/12 §5): edge bands + notch silhouettes
+	# hide the straight tile grid at material boundaries and excavated lips.
+	_draw_terrain_edges()
 	for local_y: int in range(world_chunk.size.y):
 		for local_x: int in range(world_chunk.size.x):
 			var cell_coord: Vector2i = world_chunk.origin + Vector2i(local_x, local_y)
 			var rect := Rect2(Vector2(local_x, local_y) * cell_size, Vector2.ONE * cell_size)
+			if world_grid.is_excavated(cell_coord):
+				_draw_excavated_shading(cell_coord, rect)
 			_draw_root_information(cell_coord, rect)
 			_draw_water_information(cell_coord, rect)
 			_draw_seal_information(cell_coord, rect)
@@ -153,6 +159,76 @@ func get_display_material(cell_coord: Vector2i) -> int:
 	return material
 
 
+## Edge-band pass. Only boundary cells draw anything, so the cost stays
+## proportional to the terrain perimeter rather than the cell count.
+func _draw_terrain_edges() -> void:
+	var atlas := TerrainAtlasViewScript.get_shared()
+	for local_y: int in range(world_chunk.size.y):
+		for local_x: int in range(world_chunk.size.x):
+			var cell_coord: Vector2i = world_chunk.origin + Vector2i(local_x, local_y)
+			if world_grid.is_exterior(cell_coord) or world_grid.is_excavated(cell_coord):
+				continue
+			var rect := Rect2(Vector2(local_x, local_y) * cell_size, Vector2.ONE * cell_size)
+			var display_material := get_display_material(cell_coord)
+			var faces := TerrainEdgeRulesScript.classify_faces(
+				cell_coord,
+				true,
+				get_display_material,
+				world_grid.is_excavated,
+				world_grid.is_exterior
+			)
+			if faces.is_empty():
+				continue
+			var tile: Dictionary = atlas.get_tile_for_material(display_material, TerrainAtlasViewScript.cell_variant_hash(cell_coord))
+			var edge_base: Color = tile.get("base_color", _legacy_material_color(display_material, cell_coord))
+			for band: Dictionary in TerrainEdgeRulesScript.edge_bands(rect, faces, cell_size):
+				if bool(band.gradient):
+					var band_rect: Rect2 = band.rect
+					var rim := edge_base.darkened(0.45)
+					var inner := edge_base.darkened(0.12)
+					var points: PackedVector2Array
+					var colors: PackedColorArray
+					match String(band.face):
+						"top":
+							points = PackedVector2Array([band_rect.position, Vector2(band_rect.end.x, band_rect.position.y), Vector2(band_rect.end.x, band_rect.end.y), Vector2(band_rect.position.x, band_rect.end.y)])
+							colors = PackedColorArray([rim, rim, inner, inner])
+						"bottom":
+							points = PackedVector2Array([Vector2(band_rect.position.x, band_rect.end.y), band_rect.end, Vector2(band_rect.end.x, band_rect.position.y), Vector2(band_rect.position.x, band_rect.position.y)])
+							colors = PackedColorArray([rim, rim, inner, inner])
+						"left":
+							points = PackedVector2Array([band_rect.position, Vector2(band_rect.position.x, band_rect.end.y), Vector2(band_rect.end.x, band_rect.end.y), Vector2(band_rect.end.x, band_rect.position.y)])
+							colors = PackedColorArray([rim, rim, inner, inner])
+						"right":
+							points = PackedVector2Array([Vector2(band_rect.end.x, band_rect.position.y), Vector2(band_rect.end.x, band_rect.end.y), Vector2(band_rect.position.x, band_rect.end.y), band_rect.position])
+							colors = PackedColorArray([rim, rim, inner, inner])
+					draw_polygon(points, colors)
+				else:
+					draw_rect(band.rect, Color(edge_base.darkened(0.22), 0.42), true)
+			var cell_hash := TerrainAtlasViewScript.cell_variant_hash(cell_coord)
+			for face_name: String in faces:
+				if String(faces[face_name]) != "exposed":
+					continue
+				for notch: PackedVector2Array in TerrainEdgeRulesScript.exposed_face_notches(rect, face_name, cell_hash):
+					draw_colored_polygon(notch, Color(edge_base.darkened(0.3), 0.85))
+
+
+## Excavated interior ambient shading: soft ceiling shadow under solid rock and
+## faint side-wall falloff, so tunnels read as carved voids (art bible §5).
+func _draw_excavated_shading(cell_coord: Vector2i, rect: Rect2) -> void:
+	var above := cell_coord + Vector2i.UP
+	if not world_grid.is_exterior(above) and not world_grid.is_excavated(above):
+		var shadow := Rect2(rect.position, Vector2(rect.size.x, 5.0))
+		draw_polygon(
+			PackedVector2Array([shadow.position, Vector2(shadow.end.x, shadow.position.y), Vector2(shadow.end.x, shadow.end.y), Vector2(shadow.position.x, shadow.end.y)]),
+			PackedColorArray([Color(0.0, 0.0, 0.0, 0.38), Color(0.0, 0.0, 0.0, 0.38), Color(0.0, 0.0, 0.0, 0.0), Color(0.0, 0.0, 0.0, 0.0)])
+		)
+	for side: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT]:
+		var neighbor := cell_coord + side
+		if not world_grid.is_exterior(neighbor) and not world_grid.is_excavated(neighbor):
+			var wall_rect := Rect2(rect.position, Vector2(3.0, rect.size.y)) if side == Vector2i.LEFT else Rect2(Vector2(rect.end.x - 3.0, rect.position.y), Vector2(3.0, rect.size.y))
+			draw_rect(wall_rect, Color(0.0, 0.0, 0.0, 0.14), true)
+
+
 func _draw_root_information(cell_coord: Vector2i, rect: Rect2) -> void:
 	if world_grid.is_exterior(cell_coord):
 		return
@@ -162,7 +238,7 @@ func _draw_root_information(cell_coord: Vector2i, rect: Rect2) -> void:
 			# Hidden feature cells deliberately share their stratum color and draw no
 			# cell-perfect mark. Clues live in the surrounding field instead.
 			return
-		_draw_revealed_root(rect, cell_coord)
+		_draw_revealed_root(rect, cell_coord, int(world_grid.get_feature_id(cell_coord)))
 		return
 	if world_grid.is_traversable(cell_coord):
 		return
@@ -181,19 +257,52 @@ func _draw_root_information(cell_coord: Vector2i, rect: Rect2) -> void:
 	var center := rect.get_center()
 	var flip := -1.0 if ((cell_coord.x * 13 + cell_coord.y * 7) & 1) == 0 else 1.0
 	var cue_color := Color("a99362", 0.38 + band * 0.10)
-	draw_line(center + Vector2(-5.0, 4.0 * flip), center + Vector2(4.0, -3.0 * flip), cue_color, 1.0)
+	# Fine curved threads at weak signal; denser thicker strands near the
+	# feature, with small nutrient nodules at band 3 (art bible §9 Root).
+	_draw_strand(center + Vector2(-5.0, 4.0 * flip), center + Vector2(4.0, -3.0 * flip), cue_color, 0.9 + band * 0.25, 1.2)
 	if band >= 2:
-		draw_line(center + Vector2(-1.0, 0.0), center + Vector2(5.0, 4.0 * flip), cue_color, 1.0)
+		_draw_strand(center + Vector2(-1.0, 0.0), center + Vector2(5.0, 4.0 * flip), cue_color, 0.9 + band * 0.25, -1.0)
 	if band >= 3:
-		draw_circle(center + Vector2(-4.0, -3.0 * flip), 1.2, cue_color)
+		var nodule := center + Vector2(-4.0, -3.0 * flip)
+		draw_circle(nodule, 1.6, Color("b7a06a", 0.72))
+		draw_circle(nodule, 0.8, Color("8a7443", 0.8))
 
 
-func _draw_revealed_root(rect: Rect2, cell_coord: Vector2i) -> void:
+## Tapered organic strand: three segments with shrinking width and a
+## perpendicular sway so lines read as living roots rather than UI strokes.
+func _draw_strand(from: Vector2, to: Vector2, color: Color, width: float, sway: float) -> void:
+	var mid_a := from.lerp(to, 0.33) + Vector2(-sway, sway * 0.4)
+	var mid_b := from.lerp(to, 0.66) + Vector2(sway * 0.6, -sway * 0.3)
+	draw_line(from, mid_a, color, width)
+	draw_line(mid_a, mid_b, color, width * 0.72)
+	draw_line(mid_b, to, color, width * 0.45)
+
+
+func _draw_revealed_root(rect: Rect2, cell_coord: Vector2i, feature_id: int) -> void:
 	var center := rect.get_center()
-	var bend := 3.0 if ((cell_coord.x + cell_coord.y) & 1) == 0 else -3.0
-	var root_color := Color("a47a45", 0.92)
-	draw_line(center + Vector2(-7.0, bend), center + Vector2(7.0, -bend), root_color, 3.0)
-	draw_line(center, center + Vector2(5.0, bend), Color("c49a5d", 0.88), 1.5)
+	var half := float(cell_size) * 0.5
+	var feature_hash := absi(cell_coord.x * 92821 + cell_coord.y * 68917)
+	# Major root network: strands connect across the whole cluster so the
+	# revealed feature reads as one organism instead of per-cell decorations.
+	var connected_any := false
+	for direction: Vector2i in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+		var neighbor := cell_coord + direction
+		if world_grid.is_exterior(neighbor) or int(world_grid.get_feature_id(neighbor)) != feature_id:
+			continue
+		connected_any = true
+		var tip := center + Vector2(direction) * half
+		var sway := 1.6 if (feature_hash & 1) == 0 else -1.6
+		_draw_strand(center, tip, Color("5d452e", 0.65), 5.0, sway)
+		_draw_strand(center, tip, Color("a47a45", 0.95), 3.2, sway)
+		_draw_strand(center, tip, Color("c49a5d", 0.7), 1.1, sway * 0.5)
+	if not connected_any:
+		draw_circle(center, 2.4, Color("a47a45", 0.95))
+	# One short feeder rootlet per cell keeps texture without competing with
+	# gameplay overlays above.
+	if (feature_hash % 3) != 0:
+		var branch_angle := float(feature_hash % 4) * (PI * 0.5) + 0.6
+		var branch_tip := center + Vector2(cos(branch_angle), sin(branch_angle)) * 5.0
+		_draw_strand(center, branch_tip, Color("8f6c3f", 0.6), 1.0, 0.8)
 
 
 func _draw_water_information(cell_coord: Vector2i, rect: Rect2) -> void:
@@ -201,21 +310,18 @@ func _draw_water_information(cell_coord: Vector2i, rect: Rect2) -> void:
 		return
 	var units: int = int(world_grid.get_water_units(cell_coord))
 	if units > 0:
-		var capacity := 4 if water_system == null else maxi(1, int(water_system.get_cell_capacity()))
-		var ratio := clampf(float(units) / float(capacity), 0.0, 1.0)
-		var height := maxf(3.0, rect.size.y * ratio)
-		var water_rect := Rect2(Vector2(rect.position.x, rect.end.y - height), Vector2(rect.size.x, height))
-		draw_rect(water_rect.grow(-1.0), Color("3e91ad", 0.62 + ratio * 0.22), true)
-		draw_line(Vector2(rect.position.x + 2.0, water_rect.position.y + 1.0), Vector2(rect.end.x - 2.0, water_rect.position.y + 1.0), Color("8ed2d6", 0.78), 1.0)
+		_draw_water_body(cell_coord, rect, units)
 		return
 	var feature = _feature_at(cell_coord)
 	if feature != null and feature.type_id == "water_reservoir" and not feature.hidden:
-		var center := rect.get_center()
-		draw_circle(center, 3.0, Color("5195a5", 0.72))
-		draw_line(center + Vector2(-5.0, 3.0), center + Vector2(5.0, -2.0), Color("77bdc3", 0.72), 1.5)
+		_draw_reservoir_pool(cell_coord, rect)
 		return
 	if world_grid.is_excavated(cell_coord):
 		return
+	# Wet-soil halo: solid cells touching standing water or a revealed
+	# reservoir read darker/damp (art bible §9 moisture, §12 water halo).
+	if _touches_visible_water(cell_coord):
+		draw_rect(rect.grow(-0.5), Color(0.13, 0.16, 0.15, 0.3), true)
 	var value: int = int(world_grid.get_moisture_signal(cell_coord))
 	var thresholds: Array = world_grid.metadata.get("signal_thresholds", {}).get("moisture", [1, 3, 5])
 	if value < int(thresholds[0]):
@@ -229,9 +335,68 @@ func _draw_water_information(cell_coord: Vector2i, rect: Rect2) -> void:
 	if (band == 1 and cue_hash % 4 != 0) or (band == 2 and cue_hash % 2 != 0):
 		return
 	var center := rect.get_center()
+	# Darker/smoother damp patch + tiny specular droplets at strong levels;
+	# deliberately not a neon glow (art bible §9).
+	draw_circle(center + Vector2(float((cue_hash % 5) - 2), 4.0), 1.6 + band * 0.7, Color("4c443c", 0.30 + band * 0.08))
 	draw_circle(center + Vector2(float((cue_hash % 5) - 2), 4.0), 1.0 + band * 0.45, Color("73a6a5", 0.34 + band * 0.12))
 	if band >= 3:
 		draw_line(center + Vector2(-5.0, 5.0), center + Vector2(5.0, 4.0), Color("7bb1ad", 0.62), 1.0)
+
+
+func _draw_water_body(cell_coord: Vector2i, rect: Rect2, units: int) -> void:
+	var capacity := 4 if water_system == null else maxi(1, int(water_system.get_cell_capacity()))
+	var ratio := clampf(float(units) / float(capacity), 0.0, 1.0)
+	var height := maxf(3.0, rect.size.y * ratio)
+	var water_rect := Rect2(Vector2(rect.position.x, rect.end.y - height), Vector2(rect.size.x, height)).grow(-1.0)
+	# Depth gradient: lighter surface, darker pool bottom.
+	draw_polygon(
+		PackedVector2Array([water_rect.position, Vector2(water_rect.end.x, water_rect.position.y), water_rect.end, Vector2(water_rect.position.x, water_rect.end.y)]),
+		PackedColorArray([Color("5fa9bd", 0.72), Color("5fa9bd", 0.72), Color("2e6473", 0.82), Color("2e6473", 0.82)])
+	)
+	# Meniscus highlight along the surface; the animated shimmer lives in
+	# WaterFxView so the static pass stays dirty-driven.
+	draw_line(Vector2(water_rect.position.x, water_rect.position.y + 0.5), Vector2(water_rect.end.x, water_rect.position.y + 0.5), Color("9fdde0", 0.85), 1.0)
+
+
+## Revealed reservoir interior: one continuous contained pool across the whole
+## cluster (art bible §12 "calm pool"). Cells fill edge-to-edge so neighbors
+## merge; rims and the bright surface line appear only on boundary faces.
+func _draw_reservoir_pool(cell_coord: Vector2i, rect: Rect2) -> void:
+	# Full-cell flat fill: per-cell gradients would band across multi-row
+	# pools, so the calm pool reads as one flat body; structure comes from the
+	# boundary rims and the top meniscus line.
+	draw_rect(rect, Color("4d9cb2", 0.8), true)
+	for direction: Vector2i in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+		var neighbor := cell_coord + direction
+		var neighbor_feature = _feature_at(neighbor)
+		var same_pool: bool = neighbor_feature != null and neighbor_feature.type_id == "water_reservoir" and not neighbor_feature.hidden
+		if same_pool:
+			continue
+		# Boundary face: bright meniscus where the pool meets air above, dark
+		# basin rim against soil on the other three faces.
+		var rim_color := Color("9fdde0", 0.85) if direction == Vector2i.UP else Color("27505c", 0.8)
+		var half := rect.size.x * 0.5
+		var center := rect.get_center()
+		match direction:
+			Vector2i.UP:
+				draw_line(Vector2(center.x - half + 1.5, rect.position.y + 2.0), Vector2(center.x + half - 1.5, rect.position.y + 2.0), rim_color, 1.2)
+			Vector2i.DOWN:
+				draw_line(Vector2(center.x - half + 1.5, rect.end.y - 2.0), Vector2(center.x + half - 1.5, rect.end.y - 2.0), rim_color, 1.2)
+			Vector2i.LEFT:
+				draw_line(Vector2(rect.position.x + 2.0, center.y - half + 1.5), Vector2(rect.position.x + 2.0, center.y + half - 1.5), rim_color, 1.2)
+			Vector2i.RIGHT:
+				draw_line(Vector2(rect.end.x - 2.0, center.y - half + 1.5), Vector2(rect.end.x - 2.0, center.y + half - 1.5), rim_color, 1.2)
+
+
+func _touches_visible_water(cell_coord: Vector2i) -> bool:
+	for direction: Vector2i in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+		var neighbor := cell_coord + direction
+		if int(world_grid.get_water_units(neighbor)) > 0:
+			return true
+		var feature = _feature_at(neighbor)
+		if feature != null and feature.type_id == "water_reservoir" and not feature.hidden:
+			return true
+	return false
 
 
 func _draw_seal_information(cell_coord: Vector2i, rect: Rect2) -> void:
@@ -250,7 +415,8 @@ func _draw_stability_information(cell_coord: Vector2i, rect: Rect2) -> void:
 	if world_grid.is_exterior(cell_coord):
 		return
 	# Collapsed rubble keeps the resolved area legible (docs/systems/09 spec §8):
-	# rough speckle over the refilled solid cells, distinct from natural terrain.
+	# rough speckle plus a few angular chunks over the refilled solid cells,
+	# distinct from natural terrain and from live warning states.
 	if world_grid.is_rubble(cell_coord) and not world_grid.is_traversable(cell_coord):
 		var rubble_hash := absi(cell_coord.x * 2246822519 + cell_coord.y * 3266489917)
 		for speck: int in range(6):
@@ -259,15 +425,33 @@ func _draw_stability_information(cell_coord: Vector2i, rect: Rect2) -> void:
 			var radius := 0.8 + float((rubble_hash >> (speck * 2)) % 3) * 0.3
 			var tone := Color("9c8568", 0.72) if (rubble_hash >> speck) & 1 == 0 else Color("453424", 0.72)
 			draw_circle(rect.position + Vector2(sx, sy), radius, tone)
+		for chunk: int in range(2):
+			var cx := float((rubble_hash >> (chunk * 7)) % 10) + 3.0
+			var cy := float((rubble_hash >> (chunk * 6 + 2)) % 9) + 4.0
+			var half_w := 1.6 + float((rubble_hash >> (chunk + 3)) % 3) * 0.5
+			var chunk_tone := Color("7a674c", 0.85) if chunk == 0 else Color("584734", 0.85)
+			draw_colored_polygon(PackedVector2Array([
+				rect.position + Vector2(cx - half_w, cy + 0.8),
+				rect.position + Vector2(cx, cy - 1.2),
+				rect.position + Vector2(cx + half_w, cy + 0.4),
+				rect.position + Vector2(cx - 0.4, cy + 1.4),
+			]), chunk_tone)
 		draw_rect(rect.grow(-1.0), Color("5d4934", 0.5), false, 1.0)
-	# Reinforced roof support (placeholder art until the Phase 11 pass).
+	# Reinforced roof support: timber frame prop (beam + posts) with shadow,
+	# replacing the Phase 8 placeholder lines.
 	if world_grid.is_reinforced(cell_coord):
-		draw_line(rect.position + Vector2(2.0, 3.0), Vector2(rect.end.x - 2.0, rect.position.y + 3.0), Color("c9a86a", 0.95), 2.0)
-		draw_line(rect.position + Vector2(4.0, 6.0), rect.position + Vector2(4.0, 11.0), Color("a98b52", 0.85), 1.5)
-		draw_line(Vector2(rect.end.x - 4.0, rect.position.y + 6.0), Vector2(rect.end.x - 4.0, rect.position.y + 11.0), Color("a98b52", 0.85), 1.5)
-	# Warning bands on open cells under a stressed ceiling: crumbs -> cracks ->
-	# critical icon (docs/systems/09 spec stage list; Phase 11 replaces with
-	# particle/animation placeholders).
+		var beam := Rect2(rect.position + Vector2(1.0, 2.0), Vector2(rect.size.x - 2.0, 3.0))
+		draw_rect(beam.grow(0.5), Color(0.0, 0.0, 0.0, 0.25), true)
+		draw_rect(beam, Color("c9a86a"), true)
+		draw_rect(beam, Color("6d5433"), false, 1.0)
+		draw_line(beam.position + Vector2(1.0, 1.5), Vector2(beam.end.x - 1.0, beam.position.y + 1.5), Color("e0c28d", 0.7), 0.8)
+		for post_x: float in [3.0, rect.size.x - 5.0]:
+			var post := Rect2(rect.position + Vector2(post_x, beam.end.y), Vector2(2.0, rect.size.y - beam.end.y - 2.0))
+			draw_rect(post, Color("b08e56"), true)
+			draw_rect(post, Color("6d5433"), false, 0.8)
+		draw_circle(beam.position + Vector2(2.5, 1.5), 0.6, Color("4a352b"))
+		draw_circle(Vector2(beam.end.x - 2.5, beam.position.y + 1.5), 0.6, Color("4a352b"))
+	# Reinforce request outline on open cells.
 	if stability_system != null and stability_system.has_request(cell_coord):
 		draw_rect(rect.grow(-2.0), Color("e5c06a", 0.22), true)
 		draw_rect(rect.grow(-2.0), Color("f2d488", 0.9), false, 1.5)
@@ -284,15 +468,16 @@ func _draw_stability_information(cell_coord: Vector2i, rect: Rect2) -> void:
 			draw_rect(Rect2(center + Vector2(-0.75, -2.0), Vector2(1.5, 3.5)), Color("2b1d16"), true)
 			draw_rect(Rect2(center + Vector2(-0.75, 2.2), Vector2(1.5, 1.5)), Color("2b1d16"), true)
 		elif value >= int(thresholds[1]):
-			var seed_hash := absi(cell_coord.x * 37039 + cell_coord.y * 65537)
-			for crack: int in range(2):
-				var sway := float((seed_hash >> (crack * 3)) % 5) - 2.0
-				draw_line(
-					rect.position + Vector2(3.0 + crack * 5.0, 2.0),
-					rect.position + Vector2(5.0 + crack * 5.0 + sway, 13.0),
-					Color("d8c49a", 0.62),
-					1.0
-				)
+			# Branching cracks: a main fissure plus one hash-derived offshoot,
+			# wide enough to read at far zoom but still terrain-colored.
+			var crack_hash := absi(cell_coord.x * 37039 + cell_coord.y * 65537)
+			var crack_origin := rect.position + Vector2(float(crack_hash % 7) + 4.0, 2.0)
+			var sway := float((crack_hash >> 3) % 5) - 2.0
+			var mid := crack_origin + Vector2(sway, 5.5)
+			var tip := mid + Vector2(-sway * 0.6, 5.5)
+			draw_line(crack_origin, mid, Color("d8c49a", 0.72), 1.6)
+			draw_line(mid, tip, Color("d8c49a", 0.6), 1.0)
+			draw_line(mid, mid + Vector2(2.5 + sway, 2.5), Color("d8c49a", 0.5), 0.8)
 		elif value >= int(thresholds[0]):
 			var crumb_hash := absi(cell_coord.x * 15487 + cell_coord.y * 3313)
 			for crumb: int in range(3):

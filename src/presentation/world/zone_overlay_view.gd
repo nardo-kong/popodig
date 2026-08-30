@@ -57,19 +57,37 @@ func _draw_dressing(zone: Zone) -> void:
 	var color := _zone_color(zone.zone_type)
 	for anchor: Vector2i in zone.dressing_anchors:
 		var center := (Vector2(anchor) + Vector2(0.5, 0.5)) * cell_size
+		var anchor_hash := absi(anchor.x * 15487 + anchor.y * 3313)
 		match zone.zone_type:
 			ZoneScript.Type.SLEEPING:
-				draw_circle(center, 5.0, Color("352c28"))
+				# Grass nest: soft pad, woven rim, hash-splayed grass strands.
+				draw_circle(center, 5.5, Color("2c2521"))
+				draw_circle(center, 4.4, Color("3d342c"))
 				draw_arc(center, 5.0, 0.0, TAU, 16, color.lightened(0.18), 1.5)
-				draw_line(center + Vector2(-3, 1), center + Vector2(3, -1), color, 1.0)
+				for strand: int in range(5):
+					var angle := TAU * float(strand) / 5.0 + float(anchor_hash % 4) * 0.3
+					var inner := center + Vector2(cos(angle), sin(angle)) * 2.2
+					var outer := center + Vector2(cos(angle), sin(angle)) * 5.6
+					draw_line(inner, outer, Color("8f9c62", 0.75), 0.9)
+				draw_line(center + Vector2(-2.6, 1.0), center + Vector2(2.6, -1.0), color, 1.0)
 			ZoneScript.Type.STORAGE:
+				# Woven basket: body, rim, cross-weave, hash-tilted handle.
 				var basket := Rect2(center - Vector2(5, 3), Vector2(10, 7))
+				draw_rect(basket.grow(0.8), Color(0.0, 0.0, 0.0, 0.25), true)
 				draw_rect(basket, Color("3a3028"), true)
 				draw_rect(basket, color.lightened(0.15), false, 1.3)
+				for weave: int in range(3):
+					var wx := basket.position.x + 2.0 + float(weave) * 2.5
+					draw_line(Vector2(wx, basket.position.y + 1.0), Vector2(wx + 1.2, basket.end.y - 1.0), Color("6b5a42", 0.8), 0.7)
 				draw_line(center + Vector2(-4, 0), center + Vector2(4, 0), color, 1.0)
+				draw_arc(center + Vector2(0, -2.5), 3.0, PI, TAU, 10, color.lightened(0.1), 1.0)
 			ZoneScript.Type.FOOD_FORAGE:
-				draw_circle(center + Vector2(-2, 1), 3.0, color)
-				draw_circle(center + Vector2(2, -1), 2.5, color.lightened(0.2))
+				# Forage marks: sprouted nibble clumps, hash-leaned stems.
+				for sprout: int in range(2):
+					var stem_base := center + Vector2(float(sprout) * 4.0 - 2.0, 3.5)
+					var stem_tip := stem_base + Vector2(float((anchor_hash >> sprout) % 3) - 1.0, -5.0)
+					draw_line(stem_base, stem_tip, Color("4d7a4a", 0.9), 0.9)
+					draw_circle(stem_tip, 1.3, color.lightened(0.1 if sprout == 0 else 0.2))
 				draw_line(center + Vector2(-4, 4), center + Vector2(4, -4), Color("4a3928"), 1.2)
 
 

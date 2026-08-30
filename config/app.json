@@ -4,5 +4,15 @@
   "save_schema_version": 1,
   "worldgen_version": 3,
   "simulation_tick_hz": 5,
-  "default_viewport": [1280, 720]
+  "default_viewport": [1280, 720],
+  "audio": {
+    "enabled": true,
+    "master_volume": 0.8,
+    "sfx_volume": 0.9,
+    "ambience_volume": 0.7
+  },
+  "accessibility": {
+    "reduced_particles": false,
+    "reduced_shake": false
+  }
 }

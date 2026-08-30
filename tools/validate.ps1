@@ -484,6 +484,48 @@ if (-not $SkipScreenshot) {
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 9 release-clean screenshot validation failed with exit code $LASTEXITCODE"
     }
+
+    # Phase 11 art pass (docs/art/12 §16): close-up terrain transitions on the
+    # dig-demo path, mouse state animation, animated water close-up, zone dressing.
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase11_transitions.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase2-demo --qa-zoom=2.2 --qa-focus=start --output=res://art/qa/screenshots/phase_11_terrain_transitions.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 11 terrain-transitions screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase11_transitions.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_11_terrain_transitions.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 11 terrain-transitions screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase11_mouse_states.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase3-demo --wait-for-carry --qa-zoom=2.0 --qa-focus=start --output=res://art/qa/screenshots/phase_11_mouse_states.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 11 mouse-state screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase11_mouse_states.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_11_mouse_states.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 11 mouse-state screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase11_water_closeup.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase7-demo=breach --qa-zoom=2.0 --output=res://art/qa/screenshots/phase_11_water_closeup.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 11 water close-up screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase11_water_closeup.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_11_water_closeup.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 11 water close-up screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase11_zone_dressing.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-phase4-demo --wait-for-zones --qa-zoom=2.2 --qa-focus=start --output=res://art/qa/screenshots/phase_11_zone_dressing.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 11 zone-dressing screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase11_zone_dressing.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_11_zone_dressing.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 11 zone-dressing screenshot validation failed with exit code $LASTEXITCODE"
+    }
 }
 
 $ValidationLogs = @(
@@ -580,7 +622,15 @@ if (-not $SkipScreenshot) {
         "capture_phase9_discovery.log",
         "screenshot_validation_phase9_discovery.log",
         "capture_phase9_release.log",
-        "screenshot_validation_phase9_release.log"
+        "screenshot_validation_phase9_release.log",
+        "capture_phase11_transitions.log",
+        "screenshot_validation_phase11_transitions.log",
+        "capture_phase11_mouse_states.log",
+        "screenshot_validation_phase11_mouse_states.log",
+        "capture_phase11_water_closeup.log",
+        "screenshot_validation_phase11_water_closeup.log",
+        "capture_phase11_zone_dressing.log",
+        "screenshot_validation_phase11_zone_dressing.log"
     )
 }
 

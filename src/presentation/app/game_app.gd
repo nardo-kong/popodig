@@ -14,6 +14,9 @@ const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const SaveServiceScript = preload("res://src/infrastructure/persistence/save_service.gd")
 const NotificationModelScript = preload("res://src/presentation/hud/notification_model.gd")
 const ContextTutorialModelScript = preload("res://src/presentation/hud/context_tutorial_model.gd")
+const WaterFxViewScript = preload("res://src/presentation/world/water_fx_view.gd")
+const VfxViewScript = preload("res://src/presentation/fx/vfx_view.gd")
+const AudioDirectorScript = preload("res://src/presentation/audio/audio_director.gd")
 
 # Slice objective (docs/qa/18 Beat H): a marked depth goal below the start.
 const SLICE_OBJECTIVE_DEPTH_OFFSET := 30
@@ -69,6 +72,8 @@ var water_system
 var seal_system
 var mouse_agent
 var worldgen_result
+var _vfx_view: VfxView
+var _audio_director: AudioDirector
 var _logical_cell_size := 16
 var _simulation_step := 0.05
 var _simulation_accumulator := 0.0
@@ -141,6 +146,25 @@ func _ready() -> void:
 	water_system = colony_simulation.get_water_system()
 	seal_system = colony_simulation.get_seal_system()
 	world_view.configure_environment(water_system, seal_system, colony_simulation.get_stability_system())
+	# Phase 11 presentation layers: animated water shimmer + pooled VFX live in
+	# WorldView coordinate space; audio directs the synthesized bank.
+	var accessibility: Dictionary = AppConfig.get_document("app").get("accessibility", {})
+	var water_fx := WaterFxViewScript.new()
+	water_fx.name = "WaterFx"
+	world_view.add_child(water_fx)
+	water_fx.configure(world_grid, water_system, _logical_cell_size)
+	_vfx_view = VfxViewScript.new()
+	_vfx_view.name = "Vfx"
+	world_view.add_child(_vfx_view)
+	_vfx_view.set_reduced_particles(bool(accessibility.get("reduced_particles", false)))
+	world_camera.reduced_shake = bool(accessibility.get("reduced_shake", false))
+	var audio_config: Dictionary = AppConfig.get_document("app").get("audio", {})
+	if bool(audio_config.get("enabled", true)) and AudioDirectorScript.audio_enabled:
+		_audio_director = AudioDirectorScript.new()
+		_audio_director.name = "AudioDirector"
+		add_child(_audio_director)
+		_audio_director.apply_volumes(audio_config)
+	dig_system.cell_excavated.connect(_on_cell_excavated)
 	if root_feature_system != null:
 		root_feature_system.feature_reacted.connect(_on_root_feature_reacted)
 	if water_system != null:
@@ -167,6 +191,8 @@ func _ready() -> void:
 	mouse_agent = mice[0] if not mice.is_empty() else null
 	colony_view.configure(colony_simulation, _logical_cell_size)
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
+	var zone_system = colony_simulation.get_zone_system()
+	zone_system.setup_state_changed.connect(_on_zone_setup_state_changed)
 	colony_items_view.configure(colony_simulation.get_item_system(), _logical_cell_size)
 	colony_debug_overlay.configure(colony_simulation, _logical_cell_size)
 	worldgen_debug_overlay.configure(world_grid, worldgen_result.feature_registry, _logical_cell_size, signal_system, water_system, colony_simulation.get_stability_system())
@@ -361,6 +387,38 @@ func _slow_poll() -> void:
 	_update_objective()
 	_poll_notifications()
 	notifications_view.refresh(_now_seconds)
+	_update_water_proximity()
+	_emit_warning_dust()
+
+
+## The drip layer follows the camera toward active water (spec §3): proximity
+## is sampled from flooded danger cells so steady-state pools stay quiet.
+func _update_water_proximity() -> void:
+	if _audio_director == null or water_system == null:
+		return
+	var near := false
+	if water_system.get_active_cell_count() > 0:
+		var camera_cell := Vector2i((world_camera.position / float(_logical_cell_size)).floor())
+		for water_cell: Vector2i in water_system.get_danger_cells():
+			if Vector2(water_cell - camera_cell).length() <= 14.0:
+				near = true
+				break
+	_audio_director.set_water_proximity(near)
+
+
+## Occasional settling crumbs fall from cells with an active reinforce request,
+## so stressed ceilings move even before cracks appear.
+func _emit_warning_dust() -> void:
+	var stability = colony_simulation.get_stability_system()
+	if _vfx_view == null or stability == null:
+		return
+	var requests: Array = stability.get_requests()
+	if requests.is_empty():
+		return
+	var sample: Dictionary = requests[randi() % requests.size()]
+	var cell: Vector2i = sample.get("cell", Vector2i(-1, -1))
+	if cell.x >= 0 and world_grid.is_traversable(cell):
+		_vfx_view.spawn_warning_dust((Vector2(cell) + Vector2(0.5, 0.5)) * _logical_cell_size)
 
 
 func _update_tutorial_flags() -> void:
@@ -549,6 +607,8 @@ func _handle_tool_shortcut(event: InputEvent) -> bool:
 func _set_tool(tool: int) -> void:
 	_current_tool = clampi(tool, Tool.DIG, Tool.REINFORCE)
 	_end_paint()
+	if _audio_director != null:
+		_audio_director.play_tool_select()
 	var zone_type := _current_zone_type()
 	zone_overlay_view.set_editing(_is_zone_tool(), zone_type)
 	dig_cursor_view.set_tool_style(_tool_name())
@@ -679,6 +739,11 @@ func _cardinal_line(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 
 func _set_command_feedback(result: Dictionary) -> void:
 	_feedback_seconds_remaining = 1.4
+	if _audio_director != null:
+		if _paint_action == PaintAction.CANCEL:
+			_audio_director.play_cancel()
+		else:
+			_audio_director.play_paint()
 	if bool(result.get("ok", false)):
 		var changed: Array = result.get("accepted_cells", result.get("cancelled_cells", result.get("changed_cells", [])))
 		var changed_count: int = changed.size() + (result.get("removed_downstream", []) as Array).size()
@@ -914,6 +979,8 @@ func _update_inspector() -> void:
 func _on_root_feature_reacted(_feature_id: int, reaction: Dictionary) -> void:
 	var produced := int(reaction.get("food_produced", 0))
 	_tutorial_flags["root_revealed"] = true
+	if _audio_director != null:
+		_audio_director.play_discovery_stinger()
 	var anchor := Vector2i(-1, -1)
 	var feature = worldgen_result.feature_registry.get_feature(_feature_id)
 	if feature != null:
@@ -925,6 +992,11 @@ func _on_root_feature_reacted(_feature_id: int, reaction: Dictionary) -> void:
 
 func _on_reservoir_breached(_feature_id: int, cell: Vector2i, _danger_cells: Array, released_units: int) -> void:
 	_tutorial_flags["breach"] = true
+	if _vfx_view != null:
+		_vfx_view.burst_water((Vector2(cell) + Vector2(0.5, 0.5)) * _logical_cell_size, released_units)
+	if _audio_director != null:
+		_audio_director.play_breach()
+	world_camera.apply_shake(3.0)
 	_push_notification("breach", tr("notify.breach") % released_units, cell, 25.0)
 	_last_feedback = tr("feedback.reservoir_breach") % released_units
 	_feedback_seconds_remaining = 6.0
@@ -932,6 +1004,15 @@ func _on_reservoir_breached(_feature_id: int, cell: Vector2i, _danger_cells: Arr
 
 func _on_region_collapsed(cells: Array, absorbed_water_units: int) -> void:
 	var water_note := "" if int(absorbed_water_units) <= 0 else " %d water sank into the rubble." % int(absorbed_water_units)
+	if _vfx_view != null and not cells.is_empty():
+		var centroid := Vector2.ZERO
+		for cell_value: Variant in cells:
+			centroid += Vector2(cell_value as Vector2i)
+		centroid = (centroid / float(cells.size()) + Vector2(0.5, 0.5)) * _logical_cell_size
+		_vfx_view.burst_collapse(centroid, cells.size())
+	if _audio_director != null:
+		_audio_director.play_collapse()
+	world_camera.apply_shake(4.0)
 	_last_feedback = tr("feedback.collapse") % [cells.size(), water_note]
 	_feedback_seconds_remaining = 6.0
 	if not cells.is_empty():
@@ -940,6 +1021,8 @@ func _on_region_collapsed(cells: Array, absorbed_water_units: int) -> void:
 
 func _on_critical_warning(cells: Array) -> void:
 	_tutorial_flags["stability_warning"] = true
+	if _audio_director != null:
+		_audio_director.play_critical()
 	if _feedback_seconds_remaining > 0.0:
 		return
 	if not cells.is_empty():
@@ -949,6 +1032,21 @@ func _on_critical_warning(cells: Array) -> void:
 		(cells[0] as Vector2i).y,
 	]
 	_feedback_seconds_remaining = 5.0
+
+
+## Dig impact feedback: debris/dust burst + material-specific impact sound.
+func _on_cell_excavated(cell: Vector2i) -> void:
+	var material := int(world_grid.get_material(cell))
+	if _vfx_view != null:
+		_vfx_view.burst_dig((Vector2(cell) + Vector2(0.5, 0.5)) * _logical_cell_size, material)
+	if _audio_director != null:
+		_audio_director.play_material_dig(material)
+
+
+## Zone dressing completion gets its own soft assign cue (spec §2 Interaction).
+func _on_zone_setup_state_changed(_zone_id: int, setup_state: int) -> void:
+	if setup_state == ZoneScript.SetupState.SET_UP and _audio_director != null:
+		_audio_director.play_zone_assign()
 
 
 func _mouse_cell() -> Vector2i:

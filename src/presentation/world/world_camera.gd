@@ -10,6 +10,8 @@ var _dragging := false
 var _drag_button := MOUSE_BUTTON_NONE
 var _last_mouse_position := Vector2.ZERO
 var _world_rect := Rect2()
+var _shake_amplitude := 0.0
+var reduced_shake := false
 
 
 func _ready() -> void:
@@ -26,6 +28,14 @@ func focus_cell(cell_coord: Vector2i, cell_size: int) -> void:
 	_clamp_to_world()
 
 
+## Restrained shake for hard terrain events only (collapse/breach), decaying to
+## zero; the accessibility config can disable it entirely (art/audio spec §10).
+func apply_shake(strength: float) -> void:
+	if reduced_shake:
+		return
+	_shake_amplitude = maxf(_shake_amplitude, strength)
+
+
 func _process(delta: float) -> void:
 	var direction := Vector2.ZERO
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
@@ -39,6 +49,11 @@ func _process(delta: float) -> void:
 	if direction != Vector2.ZERO:
 		position += direction.normalized() * keyboard_pan_speed * delta / zoom.x
 		_clamp_to_world()
+	if _shake_amplitude > 0.05:
+		offset = Vector2(randf() - 0.5, randf() - 0.5) * 2.0 * _shake_amplitude
+		_shake_amplitude = lerpf(_shake_amplitude, 0.0, minf(1.0, delta * 7.0))
+	elif offset != Vector2.ZERO:
+		offset = Vector2.ZERO
 
 
 func _unhandled_input(event: InputEvent) -> void:
