@@ -228,6 +228,42 @@ def synth_ambience(rng: random.Random) -> list[float]:
     return brown[: len(brown) - fade]
 
 
+def synth_music_loop(rng: random.Random) -> list[float]:
+    """16 s loopable settle theme: a slow warm pad (A minor add9) with a
+    gentle amplitude swell, lowpassed to sit under the ambience layer."""
+    duration = 16.0
+    chords = [
+        [110.0, 164.81, 220.0, 246.94],   # A2 E3 A3 B3
+        [98.0, 146.83, 196.0, 246.94],    # G2 D3 G3 B3
+        [87.31, 130.81, 174.61, 220.0],   # F2 C3 F3 A3
+        [98.0, 146.83, 196.0, 293.66],    # G2 D3 G3 D4
+    ]
+    bar = duration / len(chords)
+    out = [0.0] * _seconds(duration)
+    for chord_index, chord in enumerate(chords):
+        start_t = chord_index * bar
+        for i in range(_seconds(bar * 1.6)):
+            t = i / SAMPLE_RATE
+            index = int((start_t + t) * SAMPLE_RATE)
+            if index >= len(out):
+                break
+            # Crossfade consecutive chords over the last 40% of the bar.
+            env = _env(t, bar * 0.35, 0.9, bar * 1.6)
+            swell = 0.8 + 0.2 * math.sin(2 * math.pi * t / 7.0 + chord_index)
+            value = 0.0
+            for voice, freq in enumerate(chord):
+                detune = 1.0 + 0.0015 * math.sin(2 * math.pi * (0.11 + 0.03 * voice) * t + voice)
+                value += math.sin(2 * math.pi * freq * detune * t) / (voice + 2)
+            out[index] += value * env * swell * 0.35
+    out = _lowpass(out, 900)
+    fade = _seconds(1.0)
+    for i in range(fade):
+        blend = i / fade
+        head, tail = out[i], out[len(out) - fade + i]
+        out[i] = head * blend + tail * (1.0 - blend)
+    return out[: len(out) - fade]
+
+
 def synth_drip(rng: random.Random) -> list[float]:
     """Single water drip: fast pitch-dropping ping with a short tail."""
     out = []
@@ -256,6 +292,7 @@ def main() -> None:
         "cue_collapse.wav": synth_collapse(rng),
         "cue_critical.wav": synth_critical_creak(),
         "amb_underground.wav": synth_ambience(rng),
+        "music_settle.wav": synth_music_loop(rng),
         "drip_01.wav": synth_drip(rng),
         "drip_02.wav": synth_drip(rng),
         "drip_03.wav": synth_drip(rng),

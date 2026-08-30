@@ -30,6 +30,7 @@ const TEST_SCRIPTS: PackedStringArray = [
 	"res://tests/integration/test_seal_colony_flow.gd",
 	"res://tests/integration/test_stability_colony_flow.gd",
 	"res://tests/integration/test_water_colony_flow.gd",
+	"res://tests/integration/test_save_soak.gd",
 ]
 
 const COMPILE_GATES: PackedStringArray = [

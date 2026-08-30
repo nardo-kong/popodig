@@ -42,6 +42,7 @@ func _test_defaults_are_sane() -> void:
 	_assert(view.master_volume > 0.0 and view.master_volume <= 1.0, "Default master volume is normalized")
 	_assert(view.sfx_volume > 0.0 and view.sfx_volume <= 1.0, "Default SFX volume is normalized")
 	_assert(view.ambience_volume > 0.0 and view.ambience_volume <= 1.0, "Default ambience volume is normalized")
+	_assert(view.music_volume > 0.0 and view.music_volume <= 1.0, "Default music volume is normalized")
 	_assert(not view.reduced_particles and not view.reduced_shake, "Accessibility flags default to off")
 
 

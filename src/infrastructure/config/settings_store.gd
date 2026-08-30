@@ -13,6 +13,7 @@ const DEFAULTS := {
 	"audio/master_volume": 0.8,
 	"audio/sfx_volume": 0.9,
 	"audio/ambience_volume": 0.7,
+	"audio/music_volume": 0.5,
 	"accessibility/reduced_particles": false,
 	"accessibility/reduced_shake": false,
 }
@@ -21,6 +22,7 @@ const VALID_RANGES := {
 	"audio/master_volume": Vector2(0.0, 1.0),
 	"audio/sfx_volume": Vector2(0.0, 1.0),
 	"audio/ambience_volume": Vector2(0.0, 1.0),
+	"audio/music_volume": Vector2(0.0, 1.0),
 }
 
 var _values: Dictionary = {}
@@ -90,6 +92,7 @@ func as_audio_accessibility() -> Dictionary:
 		"master_volume": float(_values["audio/master_volume"]),
 		"sfx_volume": float(_values["audio/sfx_volume"]),
 		"ambience_volume": float(_values["audio/ambience_volume"]),
+		"music_volume": float(_values["audio/music_volume"]),
 		"reduced_particles": bool(_values["accessibility/reduced_particles"]),
 		"reduced_shake": bool(_values["accessibility/reduced_shake"]),
 	}

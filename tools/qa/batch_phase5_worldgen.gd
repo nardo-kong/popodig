@@ -107,6 +107,13 @@ func _run() -> void:
 			replay_mismatches.append({"seed": original.seed, "expected": original.content_hash, "actual": replay.get_content_hash()})
 	print("WORLDGEN_BATCH_PROGRESS replayed=%d mismatches=%d" % [replay_indices.size(), replay_mismatches.size()])
 	timings.sort()
+	# Phase 16 seed-diversity gate: distinct seeds must produce distinct
+	# canonical content hashes — the generator makes worlds, not variations
+	# of one world.
+	var unique_hashes: Dictionary = {}
+	for record: Dictionary in records:
+		unique_hashes[int(record.get("content_hash", 0))] = true
+	var diversity_ratio := float(unique_hashes.size()) / maxf(1.0, float(records.size()))
 	var total_count := records.size()
 	var valid_count := total_count - failures.size()
 	var required_path_softlocks := 0
@@ -160,6 +167,7 @@ func _run() -> void:
 		"determinism_replay_count": replay_indices.size(),
 		"determinism_mismatch_count": replay_mismatches.size(),
 		"performance_p95_ms": p95_ms,
+		"seed_diversity_ratio": diversity_ratio,
 		"performance_max_ms": max_ms,
 		"average_stage_ms": stage_averages,
 		"failures": failures,
@@ -183,9 +191,10 @@ func _run() -> void:
 		# Idle runs measure ~420 ms, so a real generation regression still fails.
 		and p95_ms <= 600.0
 		and max_ms < 2000.0
+		and diversity_ratio >= 0.95
 	)
 	var result_label := ("PASS" if authoritative else "QUICK_PASS") if passed else "FAIL"
-	print("PHASE5_SEED_BATCH valid=%d/%d final_rate=%.4f raw_rate=%.4f repair_seeds=%d retries=%d replay_mismatches=%d p95_ms=%.2f max_ms=%.2f report=%s result=%s" % [
+	print("PHASE5_SEED_BATCH valid=%d/%d final_rate=%.4f raw_rate=%.4f repair_seeds=%d retries=%d replay_mismatches=%d diversity=%.4f p95_ms=%.2f max_ms=%.2f report=%s result=%s" % [
 		valid_count,
 		total_count,
 		final_valid_rate,
@@ -193,6 +202,7 @@ func _run() -> void:
 		repair_count,
 		retry_count,
 		replay_mismatches.size(),
+		diversity_ratio,
 		p95_ms,
 		max_ms,
 		report_path,

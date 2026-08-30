@@ -1,5 +1,10 @@
 # Documentation Changelog
 
+## Implementation sync — 2026-08-31 (Phase 16 + 17)
+- Completed Phase 16 Full-game Balance & Polish: synthesized ambient music loop (music_settle.wav, 16 s loopable pad) on a dedicated Music bus with a fourth settings slider persisted to user settings; seed-diversity gate in the authoritative batch tool (distinct canonical hashes ≥95%); tutorial pacing constants moved to balance config (tutorial.open_space_cells / food_critical_count / objective_depth_offset); save soak suite (8 seeds × mutated mid-campaign world, cell-exact round-trip verification); CREDITS.md licensing audit (all assets repository-generated; Godot MIT).
+- Completed Phase 17 Release Candidate verification: full regression VALIDATION_PASS, save/seed soak evidence, clean release profile (no debug/cheats), credits audit. Recorded limitations: Windows-only platform matrix (no export presets yet), external naive playtests and a recorded full-campaign human playthrough remain owner gates.
+- Tests 1245/1245; seed batch 288/288 valid, 100% raw, 99.65% diversity.
+
 ## Implementation sync — 2026-08-30 (Phase 15)
 - Completed Phase 15 Chapter 3: Old Burrow — the campaign is now completable. Old-burrow prefab mutation system (two_room_sealed / collapsed_wing / triple_nest, deterministic per seed, weak-cell fill for the collapsed wing); old burrow and warm chamber reveal through adjacent excavation with localized discovery notifications and stingers; spatial storytelling dressing (faded nest rings, hoard debris, twig remains at alpha ≤ 0.34; warm tint + glow specks in the final chamber); campaign completion (GDD §14) when a set-up sleeping zone stands inside the revealed warm chamber — fires once, persists in saves, HUD gains a "✦ Home established" suffix, sandbox continues.
 - Worldgen v6. Tests +15 (campaign completion lifecycle, mutation membership/variety, warm-chamber depth placement) → 1179/1179; seed batch 288/288 at 100% raw, p95 ~440 ms; full validate VALIDATION_PASS.

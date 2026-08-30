@@ -30,6 +30,7 @@ const STREAMS: Dictionary = {
 }
 
 const AMBIENCE_STREAM: AudioStream = preload("res://assets/audio/production/amb_underground.wav")
+const MUSIC_STREAM: AudioStream = preload("res://assets/audio/production/music_settle.wav")
 # Loop points live in the .import params (edit/loop_mode=1 forward), so no
 # runtime stream mutation is needed here.
 const SFX_POOL_SIZE := 6
@@ -46,10 +47,12 @@ const MATERIAL_DIG_KEYS: Dictionary = {
 static var audio_enabled := true
 static var _sfx_bus_index := -1
 static var _ambience_bus_index := -1
+static var _music_bus_index := -1
 
 var _sfx_pool: Array[AudioStreamPlayer] = []
 var _sfx_next := 0
 var _ambience_player: AudioStreamPlayer
+var _music_player: AudioStreamPlayer
 var _drip_timer := 0.0
 var _water_proximity := false
 var _muted := false
@@ -67,14 +70,30 @@ func _ready() -> void:
 	_ambience_player.bus = AudioServer.get_bus_name(_ambience_bus_index)
 	_ambience_player.stream = AMBIENCE_STREAM
 	add_child(_ambience_player)
+	_music_player = AudioStreamPlayer.new()
+	_music_player.bus = AudioServer.get_bus_name(_ensure_music_bus())
+	_music_player.stream = MUSIC_STREAM
+	add_child(_music_player)
 	if not _muted:
 		_ambience_player.play()
+		_music_player.play()
 
 
 func apply_volumes(config: Dictionary) -> void:
 	_set_bus_volume("Master", float(config.get("master_volume", 0.8)))
 	_set_bus_volume(AudioServer.get_bus_name(_sfx_bus_index), float(config.get("sfx_volume", 0.9)))
 	_set_bus_volume(AudioServer.get_bus_name(_ambience_bus_index), float(config.get("ambience_volume", 0.7)))
+	_set_bus_volume(AudioServer.get_bus_name(_music_bus_index), float(config.get("music_volume", 0.5)))
+
+
+static func _ensure_music_bus() -> int:
+	_music_bus_index = AudioServer.get_bus_index("Music")
+	if _music_bus_index < 0:
+		_music_bus_index = AudioServer.bus_count
+		AudioServer.add_bus(_music_bus_index)
+		AudioServer.set_bus_name(_music_bus_index, "Music")
+		AudioServer.set_bus_send(_music_bus_index, "Master")
+	return _music_bus_index
 
 
 func _ensure_buses() -> void:
@@ -90,6 +109,7 @@ func _ensure_buses() -> void:
 		AudioServer.add_bus(_ambience_bus_index)
 		AudioServer.set_bus_name(_ambience_bus_index, "Ambience")
 		AudioServer.set_bus_send(_ambience_bus_index, "Master")
+	_ensure_music_bus()
 
 
 func _set_bus_volume(bus_name: String, linear: float) -> void:

@@ -21,6 +21,7 @@ const SettingsViewScript = preload("res://src/presentation/hud/settings_view.gd"
 const ChapterModelScript = preload("res://src/domain/progression/chapter_model.gd")
 
 # Slice objective (docs/qa/18 Beat H): a marked depth goal below the start.
+# Phase 16: pacing values are balance-configurable with slice-era fallbacks.
 const SLICE_OBJECTIVE_DEPTH_OFFSET := 30
 const FOOD_CRITICAL_COUNT := 2
 const OPEN_SPACE_TUTORIAL_CELLS := 12
@@ -237,7 +238,7 @@ func _ready() -> void:
 	if _tutorial == null:
 		_tutorial = ContextTutorialModelScript.new()
 	tutorial_label.text = Localization.text(_tutorial.current_text_key())
-	_objective_target_depth = int(world_grid.metadata.start_cell.y) + SLICE_OBJECTIVE_DEPTH_OFFSET
+	_objective_target_depth = int(world_grid.metadata.start_cell.y) + int(balance_config.get("tutorial", {}).get("objective_depth_offset", SLICE_OBJECTIVE_DEPTH_OFFSET))
 	world_grid.cell_changed.connect(_on_world_cell_changed)
 	if (_has_user_argument("--qa-phase2-demo") or _has_user_argument("--qa-phase3-demo")) and AppConfig.cheats_enabled():
 		_designate_qa_demo_path()
@@ -541,7 +542,8 @@ func _update_tutorial_flags() -> void:
 		for x: int in range(world_grid.width):
 			if world_grid.is_traversable(Vector2i(x, y)):
 				open_cells += 1
-	if open_cells >= OPEN_SPACE_TUTORIAL_CELLS:
+	var open_space_target := int(AppConfig.get_document("balance").get("tutorial", {}).get("open_space_cells", OPEN_SPACE_TUTORIAL_CELLS))
+	if open_cells >= open_space_target:
 		_tutorial_flags["open_space"] = true
 	_tutorial_flags["_deepest"] = _colony_reached_depth()
 	if signal_system != null:
@@ -587,7 +589,8 @@ func _update_objective() -> void:
 func _poll_notifications() -> void:
 	var item_system = colony_simulation.get_item_system()
 	var food_count: int = item_system.get_total_count(ItemSystemScript.FOOD)
-	if food_count <= FOOD_CRITICAL_COUNT:
+	var food_critical := int(AppConfig.get_document("balance").get("tutorial", {}).get("food_critical_count", FOOD_CRITICAL_COUNT))
+	if food_count <= food_critical:
 		_push_notification("food_low", tr("notify.food_low") % food_count, Vector2i(-1, -1), 6.0, 90.0)
 	var in_danger := false
 	var danger_cell := Vector2i(-1, -1)
@@ -1228,6 +1231,7 @@ func _setup_settings_view(accessibility: Dictionary, audio_config: Dictionary) -
 		effective_audio["master_volume"] = player.master_volume
 		effective_audio["sfx_volume"] = player.sfx_volume
 		effective_audio["ambience_volume"] = player.ambience_volume
+		effective_audio["music_volume"] = player.music_volume
 		accessibility = {
 			"reduced_particles": player.reduced_particles,
 			"reduced_shake": player.reduced_shake,

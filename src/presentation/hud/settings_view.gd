@@ -109,7 +109,7 @@ func _build_ui() -> void:
 	_language_button.pressed.connect(_on_language_pressed)
 	rows.add_child(_language_button)
 
-	for key: String in ["master", "sfx", "ambience"]:
+	for key: String in ["master", "sfx", "ambience", "music"]:
 		var label := Label.new()
 		rows.add_child(label)
 		var slider := HSlider.new()
@@ -138,6 +138,7 @@ func _sync_controls_from_store() -> void:
 	(_volume_sliders["master"] as HSlider).value = float(store.get_value("audio/master_volume"))
 	(_volume_sliders["sfx"] as HSlider).value = float(store.get_value("audio/sfx_volume"))
 	(_volume_sliders["ambience"] as HSlider).value = float(store.get_value("audio/ambience_volume"))
+	(_volume_sliders["music"] as HSlider).value = float(store.get_value("audio/music_volume"))
 	_particles_check.button_pressed = bool(store.get_value("accessibility/reduced_particles"))
 	_shake_check.button_pressed = bool(store.get_value("accessibility/reduced_shake"))
 
@@ -183,6 +184,7 @@ func refresh_localization() -> void:
 	(_volume_rows["master"] as Label).text = Localization.text("settings.master_volume")
 	(_volume_rows["sfx"] as Label).text = Localization.text("settings.sfx_volume")
 	(_volume_rows["ambience"] as Label).text = Localization.text("settings.ambience_volume")
+	(_volume_rows["music"] as Label).text = Localization.text("settings.music_volume")
 	_particles_check.text = Localization.text("settings.reduced_particles")
 	_shake_check.text = Localization.text("settings.reduced_shake")
 	_resume_button.text = Localization.text("settings.resume")

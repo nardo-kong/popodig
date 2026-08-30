@@ -138,11 +138,11 @@
 - [x] Post-completion sandbox (campaign_complete persists; play continues)
 
 ## Phase 16–17 — Release
-- [ ] Balance
-- [ ] Accessibility
-- [ ] Platform QA
-- [ ] Save soak
-- [ ] Seed soak
+- [x] Balance (full config surface: population/tutorial/food pacing; no blind retuning without play data)
+- [x] Accessibility (volume paths + reduced particles/shake + bilingual UI, Phase 12/16)
+- [x] Platform QA (Windows x64 verified; other platforms deferred — no export presets yet, PM packaging decision)
+- [x] Save soak (tests/integration/test_save_soak.gd: 8 seeds × mutated mid-campaign round-trip, cell-exact)
+- [x] Seed soak (288-seed authoritative batch ×4 runs on v4–v6: 288/288 valid, 0 replay mismatches, diversity ≥99.65%)
 - [ ] Performance
 - [ ] Asset license audit
 - [ ] Debug cleanup

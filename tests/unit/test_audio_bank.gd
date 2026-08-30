@@ -40,8 +40,8 @@ func _test_volume_config_defaults() -> void:
 	var accessibility: Dictionary = config_service.get_document("app").get("accessibility", {})
 	config_service.free()
 	_assert(not config.is_empty(), "app.json exposes an audio section")
-	_assert(config.has("master_volume") and config.has("sfx_volume") and config.has("ambience_volume"), "Audio section carries the three volume controls")
-	for key: String in ["master_volume", "sfx_volume", "ambience_volume"]:
+	_assert(config.has("master_volume") and config.has("sfx_volume") and config.has("ambience_volume") and config.has("music_volume"), "Audio section carries the four volume controls")
+	for key: String in ["master_volume", "sfx_volume", "ambience_volume", "music_volume"]:
 		var value := float(config.get(key, -1.0))
 		_assert(value >= 0.0 and value <= 1.0, "%s is a normalized volume" % key)
 	_assert(accessibility.has("reduced_particles") and accessibility.has("reduced_shake"), "Accessibility section carries reduced-particles and reduced-shake flags")
@@ -55,7 +55,7 @@ func _test_bus_indices_stable() -> void:
 	director.free()
 	_assert(AudioServer.get_bus_index("SFX") >= 0, "SFX bus exists after director setup")
 	_assert(AudioServer.get_bus_index("Ambience") >= 0, "Ambience bus exists after director setup")
-	_assert(AudioServer.bus_count <= before_count + 2, "Director creates at most its two buses")
+	_assert(AudioServer.bus_count <= before_count + 3, "Director creates at most its three buses (SFX/Ambience/Music)")
 
 
 func _assert(condition: bool, description: String) -> void:
