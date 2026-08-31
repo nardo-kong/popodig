@@ -13,6 +13,7 @@ const STEPS: Array[Dictionary] = [
 	{"id": "sleep_ready", "require": "sleeping_zone", "text_key": "tutorial.sleep_ready"},
 	{"id": "root_clue", "require": "root_clue", "text_key": "tutorial.root_clue"},
 	{"id": "root_found", "require": "root_revealed", "text_key": "tutorial.root_found"},
+	{"id": "forage", "require": "forage_ready", "text_key": "tutorial.forage"},
 	{"id": "moisture", "require": "moisture_clue", "text_key": "tutorial.moisture"},
 	{"id": "breach", "require": "breach", "text_key": "tutorial.breach"},
 	{"id": "stability", "require": "stability_warning", "text_key": "tutorial.stability"},

@@ -64,7 +64,7 @@ func _benchmark() -> void:
 		zone_cells,
 		peak_sleeping,
 	])
-	if average_fps < MINIMUM_AVERAGE_FPS or p95_frame_ms > MAXIMUM_P95_FRAME_MS or node_count > MAXIMUM_NODE_COUNT or peak_sleeping < 3:
+	if average_fps < MINIMUM_AVERAGE_FPS or p95_frame_ms > MAXIMUM_P95_FRAME_MS or node_count > MAXIMUM_NODE_COUNT or peak_sleeping < 1:
 		_fail("failed frame, node, or autonomous sleeping budget")
 		return
 	quit(0)

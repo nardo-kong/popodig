@@ -17,6 +17,12 @@ func _run() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
+	# The campaign starts with one founding mouse (Phase 16); this benchmark
+	# scenario explicitly tops up to the three-mouse haul concurrency.
+	scene._ensure_qa_mice(3)
+	# ColonyView syncs mouse views on its own _process — give it a frame.
+	await process_frame
+	await process_frame
 	var mice: Array = scene.colony_simulation.get_mice()
 	if mice.size() != 3 or scene.colony_view.get_mouse_view_count() != 3:
 		_fail("Phase 3 did not spawn and present exactly three autonomous mice")

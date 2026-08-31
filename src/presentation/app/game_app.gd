@@ -19,6 +19,7 @@ const VfxViewScript = preload("res://src/presentation/fx/vfx_view.gd")
 const AudioDirectorScript = preload("res://src/presentation/audio/audio_director.gd")
 const SettingsViewScript = preload("res://src/presentation/hud/settings_view.gd")
 const ChapterModelScript = preload("res://src/domain/progression/chapter_model.gd")
+const FogOfWarViewScript = preload("res://src/presentation/world/fog_of_war_view.gd")
 
 # Slice objective (docs/qa/18 Beat H): a marked depth goal below the start.
 # Phase 16: pacing values are balance-configurable with slice-era fallbacks.
@@ -160,6 +161,16 @@ func _ready() -> void:
 	water_fx.name = "WaterFx"
 	world_view.add_child(water_fx)
 	water_fx.configure(world_grid, water_system, _logical_cell_size)
+	# Fog of war sits above every world visual (mice/props included) but
+	# below the cursor and HUD: unexplored ground is dark until dug open.
+	var fog := FogOfWarViewScript.new()
+	fog.name = "FogOfWar"
+	fog.z_index = 27
+	world_view.add_child(fog)
+	fog.configure(world_grid, _logical_cell_size, maxi(1, int(balance_config.get("fog_radius", 4))))
+	world_grid.chunk_dirtied.connect(func(_coord: Vector2i, _flags: int) -> void:
+		fog.mark_stale()
+	)
 	_vfx_view = VfxViewScript.new()
 	_vfx_view.name = "Vfx"
 	world_view.add_child(_vfx_view)
@@ -557,6 +568,10 @@ func _update_tutorial_flags() -> void:
 	for zone: Zone in zone_system.get_zones():
 		if zone.zone_type == ZoneScript.Type.SLEEPING and zone.setup_state == ZoneScript.SetupState.SET_UP:
 			_tutorial_flags["sleeping_zone"] = true
+		# Phase 16 fix: the root_found step instructs planning a forage zone;
+		# completing it must advance the tutorial (it had no completion flag).
+		if zone.zone_type == ZoneScript.Type.FOOD_FORAGE and zone.valid and zone.setup_state == ZoneScript.SetupState.SET_UP:
+			_tutorial_flags["forage_ready"] = true
 
 
 ## Depth of the deepest cell the colony actually reached (connected to the
@@ -1312,7 +1327,19 @@ func _seed_initial_supplies() -> void:
 	colony_simulation.add_item_pile(ItemSystemScript.GENERAL_MATERIAL, material_cell, 10)
 
 
+## QA colony/zone demos benchmark three-mouse concurrency; the campaign now
+## starts with a single mouse, so top the population up explicitly.
+func _ensure_qa_mice(target: int) -> void:
+	var missing: int = target - colony_simulation.get_mice().size()
+	if missing <= 0:
+		return
+	for spawn_cell in colony_simulation.find_spawn_cells_near(world_grid.metadata.start_cell, missing):
+		if colony_simulation.add_mouse("mouse_%d" % (colony_simulation.get_mice().size() + 1), spawn_cell) == null:
+			break
+
+
 func _setup_qa_colony_demo() -> void:
+	_ensure_qa_mice(3)
 	var home: Vector2i = world_grid.metadata.start_cell
 	var food_cell := _find_traversable_cell(home, [Vector2i(-4, 0), Vector2i(-3, 0), Vector2i.LEFT])
 	var material_cell := _find_traversable_cell(home, [Vector2i(4, 0), Vector2i(3, 0), Vector2i.RIGHT])
@@ -1323,6 +1350,7 @@ func _setup_qa_colony_demo() -> void:
 
 
 func _setup_qa_zone_demo() -> void:
+	_ensure_qa_mice(3)
 	var home: Vector2i = world_grid.metadata.start_cell
 	var zone_system = colony_simulation.get_zone_system()
 	var sleeping: Array[Vector2i] = [home + Vector2i(-3, -1), home + Vector2i(-2, -1), home + Vector2i(-1, -1)]

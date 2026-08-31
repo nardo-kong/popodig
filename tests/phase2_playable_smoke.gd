@@ -17,8 +17,19 @@ func _run() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
-	if scene.mouse_agent == null or scene.mouse_agent.get_state_name() != "IDLE":
-		_fail("One Phase 2 mouse did not spawn idle")
+	# Phase 16: the campaign starts with a single founding mouse, which may
+	# already have claimed the demo dig job by the time this runs.
+	if scene.colony_simulation.get_mice().size() != 1:
+		_fail("Phase 2 expects exactly one founding mouse")
+	var founding_state: String = "" if scene.mouse_agent == null else scene.mouse_agent.get_state_name()
+	if not founding_state in ["IDLE", "MOVING", "DIGGING"]:
+		_fail("The founding mouse spawned in an invalid state: %s" % founding_state)
+	# The QA demo pre-designates its own path; cancel it so this fixture's
+	# designation-count checks stay independent of demo content.
+	if scene.dig_system.get_designated_count() > 0:
+		scene.dig_system.cancel(scene.dig_system.get_designated_cells())
+	if scene.dig_system.get_designated_count() != 0:
+		_fail("Demo designations could not be cleared for the drag fixture")
 		return
 	var app_config = root.get_node("AppConfig")
 	if not app_config.cheats_enabled() and scene.dig_system.get_designated_count() != 0:

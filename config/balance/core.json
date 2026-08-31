@@ -2,9 +2,9 @@
   "schema_version": 1,
   "status": "PROVISIONAL",
   "logical_cell_size": 16,
-  "initial_mouse_count": 3,
+  "initial_mouse_count": 1,
   "digging": {
-    "base_dig_seconds": 0.8,
+    "base_dig_seconds": 1.6,
     "simulation_step_seconds": 0.05
   },
   "mouse": {
@@ -72,5 +72,6 @@
     "open_space_cells": 12,
     "food_critical_count": 2,
     "objective_depth_offset": 30
-  }
+  },
+  "fog_radius": 4
 }

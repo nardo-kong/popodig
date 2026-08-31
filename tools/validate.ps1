@@ -527,6 +527,17 @@ if (-not $SkipScreenshot) {
         throw "Phase 11 zone-dressing screenshot validation failed with exit code $LASTEXITCODE"
     }
 
+    # Phase 16: fog-of-war darkness evidence (undug ground reads dark).
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase16_fog.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --output=res://art/qa/screenshots/phase_16_fog_of_war.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 16 fog screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase16_fog.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_16_fog_of_war.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 16 fog screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
     # Phase 12: player settings overlay (quick-load confirm, volumes, a11y).
     & $Godot --path $ProjectRoot --log-file .godot/capture_phase12_settings.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --qa-open-settings --output=res://art/qa/screenshots/phase_12_settings_menu.png
     if ($LASTEXITCODE -ne 0) {
@@ -642,6 +653,8 @@ if (-not $SkipScreenshot) {
         "screenshot_validation_phase11_water_closeup.log",
         "capture_phase11_zone_dressing.log",
         "screenshot_validation_phase11_zone_dressing.log",
+        "capture_phase16_fog.log",
+        "screenshot_validation_phase16_fog.log",
         "capture_phase12_settings.log",
         "screenshot_validation_phase12_settings.log"
     )

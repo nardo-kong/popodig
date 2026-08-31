@@ -53,6 +53,7 @@ func _test_jumps_multiple_steps() -> void:
 	_assert(model.current_id() == "root_clue", "Multiple flags jump several steps at once")
 	model.advance({
 		"root_revealed": true,
+		"forage_ready": true,
 		"moisture_clue": true,
 		"breach": true,
 		"stability_warning": true,
@@ -68,6 +69,7 @@ func _test_reaches_done_step() -> void:
 		"sleeping_zone": true,
 		"root_clue": true,
 		"root_revealed": true,
+		"forage_ready": true,
 		"moisture_clue": true,
 		"breach": true,
 		"stability_warning": true,
