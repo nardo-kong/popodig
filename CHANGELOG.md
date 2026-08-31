@@ -1,5 +1,10 @@
 # Documentation Changelog
 
+## Implementation sync — 2026-08-31 (PM feedback round 1)
+- Tutorial: new forage step between root_found and moisture keyed on a valid set-up Food/Forage zone (the root_found instruction previously had no completion flag — building the zone never advanced the tutorial).
+- Feel (PM direction): campaign starts with a single founding mouse (initial_mouse_count 3→1; population grows +2 per chapter milestone), digging 2× slower (base_dig_seconds 0.8→1.6), and fog of war — unexplored ground fades to darkness away from open/surface cells (pure BFS visibility, presentation-only, balance.fog_radius=4, evidence screenshot phase_16_fog_of_war.png). docs/qa/18's "3 mice initially" recorded as overridden by PM direction.
+- Test infrastructure: Phase 2 smoke expects one founding mouse and cancels pre-existing demo designations (fixture independence); Phase 3 smoke tops up to three mice for haul concurrency; Phase 4 sleeping floor 1; tutorial test covers the forage step. 1264/1264 assertions; validate VALIDATION_PASS.
+
 ## Implementation sync — 2026-08-31 (Phase 16 + 17)
 - Completed Phase 16 Full-game Balance & Polish: synthesized ambient music loop (music_settle.wav, 16 s loopable pad) on a dedicated Music bus with a fourth settings slider persisted to user settings; seed-diversity gate in the authoritative batch tool (distinct canonical hashes ≥95%); tutorial pacing constants moved to balance config (tutorial.open_space_cells / food_critical_count / objective_depth_offset); save soak suite (8 seeds × mutated mid-campaign world, cell-exact round-trip verification); CREDITS.md licensing audit (all assets repository-generated; Godot MIT).
 - Completed Phase 17 Release Candidate verification: full regression VALIDATION_PASS, save/seed soak evidence, clean release profile (no debug/cheats), credits audit. Recorded limitations: Windows-only platform matrix (no export presets yet), external naive playtests and a recorded full-campaign human playthrough remain owner gates.
