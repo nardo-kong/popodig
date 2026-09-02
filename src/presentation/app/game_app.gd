@@ -167,7 +167,7 @@ func _ready() -> void:
 	fog.name = "FogOfWar"
 	fog.z_index = 27
 	world_view.add_child(fog)
-	fog.configure(world_grid, _logical_cell_size, maxi(1, int(balance_config.get("fog_radius", 4))))
+	fog.configure(world_grid, _logical_cell_size, maxi(1, int(balance_config.get("fog_radius", 4))), worldgen_result.feature_registry)
 	world_grid.chunk_dirtied.connect(func(_coord: Vector2i, _flags: int) -> void:
 		fog.mark_stale()
 	)

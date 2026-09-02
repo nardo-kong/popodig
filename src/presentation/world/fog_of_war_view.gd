@@ -12,6 +12,7 @@ const DARK_COLOR := Color(0.03, 0.02, 0.02, 1.0)
 const REDRAW_INTERVAL := 0.25
 
 var world_grid
+var feature_registry = null
 var cell_size := 16
 var radius := 4
 var debug_disabled := false
@@ -21,12 +22,14 @@ var _grid_width := 0
 var _grid_height := 0
 var _accumulator := REDRAW_INTERVAL
 var _stale := true
+var _last_visible_rect := Rect2()
 
 
-func configure(grid, logical_cell_size: int, fog_radius: int) -> void:
+func configure(grid, logical_cell_size: int, fog_radius: int, registry = null) -> void:
 	world_grid = grid
 	cell_size = logical_cell_size
 	radius = maxi(1, fog_radius)
+	feature_registry = registry
 
 
 func mark_stale() -> void:
@@ -47,6 +50,12 @@ func _process(delta: float) -> void:
 		return
 	visible = true
 	_accumulator += delta
+	# Panning/zooming changes which cells need darkness even with no dig
+	# events, so a moved viewport counts as stale (throttled below).
+	var visible_rect := _visible_world_rect()
+	if visible_rect != _last_visible_rect:
+		_last_visible_rect = visible_rect
+		_stale = true
 	if _stale and _accumulator >= REDRAW_INTERVAL:
 		_accumulator = 0.0
 		_stale = false
@@ -91,10 +100,24 @@ static func compute_visibility(width: int, height: int, is_open: Callable, is_ex
 func _recompute() -> void:
 	_grid_width = world_grid.width
 	_grid_height = world_grid.height
+	# Undiscovered features keep their open cells dark: they must not act as
+	# light sources or they leak halo spoilers through solid rock. Once
+	# `feature.hidden` flips on discovery, their cells light up like any dug
+	# space. Natural BFS propagation still bleeds partial light into a hidden
+	# cavity as the player tunnels next to it — that is the intended
+	# Signal → Reveal leak, bounded by the fade.
+	var hidden_open := {}
+	if feature_registry != null:
+		for feature in feature_registry.get_features():
+			if not bool(feature.hidden):
+				continue
+			for cell: Vector2i in feature.cells:
+				if world_grid.is_traversable(cell):
+					hidden_open[cell] = true
 	_visibility = compute_visibility(
 		world_grid.width,
 		world_grid.height,
-		world_grid.is_traversable,
+		func(cell: Vector2i) -> bool: return world_grid.is_traversable(cell) and not hidden_open.has(cell),
 		world_grid.is_exterior,
 		radius
 	)
@@ -123,9 +146,15 @@ func _visible_world_rect() -> Rect2:
 	var viewport := get_viewport()
 	if viewport == null:
 		return Rect2()
-	var inv := get_viewport_transform().affine_inverse()
+	# get_canvas_transform maps world-canvas coordinates into the same
+	# base-viewport units as get_visible_rect().size. The stretch
+	# final_transform must stay OUT of the pair — CanvasItem
+	# get_viewport_transform() includes it, and mixing the two spaces made the
+	# fog only cover the window's top-left corner at window sizes above the
+	# 1280×720 base (PM bug report, maximized window).
+	var canvas_inv := viewport.get_canvas_transform().affine_inverse()
 	var size := viewport.get_visible_rect().size
-	var rect := Rect2(inv * Vector2.ZERO, Vector2.ZERO)
-	for corner: Vector2 in [inv * Vector2(size.x, 0.0), inv * Vector2(0.0, size.y), inv * size]:
+	var rect := Rect2(canvas_inv * Vector2.ZERO, Vector2.ZERO)
+	for corner: Vector2 in [canvas_inv * Vector2(size.x, 0.0), canvas_inv * Vector2(0.0, size.y), canvas_inv * size]:
 		rect = rect.expand(corner)
-	return rect
+	return get_global_transform().affine_inverse() * rect

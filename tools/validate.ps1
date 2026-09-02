@@ -528,6 +528,9 @@ if (-not $SkipScreenshot) {
     }
 
     # Phase 16: fog-of-war darkness evidence (undug ground reads dark).
+    # Captured at the 1280x720 base AND at 1920x1080: the coordinate-space
+    # mismatch this evidence guards against only manifests when the window is
+    # larger than the stretch base, so the second size is the regression gate.
     & $Godot --path $ProjectRoot --log-file .godot/capture_phase16_fog.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --output=res://art/qa/screenshots/phase_16_fog_of_war.png
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 16 fog screenshot capture failed with exit code $LASTEXITCODE"
@@ -536,6 +539,16 @@ if (-not $SkipScreenshot) {
     & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase16_fog.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_16_fog_of_war.png
     if ($LASTEXITCODE -ne 0) {
         throw "Phase 16 fog screenshot validation failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --path $ProjectRoot --log-file .godot/capture_phase16_fog_1920.log --script res://tools/qa/capture_screenshot.gd --rendering-driver opengl3 -- --profile=development --size=1920x1080 --output=res://art/qa/screenshots/phase_16_fog_of_war_1920.png
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 16 fog 1920x1080 screenshot capture failed with exit code $LASTEXITCODE"
+    }
+
+    & $Godot --headless --path $ProjectRoot --log-file .godot/screenshot_validation_phase16_fog_1920.log --script res://tools/qa/validate_screenshot.gd -- --input=res://art/qa/screenshots/phase_16_fog_of_war_1920.png --size=1920x1080
+    if ($LASTEXITCODE -ne 0) {
+        throw "Phase 16 fog 1920x1080 screenshot validation failed with exit code $LASTEXITCODE"
     }
 
     # Phase 12: player settings overlay (quick-load confirm, volumes, a11y).
@@ -655,6 +668,8 @@ if (-not $SkipScreenshot) {
         "screenshot_validation_phase11_zone_dressing.log",
         "capture_phase16_fog.log",
         "screenshot_validation_phase16_fog.log",
+        "capture_phase16_fog_1920.log",
+        "screenshot_validation_phase16_fog_1920.log",
         "capture_phase12_settings.log",
         "screenshot_validation_phase12_settings.log"
     )
