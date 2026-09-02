@@ -9,6 +9,11 @@ step, the single-founding-mouse start, and the dark excavation feel
 and the full `validate.ps1` prints `VALIDATION_PASS` (single founding mouse
 visible in the world log).
 
+**Follow-up (2026-09-02):** PM play at a maximized window exposed two fog
+defects — draw coverage collapsed above the 1280×720 base size, and
+undiscovered cavities leaked spoiler halos. Fixed; **1269/1269**,
+`VALIDATION_PASS` with a new 1920×1080 fog evidence gate. See §5–6.
+
 ## 1. Tutorial dead-end after "build a forage zone" (bug)
 
 The `root_found` step instructs the player to plan a Food/Forage zone, but
@@ -63,6 +68,77 @@ moisture clue instead. Fixed:
   gate) — single mouse in the lit start burrow, world fading to darkness.
 - 5 unit tests: lit excavated cells, monotonic fade, lit surface, full dark
   beyond radius, determinism.
+
+## 5. Follow-up — fog of war regression found in PM play (fixed)
+
+PM report during play (maximized window): "黑暗的遮罩完全失败". Two stacked
+defects, both fixed; a third, minor, staleness gap closed.
+
+**5.1 Draw coverage collapsed above the base window size (primary).**
+`_visible_world_rect()` mixed coordinate spaces: it fed
+`get_visible_rect().size` (base-viewport units — 1280×778 under the
+`canvas_items`/`expand` stretch) into the inverse of
+`CanvasItem.get_viewport_transform()` (which includes the stretch
+final transform, i.e. expects window pixels). With the window larger than
+the 1280×720 base (PM's ~1972×1200), the computed rect covered only the
+window's top-left ~66%×65%, so fog rects were drawn nowhere else — the rest
+of the frame rendered fully bright. Invisible at exactly 1280×720 (stretch
+scale 1), which is how the original QA gate and this report's evidence
+screenshot passed while live play failed. Fixed by deriving the visible rect
+from `get_canvas_transform()` (canvas → base-viewport units, no stretch) and
+converting through the node's global transform.
+
+**5.2 Undiscovered cavities leaked spoiler halos (data).** Fog sources were
+"every traversable cell", but `natural_cavity` / `old_burrow` /
+`warm_chamber` cells are excavated at worldgen while still `hidden` — each
+undiscovered cavity acted as a lantern. Probe on seed 137042: 188 of 242
+underground open cells belonged to hidden features; 66% of lit underground
+area was halos around content the player had never seen, visible through
+solid rock. Hidden feature cells are now excluded from the source set
+(`configure` takes the feature registry); cells light up when their feature
+is discovered (`feature.hidden = false` already marks chunks dirty, which
+drives the recompute). Natural BFS bleed into a cavity you tunnel beside
+remains — that is the intended Signal → Reveal partial-information leak.
+Side benefit: the fog now enforces "undiscovered = unseen" for open rooms
+that the base renderer draws regardless of `hidden` (which only gates
+dressing/cues).
+
+**5.3 Camera pan/zoom staleness.** `queue_redraw` previously fired on
+simulation events only; panning into fresh frames showed no fog until the
+next dig. A changed visible rect now counts as stale (same 4 Hz throttle).
+
+**QA process fix.** The root cause of the miss was evidence accepted without
+critical review: the original `phase_16_fog_of_war.png` visibly contained
+bright halo columns inside unexplored rock (defect 5.2) and should have
+failed review. The validate gate now captures fog evidence at **both
+1280×720 and 1920×1080** — defect 5.1 only manifests above the base size,
+so the second resolution is the regression gate. Both captures passed judge
+review; per-cell band luminance profiles are identical across the two
+resolutions (≤0.02 difference, antialiasing noise).
+
+## 6. Follow-up verification
+
+- **1269/1269** automated assertions (+5: hidden-feature cells stay fully
+  dark — including a pin of the old leaking behavior — player cells lit,
+  discovery turns a hidden feature into a light source).
+- Full `tools/validate.ps1`: **VALIDATION_PASS**, now including the
+  1920×1080 fog capture + screenshot validation.
+
+## Files changed (follow-up)
+
+- `src/presentation/world/fog_of_war_view.gd` (visible-rect space fix,
+  registry-aware sources, viewport staleness),
+  `src/presentation/app/game_app.gd` (registry passed to fog),
+  `tests/unit/test_fog_of_war.gd` (+2 cases / +5 assertions),
+  `tools/validate.ps1` (1920×1080 fog capture gate),
+  `art/qa/screenshots/phase_16_fog_of_war.png` (regenerated),
+  `art/qa/screenshots/phase_16_fog_of_war_1920.png` (new)
+
+## Commits (follow-up)
+
+- Commit C `fix:` — fog of war: full-window coverage at any window size,
+  undiscovered features no longer light halos, camera-move redraw
+- Commit D `docs:` — this follow-up, changelog
 
 ## Files changed
 
