@@ -20,6 +20,8 @@ const AudioDirectorScript = preload("res://src/presentation/audio/audio_director
 const SettingsViewScript = preload("res://src/presentation/hud/settings_view.gd")
 const ChapterModelScript = preload("res://src/domain/progression/chapter_model.gd")
 const FogOfWarViewScript = preload("res://src/presentation/world/fog_of_war_view.gd")
+const SessionTelemetryScript = preload("res://src/domain/telemetry/session_telemetry.gd")
+const MouseAgentScript = preload("res://src/domain/colony/mouse_agent.gd")
 
 # Slice objective (docs/qa/18 Beat H): a marked depth goal below the start.
 # Phase 16: pacing values are balance-configurable with slice-era fallbacks.
@@ -106,6 +108,14 @@ var _now_seconds := 0.0
 var _objective_target_depth := 0
 var _autosave_accumulator := 0.0
 var _loaded_from_save := false
+var _telemetry: SessionTelemetryScript = null
+var _telemetry_seed := 0
+var _telemetry_reservoir_cells := {}
+var _telemetry_sample_accumulator := 0.0
+var _telemetry_previous_mouse_cells := {}
+var _stroke_dig_cells := 0
+var _stroke_cancelled_cells: Array[Vector2i] = []
+var _stroke_reinforce_cells := 0
 
 static var _debug_seed_override_set := false
 static var _debug_seed_override := 0
@@ -183,18 +193,32 @@ func _ready() -> void:
 		add_child(_audio_director)
 		_audio_director.apply_volumes(audio_config)
 	_setup_settings_view(accessibility, audio_config)
+	# 21_BALANCE_TELEMETRY §2: local session metrics, debug builds only —
+	# release profiles never instantiate the recorder (doc §7 privacy).
+	if AppConfig.debug_tools_enabled():
+		_telemetry = SessionTelemetryScript.new()
+		_telemetry_seed = _current_seed
 	dig_system.cell_excavated.connect(_on_cell_excavated)
 	chapter_model = ChapterModelScript.new()
 	chapter_model.configure(balance_config)
 	chapter_model.chapter_advanced.connect(_on_chapter_advanced)
 	if root_feature_system != null:
 		root_feature_system.feature_reacted.connect(_on_root_feature_reacted)
+		root_feature_system.feature_revealed.connect(_on_root_feature_revealed)
 	if water_system != null:
 		water_system.reservoir_breached.connect(_on_reservoir_breached)
 	var stability = colony_simulation.get_stability_system()
 	if stability != null:
 		stability.region_collapsed.connect(_on_region_collapsed)
 		stability.critical_warning.connect(_on_critical_warning)
+		if _telemetry != null:
+			stability.warning_changed.connect(_on_telemetry_warning_changed)
+	var zone_system_telemetry = colony_simulation.get_zone_system()
+	if _telemetry != null and zone_system_telemetry != null:
+		zone_system_telemetry.zones_changed.connect(func(_change: Dictionary) -> void:
+			_telemetry.record_zone_change()
+		)
+		_telemetry_reservoir_cells = _collect_reservoir_cells()
 	if _pending_load_path != "":
 		var pending_path := _pending_load_path
 		_pending_load_path = ""
@@ -284,6 +308,12 @@ func _process(delta: float) -> void:
 	_poll_accumulator += delta
 	if _poll_accumulator >= 0.5:
 		_slow_poll()
+	if _telemetry != null:
+		_telemetry.elapsed_seconds = _now_seconds
+		_telemetry_sample_accumulator += delta
+		if _telemetry_sample_accumulator >= 1.0:
+			_telemetry_sample_accumulator = 0.0
+			_telemetry_sample_tick()
 	var ticks := 0
 	while not _paused and _simulation_accumulator >= _simulation_step and ticks < 8:
 		colony_simulation.fixed_tick(_simulation_step)
@@ -387,6 +417,8 @@ func _save_to_slot(slot_name: String) -> void:
 	var document := _build_save_document()
 	var result: Dictionary = SaveServiceScript.save_game(path, document)
 	if bool(result.ok):
+		if _telemetry != null:
+			_telemetry.record_save(slot_name)
 		_push_notification("save", tr("notify.saved"), Vector2i(-1, -1), 2.0, 3.0)
 		GameLog.info("SAVE", "Saved slot=%s path=%s" % [slot_name, path])
 	else:
@@ -399,6 +431,8 @@ func _request_load(slot_name: String) -> void:
 	if not FileAccess.file_exists(path):
 		_push_notification("load_missing", tr("notify.load_missing") % slot_name, Vector2i(-1, -1), 4.0, 4.0)
 		return
+	if _telemetry != null:
+		_telemetry.record_load()
 	_pending_load_path = path
 	_autosave_accumulator = 0.0
 	# Deferred: reload must not tear down the scene tree while the F9 input
@@ -445,6 +479,8 @@ func _evaluate_chapter_milestones() -> void:
 	})
 	if chapter_model.campaign_complete and not _campaign_celebrated:
 		_campaign_celebrated = true
+		if _telemetry != null:
+			_telemetry.mark_campaign_complete()
 		_push_notification("campaign", tr("notify.campaign_complete"), _warm_chamber_anchor(), 60.0, 3600.0)
 		if _audio_director != null:
 			_audio_director.play_discovery_stinger()
@@ -482,6 +518,8 @@ func _zone_ready(zone_system, zone_type: int) -> bool:
 
 
 func _on_chapter_advanced(new_chapter: int, growth_count: int) -> void:
+	if _telemetry != null:
+		_telemetry.record_chapter_advance(new_chapter)
 	var spawned := _spawn_growth_mice(growth_count)
 	_push_notification(
 		"chapter",
@@ -685,6 +723,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_last_feedback = tr("feedback.overlay") % worldgen_debug_overlay.cycle_mode()
 			_feedback_seconds_remaining = 2.0
 			viewport.set_input_as_handled()
+		elif key_event.keycode == KEY_T:
+			# 21_BALANCE_TELEMETRY session snapshot (debug builds only).
+			_write_telemetry_snapshot()
+			viewport.set_input_as_handled()
 
 
 func _handle_player_shortcuts(event: InputEvent) -> bool:
@@ -774,6 +816,10 @@ func _set_tool(tool: int) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_end_paint()
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST and _telemetry != null:
+		# Flush the session snapshot on close so a playtest that never
+		# presses the snapshot key still leaves its balance data behind.
+		_write_telemetry_snapshot()
 
 
 func _handle_dig_input(event: InputEvent) -> bool:
@@ -808,6 +854,16 @@ func _begin_paint(action: int, cell_coord: Vector2i) -> void:
 
 
 func _end_paint() -> void:
+	if _telemetry != null:
+		if _stroke_dig_cells > 0:
+			_telemetry.record_dig_stroke(_stroke_dig_cells)
+		if not _stroke_cancelled_cells.is_empty():
+			_telemetry.record_dig_cancellations(_stroke_cancelled_cells)
+		if _stroke_reinforce_cells > 0:
+			_telemetry.record_reinforcement_requests(_stroke_reinforce_cells)
+	_stroke_dig_cells = 0
+	_stroke_cancelled_cells = []
+	_stroke_reinforce_cells = 0
 	_paint_action = PaintAction.NONE
 	_last_painted_cell = Vector2i(-1, -1)
 
@@ -868,6 +924,13 @@ func _paint_to(cell_coord: Vector2i) -> void:
 		result = CancelDigCommandScript.new(dig_system, cells).execute()
 	else:
 		result = DesignateDigCommandScript.new(dig_system, cells).execute()
+	if _telemetry != null and bool(result.get("ok", false)):
+		if _current_tool == Tool.DIG and _paint_action == PaintAction.DESIGNATE:
+			_stroke_dig_cells += (result.get("accepted_cells", []) as Array).size()
+		elif _current_tool == Tool.DIG and _paint_action == PaintAction.CANCEL:
+			_stroke_cancelled_cells.append_array(result.get("cancelled_cells", []))
+		elif _current_tool == Tool.REINFORCE and _paint_action == PaintAction.DESIGNATE:
+			_stroke_reinforce_cells += (result.get("changed_cells", []) as Array).size()
 	_set_command_feedback(result)
 
 
@@ -1137,8 +1200,15 @@ func _on_root_feature_reacted(_feature_id: int, reaction: Dictionary) -> void:
 	_feedback_seconds_remaining = 5.0
 
 
-func _on_reservoir_breached(_feature_id: int, cell: Vector2i, _danger_cells: Array, released_units: int) -> void:
+func _on_root_feature_revealed(feature_id: int, feature_type: String, _exposure_cell: Vector2i) -> void:
+	_record_telemetry_discovery(feature_type, worldgen_result.feature_registry.get_feature(feature_id))
+
+
+func _on_reservoir_breached(feature_id: int, cell: Vector2i, _danger_cells: Array, released_units: int) -> void:
 	_tutorial_flags["breach"] = true
+	if _telemetry != null:
+		_telemetry.record_breach(released_units)
+		_record_telemetry_discovery("water_reservoir", worldgen_result.feature_registry.get_feature(feature_id))
 	if _vfx_view != null:
 		_vfx_view.burst_water((Vector2(cell) + Vector2(0.5, 0.5)) * _logical_cell_size, released_units)
 	if _audio_director != null:
@@ -1150,6 +1220,8 @@ func _on_reservoir_breached(_feature_id: int, cell: Vector2i, _danger_cells: Arr
 
 
 func _on_region_collapsed(cells: Array, absorbed_water_units: int) -> void:
+	if _telemetry != null:
+		_telemetry.record_collapse(cells)
 	var water_note := "" if int(absorbed_water_units) <= 0 else " %d water sank into the rubble." % int(absorbed_water_units)
 	if _vfx_view != null and not cells.is_empty():
 		var centroid := Vector2.ZERO
@@ -1186,6 +1258,8 @@ func _on_critical_warning(cells: Array) -> void:
 ## chamber) — the same Signal → Reveal courtesy the other features get.
 func _on_cell_excavated(cell: Vector2i) -> void:
 	var material := int(world_grid.get_material(cell))
+	if _telemetry != null:
+		_telemetry.record_excavation(material)
 	if _vfx_view != null:
 		_vfx_view.burst_dig((Vector2(cell) + Vector2(0.5, 0.5)) * _logical_cell_size, material)
 	if _audio_director != null:
@@ -1201,6 +1275,7 @@ func _check_buried_landmark_discovery(cell: Vector2i) -> void:
 		var feature = worldgen_result.feature_registry.get_feature(feature_id)
 		if feature != null:
 			feature.hidden = false
+		_record_telemetry_discovery(feature_type, feature)
 		world_grid.mark_region_dirty(
 			Rect2i(cell - Vector2i(2, 2), Vector2i(5, 5)),
 			world_grid.CHANGE_TERRAIN
@@ -1225,6 +1300,81 @@ func _find_hidden_feature_adjacent(cell: Vector2i, type_id: String) -> int:
 		if feature != null and feature.type_id == type_id and bool(feature.hidden):
 			return feature_id
 	return -1
+
+
+## 21_BALANCE_TELEMETRY §2 helpers. All no-ops unless the debug-gated
+## recorder exists; sampling runs at 1 Hz from _process.
+func _record_telemetry_discovery(feature_type: String, feature) -> void:
+	if _telemetry == null:
+		return
+	var open_cells := 0
+	if feature != null:
+		for feature_cell: Vector2i in feature.cells:
+			if world_grid.is_traversable(feature_cell):
+				open_cells += 1
+	_telemetry.record_discovery(String(feature_type), open_cells)
+
+
+func _on_telemetry_warning_changed(cell: Vector2i, level: int) -> void:
+	if _telemetry != null:
+		_telemetry.note_warning(cell, level)
+
+
+func _collect_reservoir_cells() -> Dictionary:
+	var cells := {}
+	for feature in worldgen_result.feature_registry.get_features("water_reservoir"):
+		for reservoir_cell: Vector2i in feature.cells:
+			cells[reservoir_cell] = true
+	return cells
+
+
+func _telemetry_sample_tick() -> void:
+	if _telemetry == null:
+		return
+	var mice: Array = colony_simulation.get_mice()
+	var idle := 0
+	var steps := 0
+	for index: int in range(mice.size()):
+		var agent = mice[index]
+		if agent.state == MouseAgentScript.State.IDLE:
+			idle += 1
+		var previous: Vector2i = _telemetry_previous_mouse_cells.get(index, agent.current_cell)
+		steps += absi(agent.current_cell.x - previous.x) + absi(agent.current_cell.y - previous.y)
+		_telemetry_previous_mouse_cells[index] = agent.current_cell
+	_telemetry.sample_colony(idle, mice.size(), steps)
+	var total_units := 0
+	var corridor_units := 0
+	var flooded_storage := 0
+	var zone_system = colony_simulation.get_zone_system()
+	for y: int in range(world_grid.height):
+		for x: int in range(world_grid.width):
+			var cell := Vector2i(x, y)
+			var units := int(world_grid.get_water_units(cell))
+			if units <= 0:
+				continue
+			total_units += units
+			if not _telemetry_reservoir_cells.has(cell):
+				corridor_units += units
+	_telemetry.sample_water(total_units, corridor_units)
+	for zone in zone_system.get_zones_by_type(ZoneScript.Type.STORAGE, false):
+		for zone_cell: Vector2i in zone.cells:
+			if int(world_grid.get_water_units(zone_cell)) > 0:
+				flooded_storage += 1
+	_telemetry.record_flooded_storage_cells(flooded_storage)
+
+
+func _write_telemetry_snapshot() -> void:
+	if _telemetry == null:
+		return
+	var summary: Dictionary = _telemetry.to_summary_dict()
+	var directory := ProjectSettings.globalize_path("user://telemetry")
+	var result: Dictionary = SessionTelemetryScript.write_snapshot(directory, _telemetry_seed, summary)
+	if bool(result.ok):
+		GameLog.info("TELEMETRY", "Session snapshot written path=%s" % String(result.path))
+		_last_feedback = "telemetry snapshot saved"
+		_feedback_seconds_remaining = 2.0
+	else:
+		GameLog.failure("TELEMETRY", "Snapshot failed path=%s error=%s" % [String(result.path), String(result.error)])
 
 
 ## Zone dressing completion gets its own soft assign cue (spec §2 Interaction).
