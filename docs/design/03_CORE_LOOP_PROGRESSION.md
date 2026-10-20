@@ -1,5 +1,7 @@
 # 03 — Core Loop & Progression
 
+> **2.0 revision:** Discovery rewards initiate the loop; hauling, light production and shared capability upgrades create further exploration and replanning goals. Safe starting space teaches rewards before hazards. Details and save contracts are in `docs/design/DIG_DOWN_2_0_DESIGN.md`; V1 pacing below is historical, not a verified 2.0 playtime target.
+
 **Status: LOCKED structure / PROVISIONAL pacing**
 
 ## 1. Design thesis

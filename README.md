@@ -1,5 +1,7 @@
 # Dig Down / 地下鼠鼠 — Project Documentation Pack v1.0
 
+> **2.0 active (2026-10-21):** Start with [2.0 design](docs/design/DIG_DOWN_2_0_DESIGN.md) and [issue execution plan](docs/production/DIG_DOWN_2_0_EXECUTION.md). GitHub [#1](https://github.com/nardo-kong/popodig/issues/1) tracks P0/P1/P2 implementation. Earlier status below describes the 1.0 baseline; human gameplay gates remain separate.
+
 > **Implementation status (2026-08-31):** All phases (12–17) complete plus a PM feedback round: the campaign starts with a single founding mouse (population grows +2 per chapter milestone), digging is 2× slower, unexplored ground is dark (fog of war), and the tutorial gained the missing forage-zone completion step. The campaign from Settle to the warm-chamber home is fully playable and completable, with music, settings, accessibility, save/seed soaks, and a credits audit. 1264/1264 automated assertions pass under `tools/validate.ps1` (VALIDATION_PASS); the 288-seed batch holds 100% valid worlds at 99.65%+ seed diversity. Open owner gates: an external naive-playtest round (docs/qa/19_PLAYTEST_KIT.md), a recorded full-campaign human playthrough for balance data, and export presets/non-Windows platforms when packaging is decided. Project content is proprietary to the owner (see CREDITS.md).
 
 This repository is the implementation authority for a 2D underground mouse-colony systemic sandbox built around one dominant verb: **DIG**.

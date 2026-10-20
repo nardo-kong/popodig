@@ -1,5 +1,7 @@
 # 01 — Product Vision
 
+> **2.0 revision:** `docs/design/DIG_DOWN_2_0_DESIGN.md` extends this vision with positive discovery rewards, light production, shared colony capabilities and logistics that prompt replanning. The fantasy remains an autonomous mouse colony building a home.
+
 **Status: LOCKED concept / PROVISIONAL tuning**
 
 ## 1. Working title

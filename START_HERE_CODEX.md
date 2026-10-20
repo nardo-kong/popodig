@@ -1,5 +1,12 @@
 # START HERE — Codex Implementation Entry Point
 
+## Current work: Dig Down 2.0
+Start with `docs/design/DIG_DOWN_2_0_DESIGN.md` and
+`docs/production/DIG_DOWN_2_0_EXECUTION.md`, then GitHub tracking issue #1.
+The owner authorized continuous implementation and core/incremental tests per
+issue, with broad regression at batch boundaries. The V1 instructions below
+remain useful background where they do not conflict with this 2.0 baseline.
+
 You are implementing **Dig Down / 地下鼠鼠** from this documentation repository.
 
 ## Step 1 — Read authority docs
