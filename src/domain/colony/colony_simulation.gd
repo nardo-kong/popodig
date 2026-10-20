@@ -1,6 +1,8 @@
 class_name ColonySimulation
 extends RefCounted
 
+const ProductionScript = preload("res://src/domain/colony/production_system.gd")
+const CapabilitiesScript = preload("res://src/domain/progression/colony_capabilities.gd")
 const DiscoveryScript = preload("res://src/domain/features/discovery_system.gd")
 const MouseAgentScript = preload("res://src/domain/colony/mouse_agent.gd")
 const ItemSystemScript = preload("res://src/domain/colony/item_system.gd")
@@ -15,6 +17,10 @@ const SealSystemScript = preload("res://src/domain/features/seal_system.gd")
 const StabilitySystemScript = preload("res://src/domain/features/stability_system.gd")
 
 var _discovery_system
+var _production_system
+var _capabilities
+var travel_steps := 0
+var loaded_travel_steps := 0
 var _world
 var _path_service
 var _dig_system
@@ -53,6 +59,13 @@ func configure(
 	_job_system.configure(_path_service, _item_system, _balance)
 	_zone_system = ZoneSystemScript.new()
 	_zone_system.configure(_world, _path_service, _balance)
+	_production_system = ProductionScript.new()
+	_production_system.configure(_zone_system, _item_system, _job_system, _path_service)
+	_capabilities = CapabilitiesScript.new()
+	_capabilities.configure(_item_system, _world)
+	if bool(_balance.get("capabilities_enabled", false)):
+		_dig_system.set_capability_filter(_capabilities.can_dig)
+
 	_signal_system = null
 	_root_feature_system = null
 	_water_system = null
@@ -129,6 +142,7 @@ func fixed_tick(delta_seconds: float) -> Array[Dictionary]:
 		_discovery_system.fixed_tick(delta_seconds)
 	if _root_feature_system != null:
 		_root_feature_system.fixed_tick(delta_seconds)
+	_production_system.fixed_tick(delta_seconds)
 	_job_system.advance_time(delta_seconds)
 	for mouse: MouseAgent in _mice:
 		results.append(mouse.fixed_tick(delta_seconds))
@@ -146,6 +160,8 @@ func add_mouse(mouse_id: String, cell: Vector2i):
 	mouse.configure_colony(_job_system, _item_system, home_cell, _balance)
 	mouse.configure_zones(_zone_system, _balance)
 	mouse.configure_environment(_seal_system, _stability_system)
+	mouse.configure_production(_production_system)
+	mouse.moved.connect(_on_mouse_moved)
 	_mice.append(mouse)
 	return mouse
 
@@ -462,7 +478,7 @@ func _cancel_invalid_zone_jobs() -> void:
 		if job.job_type != ColonyJobScript.Type.ZONE_SETUP:
 			valid_target = (
 				valid_target
-				and zone.zone_type == ZoneScript.Type.STORAGE
+				and zone.zone_type == (ZoneScript.Type.PRODUCTION if job.job_type == ColonyJobScript.Type.PRODUCE else ZoneScript.Type.STORAGE)
 				and zone.setup_state == ZoneScript.SetupState.SET_UP
 			)
 		if valid_target and (job.worker_id.is_empty() or job.item_reservation_id >= 0):
@@ -481,6 +497,8 @@ func _sync_storage_references() -> void:
 	for zone: Zone in _zone_system.get_zones_by_type(ZoneScript.Type.STORAGE):
 		for cell: Vector2i in zone.cells:
 			capacities[cell] = _storage_capacity_per_cell
+	for zone: Zone in _zone_system.get_zones_by_type(ZoneScript.Type.PRODUCTION, true):
+		capacities[zone.identity_anchor] = _storage_capacity_per_cell
 	_item_system.replace_cell_capacities(capacities)
 	for zone: Zone in _zone_system.get_zones_by_type(ZoneScript.Type.STORAGE):
 		for pile_id_value: Variant in zone.storage_refs.keys():
@@ -674,18 +692,30 @@ func to_save_data() -> Dictionary:
 		"mice": mice,
 		"items": _item_system.to_save_data(),
 		"zones": _zone_system.to_save_data(),
+		"production": _production_system.to_save_data(),
+		"capabilities": _capabilities.to_save_data(),
+		"travel": {"steps": travel_steps, "loaded_steps": loaded_travel_steps},
 	}
 
 
 func apply_save_data(data: Dictionary) -> Dictionary:
+	for old_mouse: MouseAgent in _mice.duplicate():
+		remove_mouse(old_mouse.mouse_id)
+	_job_system.configure(_path_service, _item_system, _balance)
 	var item_result: Dictionary = _item_system.apply_save_data(data.get("items", {}))
 	if not bool(item_result.ok):
 		return item_result
 	var zone_result: Dictionary = _zone_system.apply_save_data(data.get("zones", {}))
 	if not bool(zone_result.ok):
 		return zone_result
-	for mouse: MouseAgent in _mice.duplicate():
-		remove_mouse(mouse.mouse_id)
+	var production_result: Dictionary = _production_system.apply_save_data(data.get("production", {}))
+	if not production_result.ok:
+		return production_result
+	var ability_result: Dictionary = _capabilities.apply_save_data(data.get("capabilities", {}))
+	if not ability_result.ok:
+		return ability_result
+	travel_steps = maxi(0, int(data.get("travel", {}).get("steps", 0)))
+	loaded_travel_steps = maxi(0, int(data.get("travel", {}).get("loaded_steps", 0)))
 	for entry: Variant in data.get("mice", []):
 		if entry is not Dictionary:
 			return {"ok": false, "error": "malformed mouse entry"}
@@ -713,3 +743,22 @@ func apply_save_data(data: Dictionary) -> Dictionary:
 
 func get_discovery_system():
 	return _discovery_system
+
+
+func get_production_system():
+	return _production_system
+
+
+func get_capabilities():
+	return _capabilities
+
+
+func _on_mouse_moved(mouse_id: String, _from: Vector2i, _to: Vector2i) -> void:
+	travel_steps += 1
+	var mouse = get_mouse(mouse_id)
+	if mouse != null and mouse.carried_item_count > 0:
+		loaded_travel_steps += 1
+
+
+func route_between(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
+	return _path_service.find_path(from_cell, to_cell)

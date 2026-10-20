@@ -113,6 +113,8 @@ static func _find_migration(from_version: int) -> Dictionary:
 static func _apply_migration(document: Dictionary, _from_version: int, to_version: int) -> String:
 	match to_version:
 		3:
+			if document.get("colony", null) is Dictionary and not document.colony.has("capabilities"):
+				document.colony["capabilities"] = {"level": 2}
 			if not document.has("progression"):
 				document["progression"] = {}
 			return ""

@@ -364,3 +364,31 @@ func apply_save_data(data: Dictionary) -> Dictionary:
 	for pile_id: int in _piles:
 		pile_changed.emit(pile_id)
 	return {"ok": true, "error": ""}
+
+
+func consume_reachable_bundle(costs: Dictionary, origin: Vector2i) -> Dictionary:
+	var plan: Array[Dictionary] = []
+	for item_type: String in costs:
+		var remaining := int(costs[item_type])
+		if remaining < 0 or not Resources.is_known(item_type):
+			return {"ok": false, "reason": "INVALID_COST"}
+		for pile in get_piles():
+			if pile.item_type != item_type or pile.available_count() <= 0:
+				continue
+			if _path_service == null or _path_service.find_path(origin, pile.cell).is_empty():
+				continue
+			var count := mini(remaining, pile.available_count())
+			if count > 0:
+				plan.append({"pile_id": pile.pile_id, "count": count})
+				remaining -= count
+			if remaining == 0:
+				break
+		if remaining > 0:
+			return {"ok": false, "reason": "NEEDS_REACHABLE_MATERIAL", "item": item_type, "missing": remaining}
+	for entry: Dictionary in plan:
+		var pile: ItemPile = _piles[entry.pile_id]
+		pile.count -= int(entry.count)
+		if pile.count == 0:
+			_piles.erase(pile.pile_id)
+		pile_changed.emit(pile.pile_id)
+	return {"ok": true, "reason": "OK"}

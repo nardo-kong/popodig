@@ -5,6 +5,7 @@ enum Type {
 	SLEEPING,
 	STORAGE,
 	FOOD_FORAGE,
+	PRODUCTION,
 }
 
 enum SetupState {
@@ -43,6 +44,8 @@ func get_type_name() -> String:
 			return "SLEEPING"
 		Type.STORAGE:
 			return "STORAGE"
+		Type.PRODUCTION:
+			return "PRODUCTION"
 		Type.FOOD_FORAGE:
 			return "FOOD_FORAGE"
 		_:
@@ -67,6 +70,8 @@ func get_dressing_family() -> String:
 			return "sleeping_nest_proxy"
 		Type.STORAGE:
 			return "storage_pile_proxy"
+		Type.PRODUCTION:
+			return "workbench_proxy"
 		Type.FOOD_FORAGE:
 			return "food_forage_proxy"
 		_:

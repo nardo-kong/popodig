@@ -33,6 +33,7 @@ var _next_job_id := 1
 var _colony_reachable: Dictionary = {}
 var _colony_topology_revision := -1
 var _cached_colony_anchor := Vector2i(-1, -1)
+var _capability_filter: Callable = Callable()
 var _hazard_filter: Callable = Callable()
 
 
@@ -64,6 +65,8 @@ func inspect_designation(cell: Vector2i) -> Dictionary:
 		return {"ok": false, "reason_code": REASON_OUT_OF_BOUNDS, "cell": cell}
 	if _world.is_exterior(cell):
 		return {"ok": false, "reason_code": REASON_NOT_EXCAVATABLE, "cell": cell}
+	if _capability_filter.is_valid() and not bool(_capability_filter.call(cell)):
+		return {"ok": false, "reason_code": "ABILITY_REQUIRED", "cell": cell}
 	if _world.is_protected(cell):
 		return {"ok": false, "reason_code": REASON_PROTECTED_FEATURE, "cell": cell}
 	if not _world.is_solid(cell):
@@ -142,6 +145,8 @@ func derive_frontier_jobs(worker_cell: Vector2i) -> Array[DigJob]:
 	var distances: PackedInt32Array = _path_service.build_distance_field(worker_cell)
 	for cell: Vector2i in _jobs_by_cell:
 		var job: DigJob = _jobs_by_cell[cell]
+		if _capability_filter.is_valid() and not bool(_capability_filter.call(cell)):
+			continue
 		if job.state != DigJobScript.State.QUEUED:
 			continue
 		var work_result := _find_best_work_cell(cell, distances)
@@ -259,6 +264,8 @@ func get_job(job_id: int):
 
 
 func _validate_excavatable(cell: Vector2i) -> String:
+	if _world.is_in_bounds(cell) and _capability_filter.is_valid() and not bool(_capability_filter.call(cell)):
+		return "ABILITY_REQUIRED"
 	if _world == null or not _world.is_in_bounds(cell):
 		return REASON_OUT_OF_BOUNDS
 	if _world.is_exterior(cell):
@@ -441,3 +448,7 @@ func _job_result(ok: bool, reason: String, job = null, completed: bool = false) 
 		"progress": 0.0 if job == null else job.normalized_progress(),
 		"completed": completed,
 	}
+
+
+func set_capability_filter(filter: Callable) -> void:
+	_capability_filter = filter

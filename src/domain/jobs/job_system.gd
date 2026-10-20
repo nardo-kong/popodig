@@ -424,3 +424,23 @@ func _release_job_dropoff(job: ColonyJob) -> void:
 		return
 	_item_system.release_dropoff(job.dropoff_reservation_id, "job:%d" % job.job_id)
 	job.dropoff_reservation_id = -1
+
+
+func enqueue_production(pile_id: int, target: Vector2i, count: int, zone_id: int, recipe_id: String):
+	var pile = _item_system.get_pile(pile_id)
+	if pile == null or count <= 0 or _committed_source_count(pile_id) + count > pile.count:
+		return null
+	var job := ColonyJobScript.new()
+	job.job_id = _next_job_id
+	_next_job_id += 1
+	job.job_type = ColonyJobScript.Type.PRODUCE
+	job.priority = 17.0
+	job.source_pile_id = pile_id
+	job.target_cell = target
+	job.item_type = pile.item_type
+	job.item_count = count
+	job.zone_id = zone_id
+	job.recipe_id = recipe_id
+	_jobs[job.job_id] = job
+	job_changed.emit(job.job_id, job.state)
+	return job

@@ -99,6 +99,13 @@ static func populate(context) -> void:
 			if _can_place(world, cell):
 				_add(registry, world, cell, "seed_cache" if side < 0 else "fiber_cache", "small")
 				break
+	# Bootstrap resources must precede the capability barriers they unlock.
+	for side: int in [-1, 1]:
+		for offset: int in range(6, 12):
+			var cell := start + Vector2i(side * offset, 3)
+			if _can_place(world, cell) and world.get_hardness(cell) < 3.0:
+				_add(registry, world, cell, "stone_seam" if side < 0 else "ore_seam", "medium")
+				break
 	# Stratified jittered placement avoids one roll per dug tile and stays deterministic.
 	for y: int in range(start.y + 4, world.height - 3, 6):
 		for x: int in range(4, world.width - 4, 7):

@@ -8,6 +8,7 @@ enum Type {
 	ZONE_SETUP,
 	REINFORCE,
 	SEAL,
+	PRODUCE,
 }
 
 enum State {
@@ -24,6 +25,7 @@ var priority := 20.0
 var source_pile_id := -1
 var target_cell := Vector2i(-1, -1)
 var action_cell := Vector2i(-1, -1)
+var recipe_id := ""
 var item_type := ""
 var item_count := 0
 var zone_id := -1
@@ -41,6 +43,7 @@ func snapshot():
 	copy.source_pile_id = source_pile_id
 	copy.target_cell = target_cell
 	copy.action_cell = action_cell
+	copy.recipe_id = recipe_id
 	copy.item_type = item_type
 	copy.item_count = item_count
 	copy.zone_id = zone_id
@@ -52,6 +55,8 @@ func snapshot():
 
 func get_type_name() -> String:
 	match job_type:
+		Type.PRODUCE:
+			return "PRODUCE"
 		Type.HAUL_FOOD:
 			return "HAUL_FOOD"
 		Type.HAUL_MATERIAL:

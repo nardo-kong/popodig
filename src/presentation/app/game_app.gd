@@ -1,5 +1,6 @@
 extends Node
 
+const DevelopmentViewScript = preload("res://src/presentation/hud/development_view.gd")
 const DiscoveryViewScript = preload("res://src/presentation/world/discovery_view.gd")
 const DiscoveryScript = preload("res://src/domain/features/discovery_system.gd")
 const Resources = preload("res://src/domain/colony/resource_catalog.gd")
@@ -46,6 +47,7 @@ enum Tool {
 	FOOD_FORAGE,
 	SEAL,
 	REINFORCE,
+	PRODUCTION,
 }
 
 @onready var world_view: WorldView = %WorldView
@@ -245,6 +247,9 @@ func _ready() -> void:
 	var mice: Array = colony_simulation.get_mice()
 	mouse_agent = mice[0] if not mice.is_empty() else null
 	colony_view.configure(colony_simulation, _logical_cell_size)
+	var development_view := DevelopmentViewScript.new()
+	get_node("UI/Root").add_child(development_view)
+	development_view.configure(colony_simulation)
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
 	var zone_system = colony_simulation.get_zone_system()
 	zone_system.setup_state_changed.connect(_on_zone_setup_state_changed)
@@ -796,6 +801,9 @@ func _handle_tool_shortcut(event: InputEvent) -> bool:
 		KEY_5:
 			_set_tool(Tool.SEAL)
 			return true
+		KEY_7:
+			_set_tool(Tool.PRODUCTION)
+			return true
 		KEY_6:
 			_set_tool(Tool.REINFORCE)
 			return true
@@ -803,7 +811,7 @@ func _handle_tool_shortcut(event: InputEvent) -> bool:
 
 
 func _set_tool(tool: int) -> void:
-	_current_tool = clampi(tool, Tool.DIG, Tool.REINFORCE)
+	_current_tool = clampi(tool, Tool.DIG, Tool.PRODUCTION)
 	_end_paint()
 	if _audio_director != null:
 		_audio_director.play_tool_select()
@@ -1110,6 +1118,8 @@ func _player_inspector_text(cell) -> String:
 
 
 func _zone_display_name(type_name: String) -> String:
+	if type_name == "PRODUCTION":
+		return "生產區" if Localization.current().begins_with("zh") else "Workshop"
 	return tr("zone." + type_name.replace("/", "_").to_lower())
 
 
@@ -1971,6 +1981,8 @@ func _dig_state_name(state: int) -> String:
 
 
 func _reason_text(reason_code: String) -> String:
+	if reason_code == "ABILITY_REQUIRED":
+		return "需要更好的鼠群工具，可在工坊加工金屬" if Localization.current().begins_with("zh") else "Better colony tools are needed — refine metal at a workshop"
 	match reason_code:
 		"OUT_OF_BOUNDS":
 			return tr("reason.OUT_OF_BOUNDS")
@@ -2037,6 +2049,8 @@ func _user_argument_value(prefix: String) -> String:
 
 func _current_zone_type() -> int:
 	match _current_tool:
+		Tool.PRODUCTION:
+			return ZoneScript.Type.PRODUCTION
 		Tool.SLEEPING:
 			return ZoneScript.Type.SLEEPING
 		Tool.STORAGE:
@@ -2048,11 +2062,13 @@ func _current_zone_type() -> int:
 
 
 func _is_zone_tool() -> bool:
-	return _current_tool in [Tool.SLEEPING, Tool.STORAGE, Tool.FOOD_FORAGE]
+	return _current_tool in [Tool.SLEEPING, Tool.STORAGE, Tool.FOOD_FORAGE, Tool.PRODUCTION]
 
 
 func _tool_name() -> String:
 	match _current_tool:
+		Tool.PRODUCTION:
+			return "生產區" if Localization.current().begins_with("zh") else "Workshop"
 		Tool.SLEEPING:
 			return tr("tool.sleeping")
 		Tool.STORAGE:

@@ -575,7 +575,7 @@ func _evaluate_zone(zone: Zone) -> void:
 			_append_unique(zone.invalid_reasons, REASON_FLOODED)
 		elif water_units > _dry_water_max_units:
 			shallow_water_cells += 1
-			if zone.zone_type == ZoneScript.Type.STORAGE:
+			if zone.zone_type in [ZoneScript.Type.STORAGE, ZoneScript.Type.PRODUCTION]:
 				_append_unique(zone.invalid_reasons, REASON_WET)
 		if _is_colony_reachable(cell):
 			reachable_cells += 1
@@ -752,7 +752,7 @@ func _append_unique(values: PackedStringArray, value: String) -> void:
 
 
 func _is_valid_type(zone_type: int) -> bool:
-	return zone_type >= ZoneScript.Type.SLEEPING and zone_type <= ZoneScript.Type.FOOD_FORAGE
+	return zone_type >= ZoneScript.Type.SLEEPING and zone_type <= ZoneScript.Type.PRODUCTION
 
 
 func _make_dressing_seed(zone_id: int, zone_type: int) -> int:

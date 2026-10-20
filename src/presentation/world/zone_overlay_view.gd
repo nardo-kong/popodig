@@ -59,6 +59,11 @@ func _draw_dressing(zone: Zone) -> void:
 		var center := (Vector2(anchor) + Vector2(0.5, 0.5)) * cell_size
 		var anchor_hash := absi(anchor.x * 15487 + anchor.y * 3313)
 		match zone.zone_type:
+			ZoneScript.Type.PRODUCTION:
+				draw_rect(Rect2(center - Vector2(6, 3), Vector2(12, 5)), Color("876443"))
+				draw_line(center + Vector2(-4, 2), center + Vector2(-4, 6), color, 2.0)
+				draw_line(center + Vector2(4, 2), center + Vector2(4, 6), color, 2.0)
+				draw_circle(center + Vector2(2, -4), 2, Color("b9c5c8"))
 			ZoneScript.Type.SLEEPING:
 				# Grass nest: soft pad, woven rim, hash-splayed grass strands.
 				draw_circle(center, 5.5, Color("2c2521"))
@@ -106,6 +111,8 @@ func _draw_setup_marker(cell: Vector2i, color: Color) -> void:
 
 func _zone_color(zone_type: int) -> Color:
 	match zone_type:
+		ZoneScript.Type.PRODUCTION:
+			return Color("b9a18c")
 		ZoneScript.Type.SLEEPING:
 			return Color("9e88c9")
 		ZoneScript.Type.STORAGE:
