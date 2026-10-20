@@ -1,6 +1,8 @@
 extends SceneTree
 
 const TEST_SCRIPTS: PackedStringArray = [
+	"res://tests/unit/test_frontier_cues.gd",
+	"res://tests/integration/test_discovery_flow.gd",
 	"res://tests/unit/test_foundation.gd",
 	"res://tests/unit/test_smoke_manifest.gd",
 	"res://tests/unit/test_world_grid.gd",
@@ -77,7 +79,16 @@ func _run_tests() -> void:
 		else:
 			passed += 1
 			print("PASS | Compile gate: %s" % script_path)
+	var requested: PackedStringArray = []
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--suite="):
+			requested = argument.trim_prefix("--suite=").split(",", false)
+	var selected: Dictionary = {}
 	for script_path: String in TEST_SCRIPTS:
+		var suite_name := script_path.get_file().trim_suffix(".gd").trim_prefix("test_")
+		if not requested.is_empty() and not requested.has(suite_name):
+			continue
+		selected[suite_name] = true
 		var test_script := load(script_path) as Script
 		if test_script == null or not test_script.can_instantiate():
 			failed += 1
@@ -92,5 +103,9 @@ func _run_tests() -> void:
 			else:
 				failed += 1
 				print("FAIL | %s | %s" % [result.description, result.details])
+	for suite_name: String in requested:
+		if not selected.has(suite_name):
+			failed += 1
+			print("FAIL | Unknown requested suite: %s" % suite_name)
 	print("TEST_SUMMARY passed=%d failed=%d total=%d" % [passed, failed, passed + failed])
 	quit(0 if failed == 0 else 1)

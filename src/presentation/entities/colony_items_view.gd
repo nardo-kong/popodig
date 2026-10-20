@@ -39,6 +39,12 @@ func _draw_pile(pile) -> void:
 	var center := (Vector2(pile.cell) + Vector2(0.5, 0.5)) * cell_size
 	var is_food := String(pile.item_type) == "FOOD"
 	var primary := Color("d76d52") if is_food else Color("d1b26f")
+	if pile.item_type == "STONE":
+		primary = Color("aaa49d")
+	elif pile.item_type == "ORE":
+		primary = Color("c18b66")
+	elif pile.item_type == "METAL":
+		primary = Color("c4d0d2")
 	var outline := Color("4a352b")
 	var visible_count: int = mini(3, int(pile.count))
 	for index: int in range(visible_count):

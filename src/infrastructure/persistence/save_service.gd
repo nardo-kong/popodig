@@ -9,8 +9,9 @@ extends RefCounted
 # - corruption recovery: failed loads preserve the file with a .corrupt suffix
 #   and report a user-readable error instead of silently regenerating.
 
-const SAVE_SCHEMA_VERSION := 2
+const SAVE_SCHEMA_VERSION := 3
 const MIGRATIONS: Array[Dictionary] = [
+	{"from": 2, "to": 3, "note": "v3 adds optional 2.0 colony state; legacy resource IDs remain stable."},
 	{"from": 1, "to": 2, "note": "v2 adds the progression section (tutorial step/flags, language)."},
 ]
 
@@ -111,6 +112,10 @@ static func _find_migration(from_version: int) -> Dictionary:
 
 static func _apply_migration(document: Dictionary, _from_version: int, to_version: int) -> String:
 	match to_version:
+		3:
+			if not document.has("progression"):
+				document["progression"] = {}
+			return ""
 		2:
 			# v2 introduced the progression section (tutorial step/flags, language).
 			if not document.has("progression"):

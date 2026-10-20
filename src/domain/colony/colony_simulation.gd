@@ -1,6 +1,7 @@
 class_name ColonySimulation
 extends RefCounted
 
+const DiscoveryScript = preload("res://src/domain/features/discovery_system.gd")
 const MouseAgentScript = preload("res://src/domain/colony/mouse_agent.gd")
 const ItemSystemScript = preload("res://src/domain/colony/item_system.gd")
 const JobSystemScript = preload("res://src/domain/jobs/job_system.gd")
@@ -13,6 +14,7 @@ const WaterSystemScript = preload("res://src/domain/features/water_system.gd")
 const SealSystemScript = preload("res://src/domain/features/seal_system.gd")
 const StabilitySystemScript = preload("res://src/domain/features/stability_system.gd")
 
+var _discovery_system
 var _world
 var _path_service
 var _dig_system
@@ -75,6 +77,8 @@ func configure(
 			_dig_system,
 			worldgen_config.get("root_feature", {})
 		)
+		_discovery_system = DiscoveryScript.new()
+		_discovery_system.configure(_world, feature_registry, _item_system, _dig_system)
 		_water_system = WaterSystemScript.new()
 		_water_system.configure(_world, feature_registry, _signal_system, _dig_system, _balance)
 		_water_system.reservoir_breached.connect(_on_reservoir_breached)
@@ -121,6 +125,8 @@ func fixed_tick(delta_seconds: float) -> Array[Dictionary]:
 	if _stability_system != null:
 		_stability_system.fixed_tick(delta_seconds)
 	_synchronize_zone_state()
+	if _discovery_system != null:
+		_discovery_system.fixed_tick(delta_seconds)
 	if _root_feature_system != null:
 		_root_feature_system.fixed_tick(delta_seconds)
 	_job_system.advance_time(delta_seconds)
@@ -703,3 +709,7 @@ func apply_save_data(data: Dictionary) -> Dictionary:
 		mouse.carried_item_type = String(entry.carried_item_type)
 		mouse.carried_item_count = int(entry.carried_item_count)
 	return {"ok": true, "error": ""}
+
+
+func get_discovery_system():
+	return _discovery_system

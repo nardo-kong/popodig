@@ -66,7 +66,7 @@ func enqueue_haul(
 ):
 	if _item_system == null or count <= 0:
 		return null
-	if item_type != ItemSystemScript.FOOD and item_type != ItemSystemScript.GENERAL_MATERIAL:
+	if not ItemSystemScript.Resources.is_known(item_type):
 		return null
 	var source_pile: ItemPile = _item_system.get_pile(source_pile_id)
 	if source_pile == null or source_pile.item_type != item_type:

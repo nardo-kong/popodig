@@ -36,6 +36,12 @@ func mark_stale() -> void:
 	_stale = true
 
 
+func distance_to_frontier(cell: Vector2i) -> int:
+	if world_grid == null or _visibility.is_empty() or not world_grid.is_in_bounds(cell):
+		return radius + 1
+	return _visibility[world_grid.cell_to_index(cell)]
+
+
 func is_cell_visible(cell: Vector2i) -> bool:
 	if world_grid == null or _visibility.is_empty():
 		return true

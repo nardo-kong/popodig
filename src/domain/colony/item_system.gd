@@ -5,6 +5,8 @@ signal pile_changed(pile_id: int)
 
 const ItemPileScript = preload("res://src/domain/colony/item_pile.gd")
 
+const Resources = preload("res://src/domain/colony/resource_catalog.gd")
+
 const FOOD := "FOOD"
 const GENERAL_MATERIAL := "GENERAL_MATERIAL"
 
@@ -319,7 +321,7 @@ func get_debug_reservations() -> Array[Dictionary]:
 
 
 func _is_known_type(item_type: String) -> bool:
-	return item_type == FOOD or item_type == GENERAL_MATERIAL
+	return Resources.is_known(item_type)
 
 
 func _result(ok: bool, reason_code: String) -> Dictionary:
@@ -342,24 +344,23 @@ func to_save_data() -> Dictionary:
 
 
 func apply_save_data(data: Dictionary) -> Dictionary:
-	_piles.clear()
+	var restored: Dictionary = {}
+	var next_id := maxi(1, int(data.get("next_pile_id", 1)))
+	for entry: Variant in data.get("piles", []):
+		if entry is not Dictionary or not Resources.is_known(str(entry.get("item_type", ""))) or int(entry.get("count", -1)) < 0:
+			return {"ok": false, "error": "malformed or unknown item pile entry"}
+		var cell_entry: Variant = entry.get("cell", [])
+		if not cell_entry is Array or cell_entry.size() != 2 or int(entry.get("id", -1)) <= 0 or restored.has(int(entry.id)):
+			return {"ok": false, "error": "malformed or duplicated item pile"}
+		var pile := ItemPileScript.new(int(entry.id), String(entry.item_type), Vector2i(int(cell_entry[0]), int(cell_entry[1])), int(entry.count))
+		next_id = maxi(next_id, pile.pile_id + 1)
+		restored[pile.pile_id] = pile
+	# Validate the complete input before replacing live inventory.
+	_piles = restored
+	_next_pile_id = next_id
 	_reservations.clear()
 	_worker_reservations.clear()
 	_dropoff_reservations.clear()
-	_next_pile_id = maxi(1, int(data.get("next_pile_id", 1)))
-	for entry: Variant in data.get("piles", []):
-		if entry is not Dictionary:
-			return {"ok": false, "error": "malformed item pile entry"}
-		var cell_entry: Array = entry.cell
-		if cell_entry.size() != 2:
-			return {"ok": false, "error": "malformed item pile cell"}
-		var pile := ItemPileScript.new(
-			int(entry.id),
-			String(entry.item_type),
-			Vector2i(int(cell_entry[0]), int(cell_entry[1])),
-			int(entry.count)
-		)
-		_next_pile_id = maxi(_next_pile_id, pile.pile_id + 1)
-		_piles[pile.pile_id] = pile
-		pile_changed.emit(pile.pile_id)
+	for pile_id: int in _piles:
+		pile_changed.emit(pile_id)
 	return {"ok": true, "error": ""}

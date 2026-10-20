@@ -1,5 +1,8 @@
 extends Node
 
+const DiscoveryViewScript = preload("res://src/presentation/world/discovery_view.gd")
+const DiscoveryScript = preload("res://src/domain/features/discovery_system.gd")
+const Resources = preload("res://src/domain/colony/resource_catalog.gd")
 const StructuredWorldGeneratorScript = preload("res://src/domain/worldgen/structured_world_generator.gd")
 const GridPathServiceScript = preload("res://src/application/services/grid_path_service.gd")
 const DigSystemScript = preload("res://src/domain/jobs/dig_system.gd")
@@ -178,6 +181,12 @@ func _ready() -> void:
 	fog.z_index = 27
 	world_view.add_child(fog)
 	fog.configure(world_grid, _logical_cell_size, maxi(1, int(balance_config.get("fog_radius", 4))), worldgen_result.feature_registry)
+	var discovery_view := DiscoveryViewScript.new()
+	discovery_view.z_index = 28
+	world_view.add_child(discovery_view)
+	discovery_view.configure(world_grid, worldgen_result.feature_registry, fog, _logical_cell_size)
+	if colony_simulation.get_discovery_system() != null:
+		colony_simulation.get_discovery_system().discovered.connect(_on_discovery)
 	world_grid.chunk_dirtied.connect(func(_coord: Vector2i, _flags: int) -> void:
 		fog.mark_stale()
 	)
@@ -373,7 +382,7 @@ func _build_save_document() -> Dictionary:
 func _apply_loaded_document(document: Dictionary) -> Dictionary:
 	var header: Dictionary = document.get("header", {})
 	var config_worldgen_version := int(AppConfig.get_document("worldgen").get("worldgen_version", 0))
-	if int(header.worldgen_version) != config_worldgen_version:
+	if int(header.worldgen_version) < 3 or int(header.worldgen_version) > config_worldgen_version:
 		return {"ok": false, "error": "save worldgen version %d does not match the current %d" % [int(header.worldgen_version), config_worldgen_version]}
 	var world_result: Dictionary = world_grid.apply_save_data(document.get("world", {}))
 	if not bool(world_result.ok):
@@ -1051,6 +1060,8 @@ func _update_hud() -> void:
 		tr("hud.mice"),
 		mice.size(),
 	]
+	for resource_id: String in ["STONE", "ORE", "METAL"]:
+		colony_status_label.text += " · %s %d" % [Resources.display_name(resource_id, Localization.current()), item_system.get_total_count(resource_id)]
 	dig_feedback_label.text = tr(_last_feedback) if _feedback_seconds_remaining > 0.0 else tr(_hover_feedback)
 
 
@@ -2054,3 +2065,18 @@ func _tool_name() -> String:
 			return tr("tool.reinforce")
 		_:
 			return tr("tool.dig")
+
+
+func _on_discovery(event: Dictionary) -> void:
+	var definition: Dictionary = DiscoveryScript.definition_for(str(event.definition_id))
+	var name: String = str(definition.get("zh" if Localization.current().begins_with("zh") else "en", event.definition_id))
+	var reward := ""
+	if not str(event.item).is_empty():
+		reward = " +%d %s" % [int(event.amount), Resources.display_name(str(event.item), Localization.current())]
+	_push_notification("find_%s" % event.id, name + reward, event.cell, 0.0, 8.0)
+	if _audio_director != null:
+		_audio_director.play_discovery_stinger()
+	if _vfx_view != null:
+		_vfx_view.burst_dig((Vector2(event.cell) + Vector2(0.5, 0.5)) * _logical_cell_size, 1)
+	if _telemetry != null:
+		_telemetry.record_discovery(str(event.definition_id), 1)
