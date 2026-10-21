@@ -1,6 +1,8 @@
 extends SceneTree
 
 const TEST_SCRIPTS: PackedStringArray = [
+	"res://tests/unit/test_v2_progression.gd",
+	"res://tests/unit/test_development_telemetry.gd",
 	"res://tests/unit/test_discovery_worldgen.gd",
 	"res://tests/unit/test_collection_book.gd",
 	"res://tests/integration/test_production_flow.gd",
@@ -114,4 +116,4 @@ func _run_tests() -> void:
 			failed += 1
 			print("FAIL | Unknown requested suite: %s" % suite_name)
 	print("TEST_SUMMARY passed=%d failed=%d total=%d" % [passed, failed, passed + failed])
-	quit(0 if failed == 0 else 1)
+	call_deferred("quit", 0 if failed == 0 else 1)

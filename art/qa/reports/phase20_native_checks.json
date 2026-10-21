@@ -1,0 +1,83 @@
+{
+  "engine": "4.7.stable.official.5b4e0cb0f",
+  "host": "macOS Apple M1 Max; CoreAudio; GL compatibility",
+  "checks": {
+    "layout1280": {
+      "evidence": [
+        "PHASE20_LAYOUT_SMOKE_PASS width=1280 completed_save=true nonoverlap=true collection_bounds=true",
+        "WARNING: 6 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+        "ERROR: 3 resources still in use at exit (run with --verbose for details)."
+      ],
+      "shutdown_clean": false
+    },
+    "layout1920": {
+      "evidence": [
+        "PHASE20_LAYOUT_SMOKE_PASS width=1920 completed_save=true nonoverlap=true collection_bounds=true",
+        "WARNING: 6 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+        "ERROR: 3 resources still in use at exit (run with --verbose for details)."
+      ],
+      "shutdown_clean": false
+    },
+    "home_performance": {
+      "evidence": [
+        "PHASE20_HOME_BENCHMARK fps=140.74 p95_frame_ms=7.93 viewport=1280x720 mice=5 real_completed_save=true vsync=off",
+        "WARNING: 6 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+        "ERROR: 3 resources still in use at exit (run with --verbose for details)."
+      ],
+      "shutdown_clean": false
+    },
+    "audio_default": {
+      "evidence": [
+        "AUDIO_PROBE iteration=0 objects=1495 resources=6",
+        "AUDIO_PROBE iteration=1 objects=1496 resources=6",
+        "AUDIO_PROBE iteration=2 objects=1497 resources=6",
+        "AUDIO_PROBE iteration=3 objects=1498 resources=6",
+        "AUDIO_PROBE iteration=4 objects=1499 resources=6",
+        "AUDIO_PROBE iteration=5 objects=1500 resources=6",
+        "AUDIO_PROBE iteration=6 objects=1501 resources=6",
+        "AUDIO_PROBE iteration=7 objects=1502 resources=6",
+        "AUDIO_PROBE iteration=8 objects=1503 resources=6",
+        "AUDIO_PROBE iteration=9 objects=1504 resources=6",
+        "WARNING: 11 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "shutdown_clean": false
+    },
+    "audio_pcm": {
+      "evidence": [
+        "AUDIO_PROBE iteration=0 objects=1495 resources=6",
+        "AUDIO_PROBE iteration=1 objects=1496 resources=6",
+        "AUDIO_PROBE iteration=2 objects=1497 resources=6",
+        "AUDIO_PROBE iteration=3 objects=1498 resources=6",
+        "AUDIO_PROBE iteration=4 objects=1499 resources=6",
+        "AUDIO_PROBE iteration=5 objects=1500 resources=6",
+        "AUDIO_PROBE iteration=6 objects=1501 resources=6",
+        "AUDIO_PROBE iteration=7 objects=1502 resources=6",
+        "AUDIO_PROBE iteration=8 objects=1503 resources=6",
+        "AUDIO_PROBE iteration=9 objects=1504 resources=6",
+        "WARNING: 11 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+        "ERROR: 1 resources still in use at exit (run with --verbose for details)."
+      ],
+      "shutdown_clean": false
+    },
+    "audio_vorbis": {
+      "evidence": [
+        "AUDIO_PROBE iteration=0 objects=1497 resources=7",
+        "AUDIO_PROBE iteration=1 objects=1499 resources=7",
+        "AUDIO_PROBE iteration=2 objects=1501 resources=7",
+        "AUDIO_PROBE iteration=3 objects=1503 resources=7",
+        "AUDIO_PROBE iteration=4 objects=1505 resources=7",
+        "AUDIO_PROBE iteration=5 objects=1507 resources=7",
+        "AUDIO_PROBE iteration=6 objects=1509 resources=7",
+        "AUDIO_PROBE iteration=7 objects=1511 resources=7",
+        "AUDIO_PROBE iteration=8 objects=1513 resources=7",
+        "AUDIO_PROBE iteration=9 objects=1515 resources=7",
+        "WARNING: 22 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+        "ERROR: 2 resources still in use at exit (run with --verbose for details)."
+      ],
+      "shutdown_clean": false
+    }
+  },
+  "issue": "https://github.com/nardo-kong/popodig/issues/17",
+  "human_playtest": "pending; images inspected by agent"
+}

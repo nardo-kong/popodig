@@ -53,6 +53,7 @@
     "dry_water_max_units": 0
   },
   "stability": {
+    "safe_start_radius": 8,
     "span_short": 6,
     "span_moderate": 12,
     "span_high": 24,
@@ -74,5 +75,6 @@
     "objective_depth_offset": 30
   },
   "fog_radius": 4,
-  "capabilities_enabled": true
+  "capabilities_enabled": true,
+  "v2_progression": true
 }

@@ -3,11 +3,15 @@ extends PanelContainer
 
 signal close_requested()
 var book
+var home
 var _rows: VBoxContainer
 
 
-func configure(collection_book) -> void:
+func configure(collection_book, progress = null) -> void:
 	book = collection_book
+	home = progress
+	if home != null:
+		home.changed.connect(refresh)
 	z_index = 100
 	var background := StyleBoxFlat.new()
 	background.bg_color = Color("211c18")
@@ -50,6 +54,10 @@ func refresh() -> void:
 	var intro := Label.new()
 	intro.text = "有些東西只要找到，就足以讓鼠鼠開心。" if zh else "Some finds simply make the mice happy."
 	_rows.add_child(intro)
+	if home != null:
+		var memories := Label.new()
+		memories.text = ("家園回憶 " if zh else "Home memories ") + "%d / 6" % home.unlocked.size()
+		_rows.add_child(memories)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size.y = 360
 	_rows.add_child(scroll)

@@ -185,3 +185,11 @@ static func ensure_collectibles(context) -> void:
 		var cell: Vector2i = by_tier[tier][choice]
 		by_tier[tier].remove_at(choice)
 		_add(context.feature_registry, context.world, cell, id, "small")
+
+
+func claimed_count() -> int:
+	var total := 0
+	for feature in _registry.get_features("discovery"):
+		if bool(feature.metadata.get("claimed", false)):
+			total += 1
+	return total

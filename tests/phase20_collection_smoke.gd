@@ -62,7 +62,8 @@ func _run() -> void:
 	if scene._book_open or scene._paused:
 		_fail("Closing book did not restore prior pause state")
 		return
-	quit(0)
+	scene.queue_free()
+	call_deferred("quit", 0)
 
 
 func _fail(message: String) -> void:

@@ -1,6 +1,8 @@
 class_name ColonySimulation
 extends RefCounted
 
+signal travelled(loaded: bool)
+
 const CollectionScript = preload("res://src/domain/progression/collection_book.gd")
 const ProductionScript = preload("res://src/domain/colony/production_system.gd")
 const CapabilitiesScript = preload("res://src/domain/progression/colony_capabilities.gd")
@@ -764,9 +766,13 @@ func get_capabilities():
 
 
 func _on_mouse_moved(mouse_id: String, _from: Vector2i, _to: Vector2i) -> void:
+	if _from == _to:
+		return
 	travel_steps += 1
 	var mouse = get_mouse(mouse_id)
-	if mouse != null and mouse.carried_item_count > 0:
+	var loaded: bool = mouse != null and mouse.carried_item_count > 0
+	travelled.emit(loaded)
+	if loaded:
 		loaded_travel_steps += 1
 
 

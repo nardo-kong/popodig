@@ -70,8 +70,46 @@ func _run() -> void:
 	if claim.ok or claim.get("reason", "") != "ALREADY_CLAIMED":
 		_fail("Scene reload allowed duplicate discovery reward")
 		return
-	print("PHASE20_CORE_SMOKE_PASS material_housed=%d schema=3 autonomous_dig_and_haul=true" % housed)
-	quit(0)
+	var checksum_before: int = scene.world_grid.content_checksum()
+	var invalid: Dictionary = JSON.parse_string(JSON.stringify(scene._build_save_document()))
+	invalid.colony.items.piles[0].item_type = "UNKNOWN_RESOURCE"
+	if scene._apply_loaded_document(invalid).ok or scene.world_grid.content_checksum() != checksum_before or items.get_total_count("GENERAL_MATERIAL") != before + 5:
+		_fail("Rejected full-scene load did not roll back live world/inventory")
+		return
+	var bad_water: Dictionary = JSON.parse_string(JSON.stringify(document))
+	bad_water.water.active_cells = [[1]]
+	if scene._apply_loaded_document(bad_water).ok or scene.world_grid.content_checksum() != checksum_before:
+		_fail("Malformed water was not rejected and rolled back")
+		return
+	# Recreate a pre-discovery v6/schema-2 document, then use the single migration entry.
+	for feature in registry.get_features("discovery"):
+		for cell: Vector2i in feature.cells:
+			scene.world_grid.set_feature_id(cell, -1)
+		registry.remove_feature(feature.id)
+	var legacy: Dictionary = JSON.parse_string(JSON.stringify(scene._build_save_document()))
+	legacy.header.worldgen_version = 6
+	legacy.header.save_schema_version = 2
+	legacy.colony.erase("capabilities")
+	legacy.colony.erase("collection_book")
+	legacy.progression.erase("chapter_model")
+	legacy.progression.erase("tutorial_step_id")
+	var legacy_excavated: Array[bool] = []
+	for index: int in range(scene.world_grid.width * scene.world_grid.height):
+		legacy_excavated.append(scene.world_grid.is_excavated(scene.world_grid.index_to_cell(index)))
+	if not scene.SaveServiceScript.migrate(legacy).ok or not scene._apply_loaded_document(legacy).ok:
+		_fail("Legacy v6/schema-2 scene could not migrate")
+		return
+	if colony.get_capabilities().level != 2 or scene.chapter_model.rules_version != 1 or registry.count("discovery") == 0:
+		_fail("Legacy goals/tools or additive discovery migration were lost")
+		return
+	# Discovery IDs may change; authoritative excavated terrain must not.
+	for index: int in range(legacy_excavated.size()):
+		if scene.world_grid.is_excavated(scene.world_grid.index_to_cell(index)) != legacy_excavated[index]:
+			_fail("Legacy migration replaced excavated cell %d" % index)
+			return
+	print("PHASE20_CORE_SMOKE_PASS material_housed=%d schema=3 autonomous_dig_and_haul=true rollback=true legacy_v6=true" % housed)
+	scene.queue_free()
+	call_deferred("quit", 0)
 
 
 func _fail(message: String) -> void:

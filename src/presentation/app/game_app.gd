@@ -1,5 +1,7 @@
 extends Node
 
+const HomeProgressScript = preload("res://src/domain/progression/home_progress.gd")
+const WorldGenContextScript = preload("res://src/domain/worldgen/world_gen_context.gd")
 const CollectionViewScript = preload("res://src/presentation/hud/collection_view.gd")
 const DevelopmentViewScript = preload("res://src/presentation/hud/development_view.gd")
 const DiscoveryViewScript = preload("res://src/presentation/world/discovery_view.gd")
@@ -89,6 +91,8 @@ var _audio_director: AudioDirector
 var _settings_view: SettingsView
 var _settings_open := false
 var chapter_model
+var home_progress
+var _active_seconds := 0.0
 var _campaign_celebrated := false
 var _logical_cell_size := 16
 var _simulation_step := 0.05
@@ -213,13 +217,19 @@ func _ready() -> void:
 	if AppConfig.debug_tools_enabled():
 		_telemetry = SessionTelemetryScript.new()
 		_telemetry_seed = _current_seed
+		_telemetry.context = {"seed": _current_seed, "worldgen_version": int(world_grid.metadata.worldgen_version), "game_version": str(ProjectSettings.get_setting("application/config/version")), "profile": AppConfig.get_profile_name(), "balance": balance_config.duplicate(true), "clock": "active session seconds, excluding pause", "input_source": "interactive"}
+		colony_simulation.travelled.connect(_telemetry.record_travel)
 	dig_system.cell_excavated.connect(_on_cell_excavated)
 	chapter_model = ChapterModelScript.new()
 	chapter_model.configure(balance_config)
+	home_progress = HomeProgressScript.new()
 	chapter_model.chapter_advanced.connect(_on_chapter_advanced)
+	colony_simulation.get_production_system().produced.connect(_on_produced)
+	colony_simulation.get_capabilities().upgraded.connect(_on_capability_upgraded)
 	if root_feature_system != null:
 		root_feature_system.feature_reacted.connect(_on_root_feature_reacted)
 		root_feature_system.feature_revealed.connect(_on_root_feature_revealed)
+		root_feature_system.food_produced.connect(_on_food_produced)
 	if water_system != null:
 		water_system.reservoir_breached.connect(_on_reservoir_breached)
 	var stability = colony_simulation.get_stability_system()
@@ -232,6 +242,7 @@ func _ready() -> void:
 	if _telemetry != null and zone_system_telemetry != null:
 		zone_system_telemetry.zones_changed.connect(func(_change: Dictionary) -> void:
 			_telemetry.record_zone_change()
+			_telemetry.record_development("layout_edit", "zones", {"note": "zone edit is a replanning proxy, not player intent"})
 		)
 		_telemetry_reservoir_cells = _collect_reservoir_cells()
 	if _pending_load_path != "":
@@ -253,10 +264,11 @@ func _ready() -> void:
 	colony_view.configure(colony_simulation, _logical_cell_size)
 	var development_view := DevelopmentViewScript.new()
 	get_node("UI/Root").add_child(development_view)
-	development_view.configure(colony_simulation)
+	development_view.configure(colony_simulation, home_progress)
+	development_view.collection_requested.connect(_toggle_collection_book)
 	_collection_view = CollectionViewScript.new()
 	get_node("UI/Root").add_child(_collection_view)
-	_collection_view.configure(colony_simulation.get_collection_book())
+	_collection_view.configure(colony_simulation.get_collection_book(), home_progress)
 	_collection_view.close_requested.connect(_toggle_collection_book)
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
 	var zone_system = colony_simulation.get_zone_system()
@@ -289,11 +301,13 @@ func _ready() -> void:
 	colony_debug_overlay.visible = debug_visible
 	worldgen_debug_overlay.visible = debug_visible
 	_set_tool(Tool.DIG)
-	Localization.apply()
+	if not _loaded_from_save:
+		Localization.apply()
 	_notifications = NotificationModelScript.new()
 	notifications_view.bind(_notifications)
 	if _tutorial == null:
 		_tutorial = ContextTutorialModelScript.new()
+		_tutorial.configure_v2(chapter_model.rules_version >= 2)
 	tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	_objective_target_depth = int(world_grid.metadata.start_cell.y) + int(balance_config.get("tutorial", {}).get("objective_depth_offset", SLICE_OBJECTIVE_DEPTH_OFFSET))
 	world_grid.cell_changed.connect(_on_world_cell_changed)
@@ -322,6 +336,7 @@ func _process(delta: float) -> void:
 		return
 	_now_seconds += delta
 	if not _paused:
+		_active_seconds += delta
 		_simulation_accumulator = minf(_simulation_accumulator + delta, 0.4)
 		_autosave_accumulator += delta
 		if _autosave_accumulator >= AUTOSAVE_INTERVAL_SECONDS:
@@ -331,7 +346,8 @@ func _process(delta: float) -> void:
 	if _poll_accumulator >= 0.5:
 		_slow_poll()
 	if _telemetry != null:
-		_telemetry.elapsed_seconds = _now_seconds
+		_telemetry.elapsed_seconds = _active_seconds
+		_telemetry.wall_seconds = _now_seconds
 		_telemetry_sample_accumulator += delta
 		if _telemetry_sample_accumulator >= 1.0:
 			_telemetry_sample_accumulator = 0.0
@@ -376,6 +392,8 @@ func _build_save_document() -> Dictionary:
 		"colony": colony_simulation.to_save_data(),
 		"progression": {
 			"tutorial_step": _tutorial.index,
+			"tutorial_step_id": _tutorial.current_id(),
+			"home_progress": home_progress.to_save_data(),
 			"tutorial_flags": _tutorial_flags.duplicate(true),
 			"language": Localization.current(),
 			# Additive optional key (docs/tech/15): v2 saves without it
@@ -393,9 +411,24 @@ func _build_save_document() -> Dictionary:
 
 
 func _apply_loaded_document(document: Dictionary) -> Dictionary:
+	if _tutorial == null:
+		_tutorial = ContextTutorialModelScript.new()
+		_tutorial.configure_v2(chapter_model.rules_version >= 2)
+	if home_progress == null:
+		home_progress = HomeProgressScript.new()
+	var before: Dictionary = _build_save_document()
+	var result: Dictionary = _restore_document(document)
+	if not bool(result.ok):
+		var rollback: Dictionary = _restore_document(before)
+		if not bool(rollback.ok):
+			GameLog.failure("SAVE", "Save rollback failed: " + str(rollback.error))
+	return result
+
+
+func _restore_document(document: Dictionary) -> Dictionary:
 	var header: Dictionary = document.get("header", {})
 	var config_worldgen_version := int(AppConfig.get_document("worldgen").get("worldgen_version", 0))
-	if int(header.worldgen_version) < 3 or int(header.worldgen_version) > config_worldgen_version:
+	if int(header.worldgen_version) < 6 or int(header.worldgen_version) > config_worldgen_version:
 		return {"ok": false, "error": "save worldgen version %d does not match the current %d" % [int(header.worldgen_version), config_worldgen_version]}
 	var world_result: Dictionary = world_grid.apply_save_data(document.get("world", {}))
 	if not bool(world_result.ok):
@@ -408,26 +441,51 @@ func _apply_loaded_document(document: Dictionary) -> Dictionary:
 	var feature_result: Dictionary = worldgen_result.feature_registry.apply_save_data(document.get("features", {}))
 	if not bool(feature_result.ok):
 		return feature_result
+	# v6 and v7 share the terrain/strata pipeline. Add only new feature data
+	# to a legacy world, keeping the restored terrain and consumed features.
+	if int(header.worldgen_version) == 6 and worldgen_result.feature_registry.count("discovery") == 0:
+		var context := WorldGenContextScript.new(AppConfig.get_document("worldgen"), int(header.seed))
+		context.world = world_grid
+		context.feature_registry = worldgen_result.feature_registry
+		DiscoveryScript.populate(context)
 	if signal_system != null and document.has("signals"):
-		signal_system.apply_save_data(document.signals)
+		var signal_result: Dictionary = signal_system.apply_save_data(document.signals)
+		if not signal_result.ok:
+			return signal_result
 	if water_system != null and document.has("water"):
-		water_system.apply_save_data(document.water)
+		var water_result: Dictionary = water_system.apply_save_data(document.water)
+		if not water_result.ok:
+			return water_result
 	var stability = colony_simulation.get_stability_system()
 	if stability != null and document.has("stability"):
-		stability.apply_save_data(document.stability)
+		var stability_result: Dictionary = stability.apply_save_data(document.stability)
+		if not stability_result.ok:
+			return stability_result
 	var colony_result: Dictionary = colony_simulation.apply_save_data(document.get("colony", {}))
 	if not bool(colony_result.ok):
 		return colony_result
 	var progression: Dictionary = document.get("progression", {})
-	# _ready applies pending saves before the tutorial model is created, so
-	# materialize it lazily here to avoid overwriting the restored step later.
+	var chapter_data: Dictionary = progression.get("chapter_model", {}).duplicate(true)
+	if not chapter_data.has("rules_version"):
+		chapter_data["rules_version"] = 1 if int(header.worldgen_version) == 6 else 2
+	chapter_model.apply_save_data(chapter_data)
 	if _tutorial == null:
 		_tutorial = ContextTutorialModelScript.new()
-	_tutorial.index = clampi(int(progression.get("tutorial_step", 0)), 0, _tutorial.STEPS.size() - 1)
+	_tutorial.configure_v2(chapter_model.rules_version >= 2)
+	if progression.has("tutorial_step_id"):
+		_tutorial.restore_id(str(progression.tutorial_step_id))
+	else:
+		_tutorial.index = 0 if _tutorial.v2 else clampi(int(progression.get("tutorial_step", 0)), 0, _tutorial.STEPS.size() - 1)
 	_tutorial_flags = (progression.get("tutorial_flags", {}) as Dictionary).duplicate(true)
-	chapter_model.apply_save_data(progression.get("chapter_model", {}))
+	if home_progress == null:
+		home_progress = HomeProgressScript.new()
+	var home_result: Dictionary = home_progress.apply_save_data(progression.get("home_progress", {}))
+	if not home_result.ok:
+		return home_result
 	_campaign_celebrated = chapter_model.campaign_complete
 	tutorial_label.text = Localization.text(_tutorial.current_text_key())
+	var restored_mice: Array = colony_simulation.get_mice()
+	mouse_agent = restored_mice[0] if not restored_mice.is_empty() else null
 	var saved_language := String(progression.get("language", ""))
 	if saved_language in Localization.SUPPORTED:
 		TranslationServer.set_locale(saved_language)
@@ -465,14 +523,17 @@ func _request_load(slot_name: String) -> void:
 func _slow_poll() -> void:
 	_poll_accumulator = 0.0
 	_update_tutorial_flags()
+	_evaluate_chapter_milestones()
+	_update_v2_tutorial_flags()
 	if _tutorial.advance(_tutorial_flags):
 		tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	_update_objective()
+	_update_home_progress()
+	get_node("UI/Root/TutorialPanel").visible = not chapter_model.campaign_complete
 	_poll_notifications()
 	notifications_view.refresh(_now_seconds)
 	_update_water_proximity()
 	_emit_warning_dust()
-	_evaluate_chapter_milestones()
 
 
 ## Phase 13 chapter milestones (GDD §13, world/04 §6, colony/10 §14): chapter
@@ -480,25 +541,7 @@ func _slow_poll() -> void:
 func _evaluate_chapter_milestones() -> void:
 	if chapter_model == null or chapter_model.campaign_complete:
 		return
-	var zone_system = colony_simulation.get_zone_system()
-	var water_settled: bool = water_system == null or water_system.get_active_cell_count() == 0
-	var stability = colony_simulation.get_stability_system()
-	var signals_learned: bool = (
-		signal_system != null
-		and signal_system.get_recognition_name("root_cluster") != "UNKNOWN"
-		and signal_system.get_recognition_name("water_reservoir") != "UNKNOWN"
-	)
-	chapter_model.evaluate({
-		"colony_depth": int(_tutorial_flags.get("_deepest", 0)),
-		"chapter_depths": world_grid.metadata.get("depth_targets", {}),
-		"sleeping_ready": _zone_ready(zone_system, ZoneScript.Type.SLEEPING),
-		"storage_ready": _zone_ready(zone_system, ZoneScript.Type.STORAGE),
-		"food_total": colony_simulation.get_item_system().get_total_count(ItemSystemScript.FOOD),
-		"signals_learned": signals_learned,
-		"water_settled": water_settled,
-		"supports_built": stability != null and stability.get_completed_count() > 0,
-		"warm_home_ready": _warm_home_ready(zone_system),
-	})
+	chapter_model.evaluate(_chapter_context())
 	if chapter_model.campaign_complete and not _campaign_celebrated:
 		_campaign_celebrated = true
 		if _telemetry != null:
@@ -513,17 +556,21 @@ func _evaluate_chapter_milestones() -> void:
 func _warm_home_ready(zone_system) -> bool:
 	var warm_cells: Dictionary = {}
 	for feature in worldgen_result.feature_registry.get_features("warm_chamber"):
-		for warm_cell: Vector2i in feature.cells:
-			warm_cells[warm_cell] = true
-	if warm_cells.is_empty():
-		return false
-	for zone: Zone in zone_system.get_zones_by_type(ZoneScript.Type.SLEEPING, true):
+		if chapter_model != null and chapter_model.rules_version >= 2 and feature.hidden:
+			continue
+		for cell: Vector2i in feature.cells:
+			warm_cells[cell] = true
+	var beds := 0
+	for zone in zone_system.get_zones_by_type(ZoneScript.Type.SLEEPING, true):
 		if zone.setup_state != ZoneScript.SetupState.SET_UP:
 			continue
-		for zone_cell: Vector2i in zone.cells:
-			if warm_cells.has(zone_cell):
-				return true
-	return false
+		for cell: Vector2i in zone.cells:
+			if warm_cells.has(cell) and world_grid.get_water_units(cell) == 0 and not colony_simulation.get_stability_system().is_job_blocked(cell):
+				beds += 1
+	if chapter_model == null or chapter_model.rules_version < 2:
+		return beds > 0
+	var mice: int = colony_simulation.get_mice().size()
+	return beds >= mice and _warm_food_stock() >= mice * 2 and colony_simulation.get_capabilities().level >= 2 and colony_simulation.get_production_system().completed_batches > 0
 
 
 func _warm_chamber_anchor() -> Vector2i:
@@ -653,6 +700,8 @@ func _update_objective() -> void:
 	var objective_text := "%s · %s" % [chapter_name, tr("hud.objective") % [deepest, _objective_target_depth]]
 	if chapter_model != null and chapter_model.campaign_complete:
 		objective_text = "%s · %s" % [objective_text, tr("hud.campaign_done")]
+	if chapter_model != null and chapter_model.rules_version >= 2:
+		objective_text = chapter_name + " · " + _next_v2_goal()
 	objective_label.text = objective_text
 	if deepest >= _objective_target_depth and not bool(_tutorial_flags.get("objective_reached", false)):
 		_tutorial_flags["objective_reached"] = true
@@ -1247,6 +1296,7 @@ func _on_reservoir_breached(feature_id: int, cell: Vector2i, _danger_cells: Arra
 	_tutorial_flags["breach"] = true
 	if _telemetry != null:
 		_telemetry.record_breach(released_units)
+		_telemetry.record_development("risk", "water_breach", {"units": released_units})
 		_record_telemetry_discovery("water_reservoir", worldgen_result.feature_registry.get_feature(feature_id))
 	if _vfx_view != null:
 		_vfx_view.burst_water((Vector2(cell) + Vector2(0.5, 0.5)) * _logical_cell_size, released_units)
@@ -1355,6 +1405,8 @@ func _record_telemetry_discovery(feature_type: String, feature) -> void:
 
 
 func _on_telemetry_warning_changed(cell: Vector2i, level: int) -> void:
+	if _telemetry != null and level > 0 and not _telemetry._first_times.has("risk"):
+		_telemetry.record_development("risk", "stability_warning")
 	if _telemetry != null:
 		_telemetry.note_warning(cell, level)
 
@@ -1368,6 +1420,8 @@ func _collect_reservoir_cells() -> Dictionary:
 
 
 func _telemetry_sample_tick() -> void:
+	if _telemetry != null:
+		_telemetry.sample_production(colony_simulation.get_production_system())
 	if _telemetry == null:
 		return
 	var mice: Array = colony_simulation.get_mice()
@@ -2114,6 +2168,10 @@ func _on_discovery(event: Dictionary) -> void:
 		_vfx_view.burst_dig((Vector2(event.cell) + Vector2(0.5, 0.5)) * _logical_cell_size, 1)
 	if _telemetry != null:
 		_telemetry.record_discovery(str(event.definition_id), 1)
+		if str(definition.get("kind", "")) == "collectible":
+			_telemetry.record_development("collection", str(event.definition_id))
+		elif not str(event.item).is_empty():
+			_telemetry.record_resource_gain(str(event.item), int(event.amount))
 
 
 func _toggle_collection_book() -> void:
@@ -2127,3 +2185,123 @@ func _toggle_collection_book() -> void:
 	else:
 		_paused = _pause_before_book
 	_collection_view.visible = _book_open
+
+
+func _chapter_context() -> Dictionary:
+	var zones = colony_simulation.get_zone_system()
+	var stability = colony_simulation.get_stability_system()
+	var discoveries = colony_simulation.get_discovery_system()
+	return {
+		"colony_depth": int(_tutorial_flags.get("_deepest", 0)),
+		"chapter_depths": world_grid.metadata.get("depth_targets", {}),
+		"sleeping_ready": _zone_ready(zones, ZoneScript.Type.SLEEPING),
+		"storage_ready": _zone_ready(zones, ZoneScript.Type.STORAGE),
+		"food_total": colony_simulation.get_item_system().get_total_count("FOOD"),
+		"signals_learned": signal_system != null and signal_system.get_recognition_name("root_cluster") != "UNKNOWN" and signal_system.get_recognition_name("water_reservoir") != "UNKNOWN",
+		"water_learned": signal_system != null and signal_system.get_recognition_name("water_reservoir") != "UNKNOWN",
+		"water_settled": water_system == null or water_system.is_sleeping() or water_system.get_active_cell_count() == 0,
+		"supports_built": stability != null and stability.get_completed_count() > 0,
+		"warm_home_ready": _warm_home_ready(zones),
+		"discoveries_found": 0 if discoveries == null else discoveries.claimed_count(),
+		"production_batches": colony_simulation.get_production_system().completed_batches,
+		"capability_level": colony_simulation.get_capabilities().level,
+		"collection_count": colony_simulation.get_collection_book().unique_count(),
+		"mouse_count": colony_simulation.get_mice().size(),
+		"campaign_complete": chapter_model.campaign_complete,
+	}
+
+
+func _update_v2_tutorial_flags() -> void:
+	var context := _chapter_context()
+	var items = colony_simulation.get_item_system()
+	_tutorial_flags["first_find"] = int(context.discoveries_found) > 0
+	_tutorial_flags["storage_ready"] = bool(context.storage_ready)
+	_tutorial_flags["raw_ready"] = items.get_total_count("STONE") >= 2 or items.get_total_count("ORE") >= 2
+	_tutorial_flags["workshop_ready"] = _zone_ready(colony_simulation.get_zone_system(), ZoneScript.Type.PRODUCTION)
+	_tutorial_flags["production_ready"] = int(context.production_batches) > 0
+	_tutorial_flags["tools_ready"] = int(context.capability_level) >= 1
+	_tutorial_flags["food_supply_ready"] = bool(_tutorial_flags.get("forage_ready", false)) or int(context.food_total) >= 10
+	_tutorial_flags["chapter2"] = chapter_model.current_chapter >= 2
+	_tutorial_flags["supports_ready"] = bool(context.supports_built)
+	_tutorial_flags["deep_tools_ready"] = int(context.capability_level) >= 2
+	_tutorial_flags["campaign_complete"] = chapter_model.campaign_complete
+	for type_id: String in ["old_burrow", "warm_chamber"]:
+		for feature in worldgen_result.feature_registry.get_features(type_id):
+			if not feature.hidden:
+				_tutorial_flags[type_id + "_ready"] = true
+
+
+func _next_v2_goal() -> String:
+	var context := _chapter_context()
+	var zh := Localization.current().begins_with("zh")
+	if chapter_model.campaign_complete:
+		return "暖巢已安頓，繼續探索與收藏吧。" if zh else "Our warm home is ready. Keep exploring and collecting."
+	if chapter_model.current_chapter == 1:
+		if int(context.discoveries_found) == 0:
+			return "追尋土壁的小芽、纖維與閃光。" if zh else "Follow sprouts, fibres or glimmers in the wall."
+		if not bool(context.sleeping_ready):
+			return "劃出乾燥睡眠區（2）。" if zh else "Make a dry sleeping area (2)."
+		if not bool(context.storage_ready):
+			return "在物資附近建倉儲（3）。" if zh else "Make a store near supplies (3)."
+		if int(context.production_batches) == 0:
+			return "建工坊（7），加工第一批物資。" if zh else "Build a workshop (7) and craft a first batch."
+		if int(context.capability_level) == 0:
+			return "加工金屬，為鼠群升級工具。" if zh else "Refine metal and upgrade colony tools."
+		if int(context.food_total) < 10:
+			return "備好 10 份食物，迎接新夥伴。" if zh else "Stock 10 food for new arrivals."
+		return "向根系更深處探索。" if zh else "Explore deeper among the roots."
+	if chapter_model.current_chapter == 2:
+		if not bool(context.water_learned):
+			return "讀懂潮濕線索，準備安全路線。" if zh else "Read damp clues and prepare a safe route."
+		if not bool(context.supports_built):
+			return "為工作路線完成一次加固（6）。" if zh else "Reinforce a working route (6)."
+		if int(context.capability_level) < 2:
+			return "用石材與金屬升級深掘能力。" if zh else "Upgrade deep tools with stone and metal."
+		return "穩住水勢，尋找舊鼠穴。" if zh else "Settle the water and find the old burrow."
+	return "在暖室為每隻鼠鼠備床，在附近存好糧食並保持通路。" if zh else "Give every mouse a warm-chamber bed, stock food nearby and keep access safe."
+
+
+func _update_home_progress() -> void:
+	if home_progress == null:
+		return
+	for id: String in home_progress.evaluate(_chapter_context(), _active_seconds):
+		if _telemetry != null:
+			_telemetry.record_development("home", id)
+		var title: String = str(HomeProgressScript.TITLES[id].get("zh" if Localization.current().begins_with("zh") else "en", id))
+		_push_notification("home_" + id, title, world_grid.metadata.start_cell, 0.0, 7.0)
+	zone_overlay_view.set_collection_count(colony_simulation.get_collection_book().unique_count())
+
+
+func _on_produced(event: Dictionary) -> void:
+	if _telemetry != null:
+		_telemetry.record_resource_gain(str(event.item), int(event.amount))
+		_telemetry.record_development("production", str(event.recipe), {"zone": event.zone, "input": event.input, "input_amount": event.input_amount, "output": event.item, "amount": event.amount})
+	var name := Resources.display_name(str(event.item), Localization.current())
+	_push_notification("produced_" + str(event.recipe), ("工坊完成：" if Localization.current().begins_with("zh") else "Workshop made: ") + "%d %s" % [int(event.amount), name], event.cell, 10.0, 5.0)
+
+
+func _on_capability_upgraded(level: int) -> void:
+	if _telemetry != null:
+		_telemetry.record_development("upgrade", str(level), {"level": level})
+	_push_notification("tools", "鼠群學會了新本領！" if Localization.current().begins_with("zh") else "New tools for the whole colony!", world_grid.metadata.start_cell, 0.0, 7.0)
+
+
+func _warm_food_stock() -> int:
+	var total := 0
+	var anchor := _warm_chamber_anchor()
+	var zones = colony_simulation.get_zone_system()
+	for pile in colony_simulation.get_item_system().get_piles():
+		if pile.item_type != "FOOD":
+			continue
+		var zone = zones.get_zone_at(pile.cell)
+		if zone == null or zone.zone_type != ZoneScript.Type.STORAGE or not zone.valid or zone.setup_state != ZoneScript.SetupState.SET_UP:
+			continue
+		var route: Array[Vector2i] = path_service.find_path(anchor, pile.cell)
+		if not route.is_empty() and route.size() <= 13:
+			total += pile.available_count()
+	return total
+
+
+func _on_food_produced(_feature_id: int, _cell: Vector2i, count: int) -> void:
+	if _telemetry != null:
+		_telemetry.record_resource_gain("FOOD", count)

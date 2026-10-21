@@ -8,10 +8,18 @@ extends RefCounted
 # game app instantiates this only when debug tools are enabled, so release
 # builds collect nothing.
 
-const METRICS_VERSION := 1
+const METRICS_VERSION := 2
 
 ## Wall-ish clock in session seconds; the owner updates it each frame.
 var elapsed_seconds := 0.0
+var wall_seconds := 0.0
+var context: Dictionary = {}
+var _development_events: Array[Dictionary] = []
+var _first_times: Dictionary = {}
+var _exact_steps := 0
+var _exact_loaded_steps := 0
+var _resource_gains: Dictionary = {}
+var _production_snapshot: Dictionary = {}
 
 var _cells_excavated := 0
 var _cells_by_material := {}
@@ -176,6 +184,9 @@ func to_summary_dict() -> Dictionary:
 	return {
 		"metrics_version": METRICS_VERSION,
 		"session_seconds": snappedf(elapsed_seconds, 0.1),
+		"wall_seconds": snappedf(wall_seconds, 0.1),
+		"context": context.duplicate(true),
+		"development": {"events": _development_events.duplicate(true), "first_times_active_sec": _first_times.duplicate(), "resource_gains": _resource_gains.duplicate(), "travel_steps_exact": _exact_steps, "loaded_travel_steps_exact": _exact_loaded_steps, "production_lifetime_snapshot": _production_snapshot.duplicate(true)},
 		"excavation": {
 			"cells_total": _cells_excavated,
 			"cells_by_material": _cells_by_material.duplicate(),
@@ -235,3 +246,26 @@ static func write_snapshot(directory: String, seed_value: int, summary: Dictiona
 	file.store_string(JSON.stringify(summary, "  ", false))
 	file.close()
 	return {"ok": true, "path": path, "error": ""}
+
+
+func record_development(kind: String, id: String, details: Dictionary = {}) -> void:
+	_development_events.append({"kind": kind, "id": id, "active_sec": elapsed_seconds, "details": details.duplicate(true)})
+	if not _first_times.has(kind):
+		_first_times[kind] = elapsed_seconds
+
+
+func record_resource_gain(item: String, count: int) -> void:
+	if count <= 0:
+		return
+	_resource_gains[item] = int(_resource_gains.get(item, 0)) + count
+	record_development("resource", item, {"amount": count})
+
+
+func record_travel(loaded: bool) -> void:
+	_exact_steps += 1
+	if loaded:
+		_exact_loaded_steps += 1
+
+
+func sample_production(production) -> void:
+	_production_snapshot = {"completed_batches": production.completed_batches, "input_or_route_wait_seconds": production.waiting_seconds, "active_work_seconds": production.active_work_seconds, "output_blocked_seconds": production.output_blocked_seconds}

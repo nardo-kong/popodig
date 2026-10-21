@@ -19,6 +19,8 @@ var _orders: Dictionary = {}
 var _clock := 0.0
 var completed_batches := 0
 var waiting_seconds := 0.0
+var active_work_seconds := 0.0
+var output_blocked_seconds := 0.0
 
 
 func configure(zones, items, jobs, paths) -> void:
@@ -110,15 +112,17 @@ func work(job, worker_id: String, delta: float, item_type: String, count: int) -
 	var recipe: Dictionary = RECIPES[job.recipe_id]
 	if item_type != recipe.input or count != int(recipe.count) or delta <= 0.0:
 		return {"ok": false, "reason": "WRONG_INPUT"}
+	active_work_seconds += minf(delta, maxf(0.0, float(recipe.seconds) - float(order.progress)))
 	order.progress = minf(float(recipe.seconds), float(order.progress) + delta)
 	if float(order.progress) < float(recipe.seconds):
 		return {"ok": true, "completed": false}
 	if _items.add_pile(str(recipe.output), zone.identity_anchor, int(recipe.yield)) < 0:
+		output_blocked_seconds += delta
 		return {"ok": true, "completed": false, "reason": "OUTPUT_BLOCKED"}
 	order.progress = 0.0
 	completed_batches += 1
 	_jobs.complete(worker_id, job.job_id)
-	produced.emit({"recipe": job.recipe_id, "zone": job.zone_id, "cell": zone.identity_anchor, "item": recipe.output, "amount": recipe.yield})
+	produced.emit({"recipe": job.recipe_id, "zone": job.zone_id, "cell": zone.identity_anchor, "item": recipe.output, "amount": recipe.yield, "input": recipe.input, "input_amount": recipe.count})
 	return {"ok": true, "completed": true}
 
 
@@ -126,7 +130,7 @@ func to_save_data() -> Dictionary:
 	var orders: Array = []
 	for zone_id: int in _orders:
 		orders.append({"zone_id": zone_id, "recipe": _orders[zone_id].recipe, "progress": _orders[zone_id].progress, "enabled": _orders[zone_id].enabled})
-	return {"orders": orders, "completed_batches": completed_batches, "waiting_seconds": waiting_seconds}
+	return {"orders": orders, "completed_batches": completed_batches, "waiting_seconds": waiting_seconds, "active_work_seconds": active_work_seconds, "output_blocked_seconds": output_blocked_seconds}
 
 
 func apply_save_data(data: Dictionary) -> Dictionary:
@@ -141,4 +145,6 @@ func apply_save_data(data: Dictionary) -> Dictionary:
 	_orders = restored
 	completed_batches = maxi(0, int(data.get("completed_batches", 0)))
 	waiting_seconds = maxf(0.0, float(data.get("waiting_seconds", 0.0)))
+	active_work_seconds = maxf(0.0, float(data.get("active_work_seconds", 0.0)))
+	output_blocked_seconds = maxf(0.0, float(data.get("output_blocked_seconds", 0.0)))
 	return {"ok": true, "error": ""}

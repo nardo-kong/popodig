@@ -1,3 +1,16 @@
+# Current 2.0 status (2026-10-21)
+
+- [x] #2–#14 engineering: discovery / resources / logistics / workshops / tools / depth /
+  collections / v7 / campaign / home / telemetry.
+- [x] Current automated RC: 1388 assertions, four real-work gameplay flows, legacy migration,
+  save rollback, fresh seed replay, performance and 1280/1920 layout checks.
+- [ ] #3/#4/#15 real player comprehension, appeal, replanning and full-campaign observations.
+- [ ] #17 native audio playback object retention (isolated outside the game models).
+- [ ] Export/platform packaging scope remains undecided; do not label this as a shipped 2.0.
+
+See `docs/production/reports/2_0_BATCH_04_AND_RC.md` for exact evidence and limits.
+The original checklist below is historical V1 status.
+
 # Dig Down — Milestone Checklist
 
 ## Phase 0 — Foundation

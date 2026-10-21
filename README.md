@@ -1,6 +1,26 @@
-# Dig Down / 地下鼠鼠 — Project Documentation Pack v1.0
+# Dig Down / 地下鼠鼠 — 2.0 Development
 
 > **2.0 active (2026-10-21):** Start with [2.0 design](docs/design/DIG_DOWN_2_0_DESIGN.md) and [issue execution plan](docs/production/DIG_DOWN_2_0_EXECUTION.md). GitHub [#1](https://github.com/nardo-kong/popodig/issues/1) tracks P0/P1/P2 implementation. Earlier status below describes the 1.0 baseline; human gameplay gates remain separate.
+
+## 2.0 current engineering status (2026-10-21)
+
+Discovery rewards and frontier cues, five physical resources, autonomous workshops,
+shared tools, depth progression, 18 collectibles, v7 generation, three chapters,
+and persistent home milestones are implemented on `codex/dig-down-2` / [PR #16](https://github.com/nardo-kong/popodig/pull/16).
+
+Current RC: **1388/1388 assertions**, four gameplay flows, v6 migration and rollback,
+seven fresh replay hashes. This batch's authoritative v7 matrix is **288/288**.
+The automated full campaign reaches a supplied five-mouse home and survives reload.
+Actual player appeal/clarity gates remain open in #3/#4/#15; automatic completion
+is not a playtest verdict. See [current report](docs/production/reports/2_0_BATCH_04_AND_RC.md)
+and [player observation card](docs/qa/2_0_PLAYER_CHECK.md).
+
+For small changes: `python3 tools/validate_2_0.py --suite=discovery_flow,save_roundtrip`.
+For a completed batch: `python3 tools/validate_2_0.py --rc`.
+Set `GODOT_BIN` to Godot 4.7 or pass `--godot /path/to/Godot`.
+Only add `--worldgen-full` when another 288-seed run is warranted.
+
+### Historical 1.0 baseline
 
 > **Implementation status (2026-08-31):** All phases (12–17) complete plus a PM feedback round: the campaign starts with a single founding mouse (population grows +2 per chapter milestone), digging is 2× slower, unexplored ground is dark (fog of war), and the tutorial gained the missing forage-zone completion step. The campaign from Settle to the warm-chamber home is fully playable and completable, with music, settings, accessibility, save/seed soaks, and a credits audit. 1264/1264 automated assertions pass under `tools/validate.ps1` (VALIDATION_PASS); the 288-seed batch holds 100% valid worlds at 99.65%+ seed diversity. Open owner gates: an external naive-playtest round (docs/qa/19_PLAYTEST_KIT.md), a recorded full-campaign human playthrough for balance data, and export presets/non-Windows platforms when packaging is decided. Project content is proprietary to the owner (see CREDITS.md).
 

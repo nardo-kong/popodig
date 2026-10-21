@@ -73,7 +73,8 @@ func _run() -> void:
 			if image == null or image.is_empty() or image.save_png("res://art/qa/screenshots/phase20_workshop.png") != OK:
 				_fail("Workshop evidence image failed")
 				return
-	quit(0)
+	scene.queue_free()
+	call_deferred("quit", 0)
 
 
 func _wait_batches(colony, expected: int) -> bool:
@@ -94,7 +95,12 @@ static func _dig_to(scene, target: Vector2i) -> bool:
 		var current: Vector2i = queue[index]
 		index += 1
 		for cell: Vector2i in world.get_cardinal_neighbors(current):
-			if previous.has(cell) or world.is_exterior(cell) or world.is_protected(cell):
+			var owner = scene.worldgen_result.feature_registry.get_feature(world.get_feature_id(cell))
+			if owner != null and owner.type_id in ["water_reservoir", "unstable_pocket"]:
+				continue
+			if world.get_water_units(cell) > 1:
+				continue
+			if previous.has(cell) or world.is_exterior(cell) or (world.is_protected(cell) and world.is_solid(cell)):
 				continue
 			if world.is_solid(cell) and not scene.colony_simulation.get_capabilities().can_dig(cell):
 				continue
@@ -110,10 +116,12 @@ static func _dig_to(scene, target: Vector2i) -> bool:
 	for cell: Vector2i in path:
 		if world.is_traversable(cell):
 			continue
+		if not _support_route(scene):
+			return false
 		if not scene.dig_system.designate_path([cell]).ok:
 			return false
 		for tick: int in range(3000):
-			scene.colony_simulation.fixed_tick(0.05)
+			advance(scene)
 			if world.is_traversable(cell):
 				break
 		if not world.is_traversable(cell):
@@ -125,3 +133,41 @@ static func _dig_to(scene, target: Vector2i) -> bool:
 func _fail(message: String) -> void:
 	push_error("PHASE20_DEVELOPMENT_SMOKE_FAIL " + message)
 	quit(1)
+
+
+static func advance(scene) -> void:
+	scene._active_seconds += 0.05
+	scene._now_seconds += 0.05
+	if scene._telemetry != null:
+		scene._telemetry.elapsed_seconds = scene._active_seconds
+		scene._telemetry.wall_seconds = scene._now_seconds
+		scene._telemetry.context["input_source"] = "automated gameplay smoke; time is simulated, not human observation"
+	scene.colony_simulation.fixed_tick(0.05)
+	var ticks: int = int(scene.get_meta("qa_ticks", 0)) + 1
+	scene.set_meta("qa_ticks", ticks)
+	if ticks % 20 == 0 and scene._telemetry != null:
+		scene._telemetry_sample_tick()
+	if ticks % 200 == 0:
+		scene._slow_poll()
+
+
+static func _support_route(scene) -> bool:
+	var stability = scene.colony_simulation.get_stability_system()
+	var requested: Array[Vector2i] = []
+	for y: int in range(scene.world_grid.height):
+		for x: int in range(scene.world_grid.width):
+			var cell := Vector2i(x, y)
+			if stability.get_warning_level(cell) >= 1 and stability.inspect_request(cell) == "OK" and not scene.path_service.find_path(scene.world_grid.metadata.start_cell, cell).is_empty():
+				if stability.request_reinforce(cell).ok:
+					requested.append(cell)
+					print("SMOKE_SUPPORT cell=%s materials=%d" % [cell, scene.colony_simulation.get_item_system().get_total_count("GENERAL_MATERIAL")])
+					break
+	for tick: int in range(3000):
+		var pending := false
+		for cell: Vector2i in requested:
+			pending = pending or stability.has_request(cell)
+		if not pending:
+			return true
+		advance(scene)
+	print("SMOKE_SUPPORT_TIMEOUT pending=%s materials=%d" % [requested, scene.colony_simulation.get_item_system().get_total_count("GENERAL_MATERIAL")])
+	return false

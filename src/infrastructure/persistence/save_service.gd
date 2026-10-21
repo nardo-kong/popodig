@@ -67,8 +67,10 @@ static func load_game(path: String) -> Dictionary:
 		return {"ok": false, "error": "cannot open save file", "data": {}}
 	var text := file.get_as_text()
 	file.close()
-	var parsed: Variant = JSON.parse_string(text)
-	if parsed is not Dictionary:
+	var parser := JSON.new()
+	var parse_error := parser.parse(text)
+	var parsed: Variant = parser.data
+	if parse_error != OK or parsed is not Dictionary:
 		_preserve_corrupted_copy(path)
 		return {"ok": false, "error": "save file is corrupted (not valid JSON)", "data": {}}
 	var document: Dictionary = parsed

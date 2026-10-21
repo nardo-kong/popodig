@@ -11,6 +11,7 @@ var results: Array[Dictionary] = []
 
 
 func run() -> Array[Dictionary]:
+	_test_safe_start()
 	_test_stable_span_remains_stable()
 	_test_weak_over_span_warns_then_collapses()
 	_test_reinforcement_prevents_collapse()
@@ -259,3 +260,13 @@ func _assert_true(condition: bool, description: String) -> void:
 func _assert_equal(actual: Variant, expected: Variant, description: String) -> void:
 	var passed: bool = actual == expected
 	results.append({"passed": passed, "description": description, "details": "" if passed else "Expected %s, got %s" % [expected, actual]})
+
+
+func _test_safe_start() -> void:
+	var context := _tunnel(19, 7, 4, 2, 17)
+	context.grid.metadata["start_cell"] = Vector2i(6, 4)
+	context.stability.configure(context.grid, null, null, null, {"stability": {"safe_start_radius": 4}}, [])
+	_tick_seconds(context.stability, 12.0)
+	_assert_true(context.grid.is_traversable(Vector2i(6, 4)), "Starter safety area survives adjacent collapse")
+	_assert_equal(context.stability.get_warning_level(Vector2i(6, 4)), 0, "Starter radius teaches rewards before collapse pressure")
+	_assert_true(context.grid.is_rubble(Vector2i(15, 4)), "Safety radius leaves distant hazard active")

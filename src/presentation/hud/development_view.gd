@@ -1,10 +1,13 @@
 class_name DevelopmentView
 extends PanelContainer
 
+signal collection_requested()
+
 const ZoneScript = preload("res://src/domain/zones/zone.gd")
 const Capabilities = preload("res://src/domain/progression/colony_capabilities.gd")
 const Resources = preload("res://src/domain/colony/resource_catalog.gd")
 var colony
+var home
 var _rows: VBoxContainer
 var _signature := ""
 var _elapsed := 0.0
@@ -13,17 +16,27 @@ var _routes: Label
 var _statuses: Dictionary = {}
 
 
-func configure(simulation) -> void:
+func configure(simulation, progress = null) -> void:
 	colony = simulation
+	home = progress
 	position = Vector2(14, 105)
-	custom_minimum_size.x = 280
+	custom_minimum_size.x = 300
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("211c18")
+	style.set_corner_radius_all(4)
+	add_theme_stylebox_override("panel", style)
 	var margin := MarginContainer.new()
 	for side: String in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 10)
 	add_child(margin)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(280, mini(340, get_viewport_rect().size.y - 340))
+	margin.add_child(scroll)
 	_rows = VBoxContainer.new()
+	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_rows.add_theme_constant_override("separation", 6)
-	margin.add_child(_rows)
+	scroll.add_child(_rows)
 	_rebuild()
 
 
@@ -36,6 +49,8 @@ func _process(delta: float) -> void:
 	_elapsed = 0.0
 	var production = colony.get_production_system()
 	var signature := str(colony.get_capabilities().level) + TranslationServer.get_locale()
+	if home != null:
+		signature += str(home.unlocked.size())
 	for zone in colony.get_zone_system().get_zones_by_type(ZoneScript.Type.PRODUCTION):
 		var status: Dictionary = production.status(zone.zone_id)
 		signature += "%d:%s:%s;" % [zone.zone_id, status.recipe, status.enabled]
@@ -62,7 +77,7 @@ func _rebuild() -> void:
 	_statuses.clear()
 	_label(_text("一起建好地下家園", "Growing our home"))
 	var capability = colony.get_capabilities()
-	_label(_text("鼠群能力：", "Colony tools: ") + Capabilities.NAMES[capability.level])
+	_label(_text("鼠群能力：", "Colony tools: ") + (["基礎", "加固", "深掘"][capability.level] if TranslationServer.get_locale().begins_with("zh") else Capabilities.NAMES[capability.level]))
 	if capability.level < 2:
 		var parts: PackedStringArray = []
 		for item_id: String in Capabilities.COSTS[capability.level]:
@@ -71,6 +86,9 @@ func _rebuild() -> void:
 			var result: Dictionary = capability.upgrade()
 			_feedback.text = _text("鼠群學會了新能力！", "The whole colony has new tools!") if result.ok else _text("還需要可運到家的材料", "More reachable materials are needed")
 		)
+	if home != null:
+		_label(_text("家園回憶 ", "Home memories ") + "%d / 6" % home.unlocked.size())
+	_button(_text("C 收藏圖鑑", "C Collection book"), func() -> void: collection_requested.emit())
 	_label(_text("7 生產區 · 自主供料與加工", "7 Workshop · mice supply and craft"))
 	var production = colony.get_production_system()
 	var zones: Array = colony.get_zone_system().get_zones_by_type(ZoneScript.Type.PRODUCTION)
@@ -101,6 +119,7 @@ func _rebuild() -> void:
 func _label(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", 14)
 	_rows.add_child(label)
 	return label
