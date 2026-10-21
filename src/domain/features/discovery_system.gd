@@ -16,6 +16,27 @@ const COLLECTIBLES: Array[String] = [
 	"clay_mouse", "lost_bell", "ancient_acorn", "warm_stone", "burrow_token", "moon_geode",
 ]
 
+const COLLECTION_TITLES := {
+	"amber_drop": {"zh": "琥珀淚滴", "en": "Amber drop", "hint_zh": "淺土中的小驚喜", "hint_en": "A little surprise in shallow soil"},
+	"striped_pebble": {"zh": "條紋小卵石", "en": "Striped pebble", "hint_zh": "淺土中的小驚喜", "hint_en": "A little surprise in shallow soil"},
+	"tiny_fossil": {"zh": "迷你化石", "en": "Tiny fossil", "hint_zh": "淺土中的小驚喜", "hint_en": "A little surprise in shallow soil"},
+	"blue_seed": {"zh": "藍色種子", "en": "Blue seed", "hint_zh": "淺土中的小驚喜", "hint_en": "A little surprise in shallow soil"},
+	"glass_bead": {"zh": "玻璃珠", "en": "Glass bead", "hint_zh": "淺土中的小驚喜", "hint_en": "A little surprise in shallow soil"},
+	"moss_star": {"zh": "苔蘚小星", "en": "Moss star", "hint_zh": "根系深處的痕跡", "hint_en": "A trace among the roots"},
+	"old_button": {"zh": "舊鈕扣", "en": "Old button", "hint_zh": "根系深處的痕跡", "hint_en": "A trace among the roots"},
+	"shell_fragment": {"zh": "貝殼碎片", "en": "Shell fragment", "hint_zh": "根系深處的痕跡", "hint_en": "A trace among the roots"},
+	"mica_leaf": {"zh": "雲母薄葉", "en": "Mica leaf", "hint_zh": "根系深處的痕跡", "hint_en": "A trace among the roots"},
+	"silver_root": {"zh": "銀色根鬚", "en": "Silver root", "hint_zh": "根系深處的痕跡", "hint_en": "A trace among the roots"},
+	"glowcap": {"zh": "微光菇", "en": "Glowcap", "hint_zh": "潮濕地層的閃光", "hint_en": "A glimmer in damp strata"},
+	"crystal_tear": {"zh": "水晶淚", "en": "Crystal tear", "hint_zh": "潮濕地層的閃光", "hint_en": "A glimmer in damp strata"},
+	"clay_mouse": {"zh": "陶土鼠像", "en": "Clay mouse", "hint_zh": "潮濕地層的閃光", "hint_en": "A glimmer in damp strata"},
+	"lost_bell": {"zh": "遺落小鈴", "en": "Lost bell", "hint_zh": "潮濕地層的閃光", "hint_en": "A glimmer in damp strata"},
+	"ancient_acorn": {"zh": "古老橡實", "en": "Ancient acorn", "hint_zh": "潮濕地層的閃光", "hint_en": "A glimmer in damp strata"},
+	"warm_stone": {"zh": "暖暖石", "en": "Warm stone", "hint_zh": "舊巢穴附近的往事", "hint_en": "A memory near the old burrow"},
+	"burrow_token": {"zh": "舊巢徽記", "en": "Burrow token", "hint_zh": "舊巢穴附近的往事", "hint_en": "A memory near the old burrow"},
+	"moon_geode": {"zh": "月色晶洞", "en": "Moon geode", "hint_zh": "舊巢穴附近的往事", "hint_en": "A memory near the old burrow"},
+}
+
 var _world
 var _registry
 var _items
@@ -58,7 +79,7 @@ func claim(feature_id: int, exposure: Vector2i) -> Dictionary:
 		return {"ok": false, "reason": "UNKNOWN_DEFINITION"}
 	feature.metadata.exposure = exposure
 	var item: String = str(definition.get("item", ""))
-	var amount: int = int(definition.get("amount", 1))
+	var amount: int = int(feature.metadata.get("amount", definition.get("amount", 1)))
 	if not item.is_empty() and _items.add_pile(item, exposure, amount) < 0:
 		return {"ok": false, "reason": "OUTPUT_BLOCKED"}
 	feature.hidden = false
@@ -83,7 +104,10 @@ static func definition_for(id: String) -> Dictionary:
 	if DEFINITIONS.has(id):
 		return DEFINITIONS[id]
 	if COLLECTIBLES.has(id):
-		return {"en": id.replace("_", " ").capitalize(), "zh": "地下珍藏 · " + str(COLLECTIBLES.find(id) + 1), "kind": "collectible", "amount": 1}
+		var definition: Dictionary = COLLECTION_TITLES[id].duplicate(true)
+		definition["kind"] = "collectible"
+		definition["amount"] = 1
+		return definition
 	return {}
 
 
@@ -118,9 +142,11 @@ static func populate(context) -> void:
 				ids.append("ore_seam")
 			var id: String = str(ids[rng.next_int(0, ids.size() - 1)])
 			if rng.next_int(0, 3) == 0:
-				var first := mini(stratum * 4, 12)
-				id = COLLECTIBLES[rng.next_int(first, mini(first + 5, COLLECTIBLES.size() - 1))]
+				var first := mini(stratum * 5, 15)
+				id = COLLECTIBLES[rng.next_int(first, mini(first + 4, COLLECTIBLES.size() - 1))]
 			_add(registry, world, cell, id, "medium" if id.ends_with("seam") else "small")
+
+	ensure_collectibles(context)
 
 
 static func _can_place(world, cell: Vector2i) -> bool:
@@ -130,5 +156,32 @@ static func _can_place(world, cell: Vector2i) -> bool:
 static func _add(registry, world, cell: Vector2i, definition_id: String, size: String) -> void:
 	var feature = FeatureScript.new("discovery", cell, [cell], false)
 	feature.metadata = {"definition_id": definition_id, "size": size, "claimed": false, "definition_version": 1}
+	feature.metadata["tier"] = world.get_stratum_id(cell)
+	var definition: Dictionary = definition_for(definition_id)
+	feature.metadata["amount"] = mini(12, int(definition.get("amount", 1)) + (world.get_stratum_id(cell) * 2 if str(definition.get("kind", "")) != "collectible" else 0))
 	var id: int = registry.add_feature(feature)
 	world.set_feature_id(cell, id)
+
+
+static func ensure_collectibles(context) -> void:
+	var present: Dictionary = {}
+	for feature in context.feature_registry.get_features("discovery"):
+		present[str(feature.metadata.get("definition_id", ""))] = true
+	var by_tier: Array = [[], [], [], []]
+	for y: int in range(int(context.world.metadata.start_cell.y) + 2, context.world.height - 2):
+		for x: int in range(2, context.world.width - 2):
+			var cell := Vector2i(x, y)
+			if _can_place(context.world, cell):
+				by_tier[clampi(context.world.get_stratum_id(cell), 0, 3)].append(cell)
+	var rng = context.stage_rng("collection_completion_v7")
+	for index: int in range(COLLECTIBLES.size()):
+		var id := COLLECTIBLES[index]
+		if present.has(id):
+			continue
+		var tier := mini(index / 5, 3)
+		if by_tier[tier].is_empty():
+			continue
+		var choice: int = rng.next_int(0, by_tier[tier].size() - 1)
+		var cell: Vector2i = by_tier[tier][choice]
+		by_tier[tier].remove_at(choice)
+		_add(context.feature_registry, context.world, cell, id, "small")

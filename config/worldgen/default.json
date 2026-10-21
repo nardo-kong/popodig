@@ -90,5 +90,11 @@
     "maximum_repair_rate": 0.05
   },
   "topsoil_stone_ratio": 0.006,
-  "discoveries_enabled": true
+  "discoveries_enabled": true,
+  "discovery_validation": {
+    "minimum_per_stratum": 3,
+    "first_reward_max_dig_cost": 8,
+    "bootstrap_max_path_cells": 24,
+    "maximum_neighbour_gap_cells": 20
+  }
 }

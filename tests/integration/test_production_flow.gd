@@ -78,6 +78,18 @@ func run() -> Array[Dictionary]:
 	production.set_enabled(zone.zone_id, false)
 	assert_equal(items.get_total_count("METAL"), 1, "Resumed batch produces once after earlier upgrade spent metal")
 	assert_equal(items.get_total_count("ORE"), 0, "Carried input is not duplicated by reload")
+	fixture.world.initialize_cell(Vector2i(6, 5), Cell.TerrainMaterial.DAMP_CLAY, false, false, false)
+	fixture.world.set_stratum_id(Vector2i(6, 5), 2)
+	assert_equal(fixture.digs.inspect_designation(Vector2i(6, 5)).reason_code, "ABILITY_REQUIRED", "Reinforced tools still respect deep-clay capability gate")
+	colony.add_item_pile("METAL", Vector2i(2, 4), 4)
+	colony.add_item_pile("STONE", Vector2i(2, 4), 8)
+	assert_true(capabilities.upgrade().ok, "Deep tools unlock using the complete resource bundle")
+	assert_true(fixture.digs.designate_path([Vector2i(6, 5)]).ok, "Deep tools permit actual designation of deep clay")
+	for tick: int in range(1000):
+		colony.fixed_tick(0.05)
+		if fixture.world.is_traversable(Vector2i(6, 5)):
+			break
+	assert_true(fixture.world.is_traversable(Vector2i(6, 5)), "Mouse can actually excavate newly unlocked deep clay")
 	var near = _fixture(10)
 	assert_true(_until_batches(near.colony, 1), "Near-source comparison completes same production work")
 	assert_true(near.colony.loaded_travel_steps < far_supply_steps, "Closer supply reduces actual loaded travel")

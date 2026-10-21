@@ -1,6 +1,7 @@
 class_name ColonySimulation
 extends RefCounted
 
+const CollectionScript = preload("res://src/domain/progression/collection_book.gd")
 const ProductionScript = preload("res://src/domain/colony/production_system.gd")
 const CapabilitiesScript = preload("res://src/domain/progression/colony_capabilities.gd")
 const DiscoveryScript = preload("res://src/domain/features/discovery_system.gd")
@@ -19,6 +20,7 @@ const StabilitySystemScript = preload("res://src/domain/features/stability_syste
 var _discovery_system
 var _production_system
 var _capabilities
+var _collection_book
 var travel_steps := 0
 var loaded_travel_steps := 0
 var _world
@@ -61,6 +63,7 @@ func configure(
 	_zone_system.configure(_world, _path_service, _balance)
 	_production_system = ProductionScript.new()
 	_production_system.configure(_zone_system, _item_system, _job_system, _path_service)
+	_collection_book = CollectionScript.new()
 	_capabilities = CapabilitiesScript.new()
 	_capabilities.configure(_item_system, _world)
 	if bool(_balance.get("capabilities_enabled", false)):
@@ -92,6 +95,7 @@ func configure(
 		)
 		_discovery_system = DiscoveryScript.new()
 		_discovery_system.configure(_world, feature_registry, _item_system, _dig_system)
+		_discovery_system.discovered.connect(_collection_book.on_discovery)
 		_water_system = WaterSystemScript.new()
 		_water_system.configure(_world, feature_registry, _signal_system, _dig_system, _balance)
 		_water_system.reservoir_breached.connect(_on_reservoir_breached)
@@ -693,6 +697,7 @@ func to_save_data() -> Dictionary:
 		"items": _item_system.to_save_data(),
 		"zones": _zone_system.to_save_data(),
 		"production": _production_system.to_save_data(),
+		"collection_book": _collection_book.to_save_data(),
 		"capabilities": _capabilities.to_save_data(),
 		"travel": {"steps": travel_steps, "loaded_steps": loaded_travel_steps},
 	}
@@ -708,6 +713,11 @@ func apply_save_data(data: Dictionary) -> Dictionary:
 	var zone_result: Dictionary = _zone_system.apply_save_data(data.get("zones", {}))
 	if not bool(zone_result.ok):
 		return zone_result
+	var book_result: Dictionary = _collection_book.apply_save_data(data.get("collection_book", {}))
+	if not book_result.ok:
+		return book_result
+	if _discovery_system != null:
+		_collection_book.reconcile(_discovery_system._registry)
 	var production_result: Dictionary = _production_system.apply_save_data(data.get("production", {}))
 	if not production_result.ok:
 		return production_result
@@ -762,3 +772,7 @@ func _on_mouse_moved(mouse_id: String, _from: Vector2i, _to: Vector2i) -> void:
 
 func route_between(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 	return _path_service.find_path(from_cell, to_cell)
+
+
+func get_collection_book():
+	return _collection_book

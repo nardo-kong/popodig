@@ -1,5 +1,6 @@
 extends Node
 
+const CollectionViewScript = preload("res://src/presentation/hud/collection_view.gd")
 const DevelopmentViewScript = preload("res://src/presentation/hud/development_view.gd")
 const DiscoveryViewScript = preload("res://src/presentation/world/discovery_view.gd")
 const DiscoveryScript = preload("res://src/domain/features/discovery_system.gd")
@@ -100,6 +101,9 @@ var _last_feedback := "feedback.choose_frontier"
 var _hover_feedback := "feedback.choose_frontier"
 var _feedback_seconds_remaining := 0.0
 var _qa_inspector_cell := Vector2i(-1, -1)
+var _collection_view
+var _book_open := false
+var _pause_before_book := false
 var _current_seed := 0
 var _notifications: NotificationModel
 var _tutorial: ContextTutorialModel
@@ -250,6 +254,10 @@ func _ready() -> void:
 	var development_view := DevelopmentViewScript.new()
 	get_node("UI/Root").add_child(development_view)
 	development_view.configure(colony_simulation)
+	_collection_view = CollectionViewScript.new()
+	get_node("UI/Root").add_child(_collection_view)
+	_collection_view.configure(colony_simulation.get_collection_book())
+	_collection_view.close_requested.connect(_toggle_collection_book)
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
 	var zone_system = colony_simulation.get_zone_system()
 	zone_system.setup_state_changed.connect(_on_zone_setup_state_changed)
@@ -694,6 +702,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	var viewport := get_viewport()
 	if viewport == null:
 		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		var code: int = (event as InputEventKey).keycode
+		if code == KEY_C or (code == KEY_ESCAPE and _book_open):
+			_toggle_collection_book()
+			viewport.set_input_as_handled()
+			return
+	if _book_open:
+		viewport.set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_ESCAPE:
 		_toggle_settings()
 		viewport.set_input_as_handled()
@@ -1070,6 +1087,7 @@ func _update_hud() -> void:
 	]
 	for resource_id: String in ["STONE", "ORE", "METAL"]:
 		colony_status_label.text += " · %s %d" % [Resources.display_name(resource_id, Localization.current()), item_system.get_total_count(resource_id)]
+	colony_status_label.text += " · C %d/18" % colony_simulation.get_collection_book().unique_count()
 	dig_feedback_label.text = tr(_last_feedback) if _feedback_seconds_remaining > 0.0 else tr(_hover_feedback)
 
 
@@ -2096,3 +2114,16 @@ func _on_discovery(event: Dictionary) -> void:
 		_vfx_view.burst_dig((Vector2(event.cell) + Vector2(0.5, 0.5)) * _logical_cell_size, 1)
 	if _telemetry != null:
 		_telemetry.record_discovery(str(event.definition_id), 1)
+
+
+func _toggle_collection_book() -> void:
+	if _collection_view == null or _settings_open:
+		return
+	_book_open = not _book_open
+	if _book_open:
+		_pause_before_book = _paused
+		_paused = true
+		_collection_view.refresh()
+	else:
+		_paused = _pause_before_book
+	_collection_view.visible = _book_open

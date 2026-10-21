@@ -1,6 +1,7 @@
 class_name WorldRepairer
 extends RefCounted
 
+const Discovery = preload("res://src/domain/features/discovery_system.gd")
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const GeneratedFeatureScript = preload("res://src/domain/worldgen/generated_feature.gd")
 const SignalSystemScript = preload("res://src/domain/features/signal_system.gd")
@@ -16,6 +17,9 @@ func repair(context: WorldGenContext, validation_report: Dictionary, repair_pass
 			continue
 		handled_codes[code] = true
 		match code:
+			"COLLECTION_INCOMPLETE":
+				Discovery.ensure_collectibles(context)
+				actions.append(_action(repair_pass, code, "restore_missing_collection_definitions", context.world.metadata.start_cell))
 			"START_NOT_TRAVERSABLE", "START_SPACE_TOO_SMALL":
 				_repair_start_space(context)
 				actions.append(_action(repair_pass, code, "recarve_start_burrow", context.world.metadata.start_cell))

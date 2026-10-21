@@ -1,6 +1,8 @@
 extends SceneTree
 
 const TEST_SCRIPTS: PackedStringArray = [
+	"res://tests/unit/test_discovery_worldgen.gd",
+	"res://tests/unit/test_collection_book.gd",
 	"res://tests/integration/test_production_flow.gd",
 	"res://tests/unit/test_frontier_cues.gd",
 	"res://tests/integration/test_discovery_flow.gd",
@@ -97,6 +99,9 @@ func _run_tests() -> void:
 			continue
 		var test_case: Variant = test_script.new()
 		var results: Array = test_case.run()
+		if results.is_empty():
+			failed += 1
+			print("FAIL | Suite returned no assertions: %s" % script_path)
 		for result: Dictionary in results:
 			if result.passed:
 				passed += 1

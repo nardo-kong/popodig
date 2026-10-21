@@ -84,7 +84,7 @@ func _wait_batches(colony, expected: int) -> bool:
 	return false
 
 
-func _dig_to(scene, target: Vector2i) -> bool:
+static func _dig_to(scene, target: Vector2i) -> bool:
 	var world = scene.world_grid
 	var start: Vector2i = world.metadata.start_cell
 	var queue: Array[Vector2i] = [start]
