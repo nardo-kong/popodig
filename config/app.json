@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "game_version": "0.1.0-dev",
-  "save_schema_version": 1,
+  "game_version": "0.2.0-playtest",
+  "save_schema_version": 3,
   "worldgen_version": 7,
   "simulation_tick_hz": 5,
   "default_viewport": [

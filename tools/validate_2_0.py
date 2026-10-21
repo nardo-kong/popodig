@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--suite", default="discovery_flow,production_flow,save_roundtrip")
     parser.add_argument("--rc", action="store_true", help="Full units/soak + four gameplay flows + fresh replay + water benchmark")
     parser.add_argument("--worldgen-full", action="store_true", help="Explicitly rerun the expensive 288-seed matrix")
+    parser.add_argument("--report", type=Path, help="Write batch evidence separately from the historical Phase 20 RC")
     args = parser.parse_args()
     if not args.godot:
         parser.error("Set GODOT_BIN or pass --godot /path/to/Godot 4.7")
@@ -61,6 +62,9 @@ def main():
     report = ROOT / "art/qa/reports/phase20_validation.json"
     if not args.rc:
         report = logs / "incremental.json"
+    if args.report:
+        report = args.report
+        report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps(document, indent=2) + "\n")
     return 0 if len(results) == len(checks) and all(item["passed"] for item in results) else 1
 

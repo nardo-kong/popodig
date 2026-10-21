@@ -15,6 +15,7 @@ func run() -> Array[Dictionary]:
 	_test_dig_material_map_covers_terrain_materials()
 	_test_volume_config_defaults()
 	_test_bus_indices_stable()
+	_test_background_streams_loop()
 	return results
 
 
@@ -64,3 +65,9 @@ func _assert(condition: bool, description: String) -> void:
 		"description": description,
 		"details": "" if condition else "Expected true",
 	})
+
+
+func _test_background_streams_loop() -> void:
+	for stream: AudioStreamWAV in [AudioDirectorScript.AMBIENCE_STREAM, AudioDirectorScript.MUSIC_STREAM]:
+		_assert(stream.loop_mode == AudioStreamWAV.LOOP_FORWARD, "Background stream loops forward")
+		_assert(stream.loop_end > stream.loop_begin, "Background stream has a non-empty loop")

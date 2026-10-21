@@ -55,7 +55,9 @@ func set_enabled(zone_id: int, enabled: bool) -> void:
 func status(zone_id: int) -> Dictionary:
 	var order: Dictionary = _orders.get(zone_id, {"recipe": "building", "progress": 0.0, "enabled": true})
 	var result := order.duplicate(true)
-	result["reason"] = "WORKING" if float(order.progress) > 0.0 else "WAITING_INPUT"
+	var recipe: Dictionary = RECIPES[order.recipe]
+	result.merge({"input": recipe.input, "required": recipe.count, "output": recipe.output, "yield": recipe.yield, "seconds": recipe.seconds, "fraction": clampf(float(order.progress) / float(recipe.seconds), 0.0, 1.0), "missing": int(recipe.count)})
+	result["reason"] = "WAITING_INPUT"
 	var zone = _zones.get_zone(zone_id)
 	if zone == null or not zone.valid:
 		result.reason = "UNAVAILABLE"
@@ -63,6 +65,28 @@ func status(zone_id: int) -> Dictionary:
 		result.reason = "SETTING_UP"
 	elif not bool(order.enabled):
 		result.reason = "PAUSED"
+	else:
+		var jobs: Array = _jobs.get_zone_jobs(zone_id, Job.Type.PRODUCE)
+		if float(order.progress) >= float(recipe.seconds):
+			result.reason = "OUTPUT_BLOCKED"
+		elif not jobs.is_empty():
+			result.reason = "WORKING" if float(order.progress) > 0.0 else ("SUPPLYING" if jobs[0].state == Job.State.RESERVED else "WAITING_WORKER")
+		else:
+			var reachable := 0
+			var available := 0
+			var full_pile := false
+			for pile in _items.get_piles():
+				if pile.item_type != recipe.input:
+					continue
+				available += pile.available_count()
+				if not _paths.find_path(pile.cell, zone.identity_anchor).is_empty():
+					reachable += pile.available_count()
+					full_pile = full_pile or pile.available_count() >= int(recipe.count)
+			result.missing = maxi(0, int(recipe.count) - reachable)
+			if reachable >= int(recipe.count):
+				result.reason = "WAITING_WORKER" if full_pile else "CONSOLIDATE_INPUT"
+			elif available >= int(recipe.count):
+				result.reason = "INPUT_UNREACHABLE"
 	return result
 
 

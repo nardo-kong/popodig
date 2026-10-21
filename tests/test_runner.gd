@@ -1,6 +1,8 @@
 extends SceneTree
 
 const TEST_SCRIPTS: PackedStringArray = [
+	"res://tests/unit/test_entry_saves.gd",
+	"res://tests/unit/test_time_control.gd",
 	"res://tests/unit/test_v2_progression.gd",
 	"res://tests/unit/test_development_telemetry.gd",
 	"res://tests/unit/test_discovery_worldgen.gd",

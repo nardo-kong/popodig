@@ -366,6 +366,14 @@ func apply_save_data(data: Dictionary) -> Dictionary:
 	return {"ok": true, "error": ""}
 
 
+func reachable_available_count(item_type: String, origin: Vector2i) -> int:
+	var count := 0
+	for pile in get_piles():
+		if pile.item_type == item_type and _path_service != null and not _path_service.find_path(origin, pile.cell).is_empty():
+			count += pile.available_count()
+	return count
+
+
 func consume_reachable_bundle(costs: Dictionary, origin: Vector2i) -> Dictionary:
 	var plan: Array[Dictionary] = []
 	for item_type: String in costs:

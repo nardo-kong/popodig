@@ -10,6 +10,8 @@ extends RefCounted
 #   and report a user-readable error instead of silently regenerating.
 
 const SAVE_SCHEMA_VERSION := 3
+# Automated entry/build checks use an isolated folder, never the player slots.
+static var verification_directory := ""
 const MIGRATIONS: Array[Dictionary] = [
 	{"from": 2, "to": 3, "note": "v3 adds optional 2.0 colony state; legacy resource IDs remain stable."},
 	{"from": 1, "to": 2, "note": "v2 adds the progression section (tutorial step/flags, language)."},
@@ -137,4 +139,39 @@ static func _preserve_corrupted_copy(path: String) -> void:
 
 
 static func get_save_directory() -> String:
-	return OS.get_user_data_dir().path_join("saves")
+	return verification_directory if not verification_directory.is_empty() else OS.get_user_data_dir().path_join("saves")
+
+
+static func latest_slot(directory: String = "") -> String:
+	if directory.is_empty():
+		directory = get_save_directory()
+	var latest := ""
+	var modified := -1
+	for slot: String in ["quicksave", "autosave"]:
+		var path := directory.path_join(slot + ".json")
+		if FileAccess.file_exists(path) and int(FileAccess.get_modified_time(path)) > modified:
+			latest = slot
+			modified = FileAccess.get_modified_time(path)
+	return latest
+
+
+static func archive_slots(directory: String = "") -> Dictionary:
+	if directory.is_empty():
+		directory = get_save_directory()
+	var archive := directory.path_join("archive")
+	if DirAccess.make_dir_recursive_absolute(archive) != OK:
+		return {"ok": false, "error": "cannot create save archive"}
+	var sources: Array[String] = []
+	var suffix := str(int(Time.get_unix_time_from_system())) + "-" + str(Time.get_ticks_usec())
+	for slot: String in ["quicksave", "autosave"]:
+		var path := directory.path_join(slot + ".json")
+		if not FileAccess.file_exists(path):
+			continue
+		if DirAccess.copy_absolute(path, archive.path_join(slot + "-" + suffix + ".json")) != OK:
+			return {"ok": false, "error": "cannot preserve previous save"}
+		sources.append(path)
+	# Remove originals only after all archived copies succeeded.
+	for path: String in sources:
+		if DirAccess.remove_absolute(path) != OK:
+			return {"ok": false, "error": "cannot prepare new save slots"}
+	return {"ok": true, "error": "", "archived": sources.size()}

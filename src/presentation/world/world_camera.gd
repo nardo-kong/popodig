@@ -12,6 +12,7 @@ var _last_mouse_position := Vector2.ZERO
 var _world_rect := Rect2()
 var _shake_amplitude := 0.0
 var reduced_shake := false
+var input_blocked := false
 
 
 func _ready() -> void:
@@ -38,13 +39,13 @@ func apply_shake(strength: float) -> void:
 
 func _process(delta: float) -> void:
 	var direction := Vector2.ZERO
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+	if not input_blocked and not Input.is_key_pressed(KEY_CTRL) and not Input.is_key_pressed(KEY_META) and (Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT)):
 		direction.x -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+	if not input_blocked and not Input.is_key_pressed(KEY_CTRL) and not Input.is_key_pressed(KEY_META) and (Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)):
 		direction.x += 1.0
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+	if not input_blocked and not Input.is_key_pressed(KEY_CTRL) and not Input.is_key_pressed(KEY_META) and (Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP)):
 		direction.y -= 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+	if not input_blocked and not Input.is_key_pressed(KEY_CTRL) and not Input.is_key_pressed(KEY_META) and (Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN)):
 		direction.y += 1.0
 	if direction != Vector2.ZERO:
 		position += direction.normalized() * keyboard_pan_speed * delta / zoom.x
@@ -57,6 +58,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if input_blocked:
+		return
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP and mouse_event.pressed:

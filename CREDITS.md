@@ -13,6 +13,8 @@ Roadmap Phase 16/17 "credits/legal/license audit for all assets".
     (Phase 11/15 procedural-production decision).
 - No third-party, scraped, or licensed image assets exist in the repository.
 
+- The local desktop icon (`assets/app_icon.svg`) is an original code-drawn vector in this repository.
+
 ## Audio
 - All audio (`assets/audio/production/*.wav`, 18 files) is synthesized
   deterministically by `tools/audio/synth_audio.py` (Python stdlib only, seed

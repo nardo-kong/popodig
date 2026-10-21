@@ -11,8 +11,9 @@ config_version=5
 [application]
 
 config/name="Dig Down / 地下鼠鼠"
+config/icon="res://assets/app_icon.svg"
 config/description="A finite free-digging systemic mouse-colony sandbox."
-config/version="0.2.0-dev"
+config/version="0.2.0-playtest"
 run/main_scene="res://scenes/app/game_app.tscn"
 config/features=PackedStringArray("4.7")
 
@@ -35,6 +36,9 @@ window/stretch/aspect="expand"
 locale/translations=PackedStringArray("res://assets/localization/ui.zh.translation", "res://assets/localization/ui.en.translation")
 
 [rendering]
+
+textures/vram_compression/import_s3tc_bptc=true
+textures/vram_compression/import_etc2_astc=true
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"

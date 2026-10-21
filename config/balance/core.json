@@ -75,6 +75,8 @@
     "objective_depth_offset": 30
   },
   "fog_radius": 4,
+  "initial_zoom": 1.4,
   "capabilities_enabled": true,
-  "v2_progression": true
+  "v2_progression": true,
+  "time_controls": {"enabled": true, "slow_for_danger": true}
 }

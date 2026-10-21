@@ -46,8 +46,11 @@ func run() -> Array[Dictionary]:
 	var items = colony.get_item_system()
 	var production = colony.get_production_system()
 	var zone = colony.get_zone_system().get_zone_at(Vector2i(8, 4))
+	assert_equal(production.status(zone.zone_id).reason, "SETTING_UP", "Workshop explains its setup wait")
+	assert_equal(colony.get_capabilities().requirements().missing, {"METAL": 2}, "Upgrade preview shows the exact reachable material deficit")
 	assert_true(_until_batches(colony, 1), "Mouse supplies and crafts a real building-material batch")
 	production.set_enabled(zone.zone_id, false)
+	assert_equal(production.status(zone.zone_id).reason, "PAUSED", "Workshop distinguishes deliberate pause from missing input")
 	assert_equal(items.get_total_count("STONE"), 2, "Production consumes exactly two stone")
 	assert_equal(items.get_total_count("GENERAL_MATERIAL"), 10, "Eight initial minus setup plus three new building materials")
 	var far_supply_steps: int = colony.loaded_travel_steps
@@ -58,6 +61,7 @@ func run() -> Array[Dictionary]:
 	assert_equal(items.get_total_count("ORE"), 0, "Metal batches consume four ore")
 	assert_equal(items.get_total_count("METAL"), 2, "Metal exists as physical output")
 	var capabilities = colony.get_capabilities()
+	assert_true(capabilities.requirements().ready, "Produced, reachable metal makes upgrade affordance ready")
 	assert_true(not capabilities.can_dig(Vector2i(4, 5)), "Basic capability cannot excavate stone")
 	assert_true(capabilities.upgrade().ok, "Reachable produced metal unlocks colony capability")
 	assert_true(capabilities.can_dig(Vector2i(4, 5)), "Shared upgrade opens previously inaccessible stone")
@@ -71,6 +75,7 @@ func run() -> Array[Dictionary]:
 		if float(production.status(zone.zone_id).progress) >= 2.0:
 			break
 	assert_true(float(production.status(zone.zone_id).progress) >= 2.0, "A batch reaches a partially worked state")
+	assert_true(float(production.status(zone.zone_id).fraction) > 0.0 and float(production.status(zone.zone_id).fraction) < 1.0, "Presentation progress reflects authoritative partial work")
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(colony.to_save_data()))
 	assert_true(colony.apply_save_data(saved).ok, "Colony restores a production batch with carried inputs")
 	assert_equal(capabilities.level, 1, "Colony capability persists through reload")

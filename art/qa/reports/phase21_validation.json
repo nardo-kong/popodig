@@ -1,0 +1,70 @@
+{
+  "created_utc": "2026-10-21T23:48:36.720967+00:00",
+  "mode": "rc",
+  "checks": [
+    {
+      "check": "import",
+      "passed": true,
+      "exit": 0,
+      "evidence": []
+    },
+    {
+      "check": "units",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "TEST_SUMMARY passed=1418 failed=0 total=1418"
+      ]
+    },
+    {
+      "check": "core",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "PHASE20_CORE_SMOKE_PASS material_housed=15 schema=3 autonomous_dig_and_haul=true rollback=true legacy_v6=true"
+      ]
+    },
+    {
+      "check": "development",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "PHASE20_DEVELOPMENT_SMOKE_PASS actual_discovery_to_production_to_upgrade=true batches=3 loaded_steps=24"
+      ]
+    },
+    {
+      "check": "collection",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "PHASE20_COLLECTION_SMOKE_PASS real_collectible=true preserved=1 total=18"
+      ]
+    },
+    {
+      "check": "campaign",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "PHASE20_CAMPAIGN_SMOKE_PASS input=automated_normal_commands cheats=false simulated_seconds=980.4 mice=5 home_food=10 memories=6"
+      ]
+    },
+    {
+      "check": "replay7",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "PHASE5_FRESH_REPLAY_PASS checked=7 report=res://art/qa/reports/phase_5_seed_batch.json"
+      ]
+    },
+    {
+      "check": "water_performance",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "PHASE7_WATER_BENCHMARK average_step_ms=0.607 p95_step_ms=2.069 max_step_ms=2.210 steps=240 max_transfers=94 active_cells=284 inventory=376"
+      ]
+    }
+  ],
+  "human_playtest": "pending; automated evidence does not establish appeal",
+  "worldgen_matrix": "existing v7 288-seed report; rc verifies seven fresh hashes"
+}

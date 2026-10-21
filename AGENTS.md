@@ -1,6 +1,6 @@
 # AGENTS.md — Dig Down / 地下鼠鼠
 
-## 0. Current 2.0 execution authority (2026-10-21)
+## 0. Current 2.0 execution authority (2026-10-22)
 Read `docs/design/DIG_DOWN_2_0_DESIGN.md` and
 `docs/production/DIG_DOWN_2_0_EXECUTION.md` before implementing current work.
 They record the owner's approved design discussion and supersede conflicting
@@ -8,7 +8,7 @@ V1 resource/progression limits below. The original two ChatGPT download files
 were not committed; these are explicitly sourced execution specifications,
 not a claim to have recovered those files.
 
-The owner explicitly authorized continuous implementation of GitHub #1–#15.
+The owner explicitly authorized continuous implementation of GitHub #1–#15 and the experience/packaging follow-ups #17–#21.
 Claim the next dependency-ready issue and continue after reporting/checking a
 batch; do not stop for repeated milestone approval. Human observations must
 remain marked pending until actually performed.

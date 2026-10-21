@@ -38,6 +38,18 @@ func upgrade() -> Dictionary:
 	return {"ok": true, "level": level}
 
 
+func requirements() -> Dictionary:
+	if level >= COSTS.size():
+		return {"ready": false, "costs": {}, "missing": {}}
+	var missing: Dictionary = {}
+	var origin: Vector2i = _world.metadata.get("start_cell", Vector2i.ZERO)
+	for item_type: String in COSTS[level]:
+		var remaining: int = int(COSTS[level][item_type]) - _items.reachable_available_count(item_type, origin)
+		if remaining > 0:
+			missing[item_type] = remaining
+	return {"ready": missing.is_empty(), "costs": COSTS[level].duplicate(), "missing": missing}
+
+
 func to_save_data() -> Dictionary:
 	return {"level": level}
 

@@ -1,0 +1,47 @@
+[
+  {
+    "check": "phase21_experience_en_1280",
+    "functional_pass": true,
+    "native_cleanup_pass": false,
+    "evidence": [
+      "PHASE21_EXPERIENCE_SMOKE_PASS locale=en progressive_ui=true help_pause=true real_buttons=true",
+      "ERROR: 3 resources still in use at exit (run with --verbose for details)."
+    ]
+  },
+  {
+    "check": "phase21_experience_zh_1280",
+    "functional_pass": true,
+    "native_cleanup_pass": false,
+    "evidence": [
+      "PHASE21_EXPERIENCE_SMOKE_PASS locale=zh progressive_ui=true help_pause=true real_buttons=true",
+      "ERROR: 3 resources still in use at exit (run with --verbose for details)."
+    ]
+  },
+  {
+    "check": "phase21_experience_en_1920",
+    "functional_pass": true,
+    "native_cleanup_pass": false,
+    "evidence": [
+      "PHASE21_EXPERIENCE_SMOKE_PASS locale=en progressive_ui=true help_pause=true real_buttons=true",
+      "ERROR: 3 resources still in use at exit (run with --verbose for details)."
+    ]
+  },
+  {
+    "check": "phase21_experience_zh_1920",
+    "functional_pass": true,
+    "native_cleanup_pass": false,
+    "evidence": [
+      "PHASE21_EXPERIENCE_SMOKE_PASS locale=zh progressive_ui=true help_pause=true real_buttons=true",
+      "ERROR: 3 resources still in use at exit (run with --verbose for details)."
+    ]
+  },
+  {
+    "check": "phase21_entry_entry_1280",
+    "functional_pass": true,
+    "native_cleanup_pass": false,
+    "evidence": [
+      "PHASE21_ENTRY_SMOKE_PASS archived_previous=true normal_first_discovery=true real_scene_reload=true seed=1893681530",
+      "ERROR: 5 resources still in use at exit (run with --verbose for details)."
+    ]
+  }
+]
