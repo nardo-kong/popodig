@@ -89,6 +89,11 @@ Macro guarantees and key landmarks are authored as rules/templates; local positi
 ## D-017 Resource scope
 **Decision:** V1 uses a small resource vocabulary. Food and General Material are the baseline. Additional resources require a clear decision-loop purpose.
 
+**2.0 owner revision (2026-10-21):** Food, building materials, stone, ore,
+metal and collectibles support exploration, light production and spatial
+planning. Use stable IDs and preserve/migrate old Food/General Material.
+See `docs/design/DIG_DOWN_2_0_DESIGN.md`; no individual equipment or deep recipes.
+
 ## D-018 Combat
 **Decision:** Combat is deferred from the initial product. Threat should primarily alter space, timing, access, or resources rather than create a combat subsystem.
 
@@ -106,6 +111,11 @@ Macro guarantees and key landmarks are authored as rules/templates; local positi
 
 ## D-022 Progression philosophy
 **Decision:** Player knowledge is a major progression vector. Repeated encounters improve the clarity of cues and the player's own understanding; upgrades should not replace learning.
+
+**2.0 owner revision (2026-10-21):** Shared colony capabilities earned through
+resources/production open further exploration alongside signal knowledge.
+No individual mouse inventory, tools or equipment management. The approved
+loop includes discovery rewards, light production, logistics and collectibles.
 
 ## D-023 Technical baseline
 **Decision:** Godot 4.7 stable, 2D grid simulation, deterministic seeded generation where feasible, data/presentation separation, versioned saves, automated tests, screenshot-based visual QA.

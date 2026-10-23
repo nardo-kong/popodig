@@ -1,5 +1,16 @@
 extends Node
 
+const WorldHoverInfoScript = preload("res://src/presentation/hud/world_hover_info.gd")
+const WorldHoverViewScript = preload("res://src/presentation/hud/world_hover_view.gd")
+const ResourceGuideViewScript = preload("res://src/presentation/hud/resource_guide_view.gd")
+const RootLandmarkViewScript = preload("res://src/presentation/world/root_landmark_view.gd")
+const HomeProgressScript = preload("res://src/domain/progression/home_progress.gd")
+const WorldGenContextScript = preload("res://src/domain/worldgen/world_gen_context.gd")
+const CollectionViewScript = preload("res://src/presentation/hud/collection_view.gd")
+const DevelopmentViewScript = preload("res://src/presentation/hud/development_view.gd")
+const DiscoveryViewScript = preload("res://src/presentation/world/discovery_view.gd")
+const DiscoveryScript = preload("res://src/domain/features/discovery_system.gd")
+const Resources = preload("res://src/domain/colony/resource_catalog.gd")
 const StructuredWorldGeneratorScript = preload("res://src/domain/worldgen/structured_world_generator.gd")
 const GridPathServiceScript = preload("res://src/application/services/grid_path_service.gd")
 const DigSystemScript = preload("res://src/domain/jobs/dig_system.gd")
@@ -13,6 +24,10 @@ const EraseZoneCommandScript = preload("res://src/application/commands/erase_zon
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const SaveServiceScript = preload("res://src/infrastructure/persistence/save_service.gd")
 const NotificationModelScript = preload("res://src/presentation/hud/notification_model.gd")
+const TimeControlScript = preload("res://src/domain/progression/time_control.gd")
+const TimeControlsViewScript = preload("res://src/presentation/hud/time_controls_view.gd")
+const StartViewScript = preload("res://src/presentation/hud/start_view.gd")
+const ControlsViewScript = preload("res://src/presentation/hud/controls_view.gd")
 const ContextTutorialModelScript = preload("res://src/presentation/hud/context_tutorial_model.gd")
 const WaterFxViewScript = preload("res://src/presentation/world/water_fx_view.gd")
 const VfxViewScript = preload("res://src/presentation/fx/vfx_view.gd")
@@ -43,6 +58,7 @@ enum Tool {
 	FOOD_FORAGE,
 	SEAL,
 	REINFORCE,
+	PRODUCTION,
 }
 
 @onready var world_view: WorldView = %WorldView
@@ -81,8 +97,20 @@ var worldgen_result
 var _vfx_view: VfxView
 var _audio_director: AudioDirector
 var _settings_view: SettingsView
+var _start_view
+var _session_started := true
+var _quitting := false
+static var _build_check_stage := 0
+static var _build_check_seed := 0
+var _loaded_start_document: Dictionary = {}
 var _settings_open := false
+var _pause_before_settings := false
+var time_control = TimeControlScript.new()
+var _time_controls
+var _simulated_seconds := 0.0
 var chapter_model
+var home_progress
+var _active_seconds := 0.0
 var _campaign_celebrated := false
 var _logical_cell_size := 16
 var _simulation_step := 0.05
@@ -95,6 +123,23 @@ var _last_feedback := "feedback.choose_frontier"
 var _hover_feedback := "feedback.choose_frontier"
 var _feedback_seconds_remaining := 0.0
 var _qa_inspector_cell := Vector2i(-1, -1)
+var _collection_view
+var _hover_info
+var _pointer_position := Vector2.ZERO
+var _has_pointer_event := false
+var _hover_view
+var _resource_guide
+var _guide_open := false
+var _pause_before_guide := false
+var _development_view
+var _discovery_view
+var _modal_backdrop: ColorRect
+var _help_view
+var _help_open := false
+var _pause_before_help := false
+var _toolbar_buttons: Dictionary = {}
+var _book_open := false
+var _pause_before_book := false
 var _current_seed := 0
 var _notifications: NotificationModel
 var _tutorial: ContextTutorialModel
@@ -126,10 +171,20 @@ func _ready() -> void:
 	if not AppConfig.get_load_errors().is_empty():
 		GameLog.failure("QA", "Configuration errors: %s" % "; ".join(AppConfig.get_load_errors()))
 		return
+	if _has_user_argument("--verify-playtest") and SaveServiceScript.verification_directory.is_empty():
+		SaveServiceScript.verification_directory = OS.get_cache_dir().path_join("dig-down-verify-%d" % OS.get_process_id())
 	var worldgen_config := AppConfig.get_document("worldgen")
 	var balance_config := AppConfig.get_document("balance")
+	time_control.configure(balance_config)
 	var digging_balance: Dictionary = balance_config.get("digging", {})
 	var seed_value := _debug_seed_override if _debug_seed_override_set else int(worldgen_config.get("default_seed", 137042))
+	var main_entry := get_tree().current_scene == self or bool(get_meta("show_start_menu", false))
+	if not _pending_load_path.is_empty():
+		_loaded_start_document = SaveServiceScript.load_game(_pending_load_path)
+		if bool(_loaded_start_document.get("ok", false)):
+			seed_value = int(_loaded_start_document.data.header.seed)
+	elif main_entry:
+		seed_value = int(Time.get_unix_time_from_system() * 1000000) % 2147483647
 	_current_seed = seed_value
 	worldgen_result = StructuredWorldGeneratorScript.new().generate_result(worldgen_config, seed_value)
 	world_grid = worldgen_result.world
@@ -145,7 +200,9 @@ func _ready() -> void:
 		worldgen_config.get("signal_fields", {})
 	)
 	world_camera.configure_world_bounds(world_view.get_world_rect())
+	world_camera.zoom = Vector2.ONE * clampf(float(balance_config.get("initial_zoom", 1.4)), world_camera.min_zoom, world_camera.max_zoom)
 	world_camera.focus_cell(world_grid.metadata.start_cell, _logical_cell_size)
+	world_camera.reset_smoothing()
 	path_service = GridPathServiceScript.new()
 	path_service.configure(world_grid, balance_config)
 	dig_system = DigSystemScript.new()
@@ -178,6 +235,18 @@ func _ready() -> void:
 	fog.z_index = 27
 	world_view.add_child(fog)
 	fog.configure(world_grid, _logical_cell_size, maxi(1, int(balance_config.get("fog_radius", 4))), worldgen_result.feature_registry)
+	_discovery_view = DiscoveryViewScript.new()
+	_discovery_view.z_index = 28
+	world_view.add_child(_discovery_view)
+	_discovery_view.configure(world_grid, worldgen_result.feature_registry, fog, _logical_cell_size)
+	var root_landmarks := RootLandmarkViewScript.new()
+	root_landmarks.z_index = 28
+	world_view.add_child(root_landmarks)
+	root_landmarks.configure(worldgen_result.feature_registry, fog, _logical_cell_size)
+	_hover_info = WorldHoverInfoScript.new()
+	_hover_info.configure(world_grid, worldgen_result.feature_registry, colony_simulation.get_item_system(), fog, _discovery_view, colony_simulation.get_zone_system(), signal_system)
+	if colony_simulation.get_discovery_system() != null:
+		colony_simulation.get_discovery_system().discovered.connect(_on_discovery)
 	world_grid.chunk_dirtied.connect(func(_coord: Vector2i, _flags: int) -> void:
 		fog.mark_stale()
 	)
@@ -198,13 +267,19 @@ func _ready() -> void:
 	if AppConfig.debug_tools_enabled():
 		_telemetry = SessionTelemetryScript.new()
 		_telemetry_seed = _current_seed
+		_telemetry.context = {"seed": _current_seed, "worldgen_version": int(world_grid.metadata.worldgen_version), "game_version": str(ProjectSettings.get_setting("application/config/version")), "profile": AppConfig.get_profile_name(), "balance": balance_config.duplicate(true), "clock": "active session seconds, excluding pause", "input_source": "interactive"}
+		colony_simulation.travelled.connect(_telemetry.record_travel)
 	dig_system.cell_excavated.connect(_on_cell_excavated)
 	chapter_model = ChapterModelScript.new()
 	chapter_model.configure(balance_config)
+	home_progress = HomeProgressScript.new()
 	chapter_model.chapter_advanced.connect(_on_chapter_advanced)
+	colony_simulation.get_production_system().produced.connect(_on_produced)
+	colony_simulation.get_capabilities().upgraded.connect(_on_capability_upgraded)
 	if root_feature_system != null:
 		root_feature_system.feature_reacted.connect(_on_root_feature_reacted)
 		root_feature_system.feature_revealed.connect(_on_root_feature_revealed)
+		root_feature_system.food_produced.connect(_on_food_produced)
 	if water_system != null:
 		water_system.reservoir_breached.connect(_on_reservoir_breached)
 	var stability = colony_simulation.get_stability_system()
@@ -217,12 +292,13 @@ func _ready() -> void:
 	if _telemetry != null and zone_system_telemetry != null:
 		zone_system_telemetry.zones_changed.connect(func(_change: Dictionary) -> void:
 			_telemetry.record_zone_change()
+			_telemetry.record_development("layout_edit", "zones", {"note": "zone edit is a replanning proxy, not player intent"})
 		)
 		_telemetry_reservoir_cells = _collect_reservoir_cells()
 	if _pending_load_path != "":
 		var pending_path := _pending_load_path
 		_pending_load_path = ""
-		var load_result: Dictionary = SaveServiceScript.load_game(pending_path)
+		var load_result: Dictionary = _loaded_start_document if not _loaded_start_document.is_empty() else SaveServiceScript.load_game(pending_path)
 		if bool(load_result.ok):
 			var apply_result := _apply_loaded_document(load_result.data)
 			if bool(apply_result.ok):
@@ -236,6 +312,46 @@ func _ready() -> void:
 	var mice: Array = colony_simulation.get_mice()
 	mouse_agent = mice[0] if not mice.is_empty() else null
 	colony_view.configure(colony_simulation, _logical_cell_size)
+	var development_view := DevelopmentViewScript.new()
+	_development_view = development_view
+	get_node("UI/Root").add_child(development_view)
+	development_view.configure(colony_simulation, home_progress)
+	development_view.collection_requested.connect(_toggle_collection_book)
+	development_view.guide_requested.connect(_toggle_resource_guide)
+	development_view.focus_requested.connect(func(cell: Vector2i) -> void: world_camera.focus_cell(cell, _logical_cell_size))
+	_collection_view = CollectionViewScript.new()
+	get_node("UI/Root").add_child(_collection_view)
+	_collection_view.configure(colony_simulation.get_collection_book(), home_progress)
+	_collection_view.close_requested.connect(_toggle_collection_book)
+	_help_view = ControlsViewScript.new()
+	get_node("UI/Root").add_child(_help_view)
+	_help_view.close_requested.connect(_toggle_help)
+	_help_view.guide_requested.connect(func() -> void:
+		_toggle_help()
+		_toggle_resource_guide()
+	)
+	_resource_guide = ResourceGuideViewScript.new()
+	get_node("UI/Root").add_child(_resource_guide)
+	_resource_guide.close_requested.connect(_toggle_resource_guide)
+	_hover_view = WorldHoverViewScript.new()
+	get_node("UI/Root").add_child(_hover_view)
+	_build_player_toolbar()
+	_time_controls = TimeControlsViewScript.new()
+	get_node("UI/Root").add_child(_time_controls)
+	_time_controls.pause_requested.connect(func() -> void: _paused = not _paused)
+	_time_controls.speed_requested.connect(_choose_speed)
+	_time_controls.home_requested.connect(func() -> void: world_camera.focus_cell(world_grid.metadata.start_cell, _logical_cell_size))
+	_time_controls.focus_requested.connect(_focus_latest)
+	_modal_backdrop = ColorRect.new()
+	_modal_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_modal_backdrop.color = Color(0, 0, 0, 0.45)
+	_modal_backdrop.z_index = 90
+	_modal_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	_modal_backdrop.visible = false
+	get_node("UI/Root").add_child(_modal_backdrop)
+	get_node("UI/Root").move_child(_collection_view, -1)
+	get_node("UI/Root").move_child(_help_view, -1)
+	get_node("UI/Root").move_child(_resource_guide, -1)
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
 	var zone_system = colony_simulation.get_zone_system()
 	zone_system.setup_state_changed.connect(_on_zone_setup_state_changed)
@@ -267,11 +383,13 @@ func _ready() -> void:
 	colony_debug_overlay.visible = debug_visible
 	worldgen_debug_overlay.visible = debug_visible
 	_set_tool(Tool.DIG)
-	Localization.apply()
+	if not _loaded_from_save:
+		Localization.apply()
 	_notifications = NotificationModelScript.new()
 	notifications_view.bind(_notifications)
 	if _tutorial == null:
 		_tutorial = ContextTutorialModelScript.new()
+		_tutorial.configure_v2(chapter_model.rules_version >= 2)
 	tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	_objective_target_depth = int(world_grid.metadata.start_cell.y) + int(balance_config.get("tutorial", {}).get("objective_depth_offset", SLICE_OBJECTIVE_DEPTH_OFFSET))
 	world_grid.cell_changed.connect(_on_world_cell_changed)
@@ -293,6 +411,11 @@ func _ready() -> void:
 			_setup_qa_stability_demo(phase8_demo)
 	_update_hud()
 	GameLog.info("WORLDGEN", "Phase 7 water-enabled world generated seed=%d content_hash=%d features=%d repairs=%d mice=%d" % [seed_value, worldgen_result.get_content_hash(), worldgen_result.feature_registry.count(), world_grid.metadata.repairs.size(), mice.size()])
+	if main_entry and not _loaded_from_save:
+		_show_start()
+	get_tree().auto_accept_quit = false
+	if _has_user_argument("--verify-playtest"):
+		_verify_playtest.call_deferred()
 
 
 func _process(delta: float) -> void:
@@ -300,7 +423,8 @@ func _process(delta: float) -> void:
 		return
 	_now_seconds += delta
 	if not _paused:
-		_simulation_accumulator = minf(_simulation_accumulator + delta, 0.4)
+		_active_seconds += delta
+		_simulation_accumulator = minf(_simulation_accumulator + time_control.simulation_delta(delta), 0.4 * time_control.speed)
 		_autosave_accumulator += delta
 		if _autosave_accumulator >= AUTOSAVE_INTERVAL_SECONDS:
 			_autosave_accumulator = 0.0
@@ -309,18 +433,21 @@ func _process(delta: float) -> void:
 	if _poll_accumulator >= 0.5:
 		_slow_poll()
 	if _telemetry != null:
-		_telemetry.elapsed_seconds = _now_seconds
+		_telemetry.elapsed_seconds = _active_seconds
+		_telemetry.wall_seconds = _now_seconds
 		_telemetry_sample_accumulator += delta
 		if _telemetry_sample_accumulator >= 1.0:
 			_telemetry_sample_accumulator = 0.0
 			_telemetry_sample_tick()
 	var ticks := 0
-	while not _paused and _simulation_accumulator >= _simulation_step and ticks < 8:
+	while not _paused and _simulation_accumulator >= _simulation_step and ticks < 8 * time_control.speed:
 		colony_simulation.fixed_tick(_simulation_step)
+		_simulated_seconds += _simulation_step
 		_simulation_accumulator -= _simulation_step
 		ticks += 1
 	_feedback_seconds_remaining = maxf(0.0, _feedback_seconds_remaining - delta)
 	_refresh_hovered_cell()
+	_update_hover_tip(delta)
 	_update_cursor()
 	_update_hud()
 	_update_inspector()
@@ -354,8 +481,11 @@ func _build_save_document() -> Dictionary:
 		"colony": colony_simulation.to_save_data(),
 		"progression": {
 			"tutorial_step": _tutorial.index,
+			"tutorial_step_id": _tutorial.current_id(),
+			"home_progress": home_progress.to_save_data(),
 			"tutorial_flags": _tutorial_flags.duplicate(true),
 			"language": Localization.current(),
+			"view": {"cell": [int(world_camera.position.x / _logical_cell_size), int(world_camera.position.y / _logical_cell_size)], "zoom": world_camera.zoom.x},
 			# Additive optional key (docs/tech/15): v2 saves without it
 			# restore to Chapter 1 via the model's default.
 			"chapter_model": chapter_model.to_save_data(),
@@ -371,9 +501,24 @@ func _build_save_document() -> Dictionary:
 
 
 func _apply_loaded_document(document: Dictionary) -> Dictionary:
+	if _tutorial == null:
+		_tutorial = ContextTutorialModelScript.new()
+		_tutorial.configure_v2(chapter_model.rules_version >= 2)
+	if home_progress == null:
+		home_progress = HomeProgressScript.new()
+	var before: Dictionary = _build_save_document()
+	var result: Dictionary = _restore_document(document)
+	if not bool(result.ok):
+		var rollback: Dictionary = _restore_document(before)
+		if not bool(rollback.ok):
+			GameLog.failure("SAVE", "Save rollback failed: " + str(rollback.error))
+	return result
+
+
+func _restore_document(document: Dictionary) -> Dictionary:
 	var header: Dictionary = document.get("header", {})
 	var config_worldgen_version := int(AppConfig.get_document("worldgen").get("worldgen_version", 0))
-	if int(header.worldgen_version) != config_worldgen_version:
+	if int(header.worldgen_version) < 6 or int(header.worldgen_version) > config_worldgen_version:
 		return {"ok": false, "error": "save worldgen version %d does not match the current %d" % [int(header.worldgen_version), config_worldgen_version]}
 	var world_result: Dictionary = world_grid.apply_save_data(document.get("world", {}))
 	if not bool(world_result.ok):
@@ -386,33 +531,63 @@ func _apply_loaded_document(document: Dictionary) -> Dictionary:
 	var feature_result: Dictionary = worldgen_result.feature_registry.apply_save_data(document.get("features", {}))
 	if not bool(feature_result.ok):
 		return feature_result
+	# v6 and v7 share the terrain/strata pipeline. Add only new feature data
+	# to a legacy world, keeping the restored terrain and consumed features.
+	if int(header.worldgen_version) == 6 and worldgen_result.feature_registry.count("discovery") == 0:
+		var context := WorldGenContextScript.new(AppConfig.get_document("worldgen"), int(header.seed))
+		context.world = world_grid
+		context.feature_registry = worldgen_result.feature_registry
+		DiscoveryScript.populate(context)
 	if signal_system != null and document.has("signals"):
-		signal_system.apply_save_data(document.signals)
+		var signal_result: Dictionary = signal_system.apply_save_data(document.signals)
+		if not signal_result.ok:
+			return signal_result
 	if water_system != null and document.has("water"):
-		water_system.apply_save_data(document.water)
+		var water_result: Dictionary = water_system.apply_save_data(document.water)
+		if not water_result.ok:
+			return water_result
 	var stability = colony_simulation.get_stability_system()
 	if stability != null and document.has("stability"):
-		stability.apply_save_data(document.stability)
+		var stability_result: Dictionary = stability.apply_save_data(document.stability)
+		if not stability_result.ok:
+			return stability_result
 	var colony_result: Dictionary = colony_simulation.apply_save_data(document.get("colony", {}))
 	if not bool(colony_result.ok):
 		return colony_result
 	var progression: Dictionary = document.get("progression", {})
-	# _ready applies pending saves before the tutorial model is created, so
-	# materialize it lazily here to avoid overwriting the restored step later.
+	var chapter_data: Dictionary = progression.get("chapter_model", {}).duplicate(true)
+	if not chapter_data.has("rules_version"):
+		chapter_data["rules_version"] = 1 if int(header.worldgen_version) == 6 else 2
+	chapter_model.apply_save_data(chapter_data)
 	if _tutorial == null:
 		_tutorial = ContextTutorialModelScript.new()
-	_tutorial.index = clampi(int(progression.get("tutorial_step", 0)), 0, _tutorial.STEPS.size() - 1)
+	_tutorial.configure_v2(chapter_model.rules_version >= 2)
+	if progression.has("tutorial_step_id"):
+		_tutorial.restore_id(str(progression.tutorial_step_id))
+	else:
+		_tutorial.index = 0 if _tutorial.v2 else clampi(int(progression.get("tutorial_step", 0)), 0, _tutorial.STEPS.size() - 1)
 	_tutorial_flags = (progression.get("tutorial_flags", {}) as Dictionary).duplicate(true)
-	chapter_model.apply_save_data(progression.get("chapter_model", {}))
+	if home_progress == null:
+		home_progress = HomeProgressScript.new()
+	var home_result: Dictionary = home_progress.apply_save_data(progression.get("home_progress", {}))
+	if not home_result.ok:
+		return home_result
 	_campaign_celebrated = chapter_model.campaign_complete
 	tutorial_label.text = Localization.text(_tutorial.current_text_key())
+	var restored_mice: Array = colony_simulation.get_mice()
+	mouse_agent = restored_mice[0] if not restored_mice.is_empty() else null
 	var saved_language := String(progression.get("language", ""))
 	if saved_language in Localization.SUPPORTED:
 		TranslationServer.set_locale(saved_language)
+	var saved_view: Dictionary = progression.get("view", {})
+	if saved_view.get("cell", null) is Array and saved_view.cell.size() == 2:
+		world_camera.zoom = Vector2.ONE * clampf(float(saved_view.get("zoom", 1.4)), world_camera.min_zoom, world_camera.max_zoom)
+		world_camera.focus_cell(Vector2i(int(saved_view.cell[0]), int(saved_view.cell[1])), _logical_cell_size)
+		world_camera.reset_smoothing()
 	return {"ok": true, "error": ""}
 
 
-func _save_to_slot(slot_name: String) -> void:
+func _save_to_slot(slot_name: String) -> bool:
 	var path := SaveServiceScript.get_save_directory().path_join(slot_name + ".json")
 	var document := _build_save_document()
 	var result: Dictionary = SaveServiceScript.save_game(path, document)
@@ -424,6 +599,8 @@ func _save_to_slot(slot_name: String) -> void:
 	else:
 		_push_notification("save_failed", tr("notify.save_failed") % String(result.error), Vector2i(-1, -1), 4.0, 4.0)
 		GameLog.failure("SAVE", "Save failed slot=%s error=%s" % [slot_name, String(result.error)])
+
+	return bool(result.ok)
 
 
 func _request_load(slot_name: String) -> void:
@@ -443,14 +620,18 @@ func _request_load(slot_name: String) -> void:
 func _slow_poll() -> void:
 	_poll_accumulator = 0.0
 	_update_tutorial_flags()
+	_evaluate_chapter_milestones()
+	_update_v2_tutorial_flags()
 	if _tutorial.advance(_tutorial_flags):
 		tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	_update_objective()
+	_update_home_progress()
+	_refresh_root_teaching()
+	get_node("UI/Root/TutorialPanel").visible = not chapter_model.campaign_complete and _tutorial.current_id() != "promise"
 	_poll_notifications()
 	notifications_view.refresh(_now_seconds)
 	_update_water_proximity()
 	_emit_warning_dust()
-	_evaluate_chapter_milestones()
 
 
 ## Phase 13 chapter milestones (GDD §13, world/04 §6, colony/10 §14): chapter
@@ -458,25 +639,7 @@ func _slow_poll() -> void:
 func _evaluate_chapter_milestones() -> void:
 	if chapter_model == null or chapter_model.campaign_complete:
 		return
-	var zone_system = colony_simulation.get_zone_system()
-	var water_settled: bool = water_system == null or water_system.get_active_cell_count() == 0
-	var stability = colony_simulation.get_stability_system()
-	var signals_learned: bool = (
-		signal_system != null
-		and signal_system.get_recognition_name("root_cluster") != "UNKNOWN"
-		and signal_system.get_recognition_name("water_reservoir") != "UNKNOWN"
-	)
-	chapter_model.evaluate({
-		"colony_depth": int(_tutorial_flags.get("_deepest", 0)),
-		"chapter_depths": world_grid.metadata.get("depth_targets", {}),
-		"sleeping_ready": _zone_ready(zone_system, ZoneScript.Type.SLEEPING),
-		"storage_ready": _zone_ready(zone_system, ZoneScript.Type.STORAGE),
-		"food_total": colony_simulation.get_item_system().get_total_count(ItemSystemScript.FOOD),
-		"signals_learned": signals_learned,
-		"water_settled": water_settled,
-		"supports_built": stability != null and stability.get_completed_count() > 0,
-		"warm_home_ready": _warm_home_ready(zone_system),
-	})
+	chapter_model.evaluate(_chapter_context())
 	if chapter_model.campaign_complete and not _campaign_celebrated:
 		_campaign_celebrated = true
 		if _telemetry != null:
@@ -491,17 +654,21 @@ func _evaluate_chapter_milestones() -> void:
 func _warm_home_ready(zone_system) -> bool:
 	var warm_cells: Dictionary = {}
 	for feature in worldgen_result.feature_registry.get_features("warm_chamber"):
-		for warm_cell: Vector2i in feature.cells:
-			warm_cells[warm_cell] = true
-	if warm_cells.is_empty():
-		return false
-	for zone: Zone in zone_system.get_zones_by_type(ZoneScript.Type.SLEEPING, true):
+		if chapter_model != null and chapter_model.rules_version >= 2 and feature.hidden:
+			continue
+		for cell: Vector2i in feature.cells:
+			warm_cells[cell] = true
+	var beds := 0
+	for zone in zone_system.get_zones_by_type(ZoneScript.Type.SLEEPING, true):
 		if zone.setup_state != ZoneScript.SetupState.SET_UP:
 			continue
-		for zone_cell: Vector2i in zone.cells:
-			if warm_cells.has(zone_cell):
-				return true
-	return false
+		for cell: Vector2i in zone.cells:
+			if warm_cells.has(cell) and world_grid.get_water_units(cell) == 0 and not colony_simulation.get_stability_system().is_job_blocked(cell):
+				beds += 1
+	if chapter_model == null or chapter_model.rules_version < 2:
+		return beds > 0
+	var mice: int = colony_simulation.get_mice().size()
+	return beds >= mice and _warm_food_stock() >= mice * 2 and colony_simulation.get_capabilities().level >= 2 and colony_simulation.get_production_system().completed_batches > 0
 
 
 func _warm_chamber_anchor() -> Vector2i:
@@ -631,6 +798,8 @@ func _update_objective() -> void:
 	var objective_text := "%s · %s" % [chapter_name, tr("hud.objective") % [deepest, _objective_target_depth]]
 	if chapter_model != null and chapter_model.campaign_complete:
 		objective_text = "%s · %s" % [objective_text, tr("hud.campaign_done")]
+	if chapter_model != null and chapter_model.rules_version >= 2:
+		objective_text = chapter_name + " · " + _next_v2_goal()
 	objective_label.text = objective_text
 	if deepest >= _objective_target_depth and not bool(_tutorial_flags.get("objective_reached", false)):
 		_tutorial_flags["objective_reached"] = true
@@ -679,6 +848,26 @@ func _unhandled_input(event: InputEvent) -> void:
 	# queued input events are still in flight; get_viewport() is null then.
 	var viewport := get_viewport()
 	if viewport == null:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		var code: int = (event as InputEventKey).keycode
+		if code == KEY_I or (code == KEY_ESCAPE and _guide_open):
+			_toggle_resource_guide()
+			viewport.set_input_as_handled()
+			return
+		if code == KEY_H or (code == KEY_ESCAPE and _help_open):
+			_toggle_help()
+			viewport.set_input_as_handled()
+			return
+		if (code == KEY_C and not (_start_view != null and _start_view.visible)) or (code == KEY_ESCAPE and _book_open):
+			_toggle_collection_book()
+			viewport.set_input_as_handled()
+			return
+	if _book_open or _help_open or _guide_open:
+		viewport.set_input_as_handled()
+		return
+	if _start_view != null and _start_view.visible:
+		viewport.set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_ESCAPE:
 		_toggle_settings()
@@ -734,6 +923,10 @@ func _handle_player_shortcuts(event: InputEvent) -> bool:
 		return false
 	var key_event := event as InputEventKey
 	match key_event.keycode:
+		KEY_TAB:
+			time_control.cycle()
+			_choose_speed(time_control.speed)
+			return true
 		KEY_SPACE:
 			_paused = not _paused
 			return true
@@ -752,7 +945,7 @@ func _handle_player_shortcuts(event: InputEvent) -> bool:
 		# Ctrl+S, not F8: F8 is the Godot editor's "stop running project"
 		# shortcut and kills an editor-launched game before the input arrives.
 		KEY_S:
-			if key_event.ctrl_pressed:
+			if key_event.ctrl_pressed or key_event.meta_pressed:
 				_save_to_slot("quicksave")
 				return true
 		KEY_HOME:
@@ -787,6 +980,9 @@ func _handle_tool_shortcut(event: InputEvent) -> bool:
 		KEY_5:
 			_set_tool(Tool.SEAL)
 			return true
+		KEY_7:
+			_set_tool(Tool.PRODUCTION)
+			return true
 		KEY_6:
 			_set_tool(Tool.REINFORCE)
 			return true
@@ -794,7 +990,7 @@ func _handle_tool_shortcut(event: InputEvent) -> bool:
 
 
 func _set_tool(tool: int) -> void:
-	_current_tool = clampi(tool, Tool.DIG, Tool.REINFORCE)
+	_current_tool = clampi(tool, Tool.DIG, Tool.PRODUCTION)
 	_end_paint()
 	if _audio_director != null:
 		_audio_director.play_tool_select()
@@ -814,7 +1010,12 @@ func _set_tool(tool: int) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_quit_session()
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_MOUSE_EXIT:
+		_has_pointer_event = false
+		if _hover_view != null:
+			_hover_view.visible = false
 		_end_paint()
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST and _telemetry != null:
 		# Flush the session snapshot on close so a playtest that never
@@ -983,6 +1184,11 @@ func _update_cursor() -> void:
 	if not world_grid.is_in_bounds(cell_coord):
 		dig_cursor_view.set_cursor(cell_coord, false, false, false)
 		return
+	if _current_tool == Tool.DIG and _paint_action == PaintAction.NONE and _hover_info != null:
+		var info: Dictionary = _hover_info.inspect(cell_coord, Localization.current())
+		if str(info.get("kind", "")) in ["resource", "root"]:
+			dig_cursor_view.set_cursor(cell_coord, false, false, false)
+			return
 	var cancel_mode := _paint_action == PaintAction.CANCEL
 	if _current_tool == Tool.SEAL:
 		var valid: bool = seal_system.has_request(cell_coord) if cancel_mode else seal_system.inspect_request(cell_coord) == "OK"
@@ -1040,7 +1246,12 @@ func _update_hud() -> void:
 		seal_system.get_requests().size(),
 		stability.get_requests().size() if stability != null else 0,
 	]
-	tool_status_label.text = (tr("hud.paused_prefix") if _paused else "") + tr("hud.tools_line") % _tool_name()
+	dig_status_label.visible = dig_system.get_designated_count() > 0 or not seal_system.get_requests().is_empty() or (stability != null and not stability.get_requests().is_empty())
+	tool_status_label.visible = _paused
+	tool_status_label.text = (tr("hud.paused_prefix") if _paused else "") + ("目前：" if Localization.current().begins_with("zh") else "Current: ") + _tool_name() + " · H " + ("操作說明" if Localization.current().begins_with("zh") else "Help")
+	_refresh_toolbar()
+	if _time_controls != null:
+		_time_controls.refresh(_paused, time_control.speed)
 	var mice: Array = colony_simulation.get_mice()
 	var item_system = colony_simulation.get_item_system()
 	colony_status_label.text = "%s %d · %s %d · %s %d" % [
@@ -1051,10 +1262,20 @@ func _update_hud() -> void:
 		tr("hud.mice"),
 		mice.size(),
 	]
+	for resource_id: String in ["STONE", "ORE", "METAL"]:
+		if item_system.get_total_count(resource_id) == 0 and colony_simulation.get_capabilities().level == 0 and colony_simulation.get_production_system().completed_batches == 0:
+			continue
+		colony_status_label.text += " · %s %d" % [Resources.display_name(resource_id, Localization.current()), item_system.get_total_count(resource_id)]
+	if colony_simulation.get_collection_book().unique_count() > 0:
+		colony_status_label.text += " · C %d/18" % colony_simulation.get_collection_book().unique_count()
+	dig_feedback_label.visible = _feedback_seconds_remaining > 0.0 or _hover_feedback != "feedback.choose_frontier"
 	dig_feedback_label.text = tr(_last_feedback) if _feedback_seconds_remaining > 0.0 else tr(_hover_feedback)
 
 
 func _player_inspector_text(cell) -> String:
+	var info: Dictionary = _hover_info.inspect(_selected_cell, Localization.current()) if _hover_info != null else {}
+	if not info.is_empty() and str(info.kind) in ["resource", "root", "clue", "root_clue", "unknown"]:
+		return str(info.title) + "\n" + str(info.body) + "\n" + str(info.action)
 	var lines: Array[String] = []
 	if cell.is_exterior():
 		return tr("hud.surface")
@@ -1093,12 +1314,20 @@ func _player_inspector_text(cell) -> String:
 		lines.append(tr("inspector.zone") % _zone_display_name(zone.get_type_name()))
 	if cell.feature_id >= 0:
 		var feature = worldgen_result.feature_registry.get_feature(cell.feature_id)
+		if feature != null and feature.type_id == "discovery" and not bool(feature.metadata.get("claimed", false)) and _discovery_view.signal_band(_selected_cell) > 0:
+			var definition: Dictionary = DiscoveryScript.definition_for(str(feature.metadata.definition_id))
+			var hints := {"food": ["小芽後面可能藏著食物", "Sprouts suggest food nearby"], "material": ["纖維可能帶來築巢材料", "Fibres suggest nesting materials"], "stone": ["灰色石紋提示可採集的石材", "Grey stone suggests collectable stone"], "ore": ["銅色微光提示礦石", "Copper glints suggest ore"], "collectible": ["小小閃光，也許是值得收藏的驚喜", "A small glimmer — perhaps a keepsake"]}
+			var words: Array = hints.get(str(definition.get("kind", "")), [])
+			if words.size() == 2:
+				lines.append(str(words[0 if Localization.current().begins_with("zh") else 1]))
 		if feature != null and not feature.hidden:
 			lines.append(tr("inspector.discovered") % _feature_display_name(feature.type_id))
 	return "\n".join(lines)
 
 
 func _zone_display_name(type_name: String) -> String:
+	if type_name == "PRODUCTION":
+		return "生產區" if Localization.current().begins_with("zh") else "Workshop"
 	return tr("zone." + type_name.replace("/", "_").to_lower())
 
 
@@ -1195,7 +1424,12 @@ func _on_root_feature_reacted(_feature_id: int, reaction: Dictionary) -> void:
 	var feature = worldgen_result.feature_registry.get_feature(_feature_id)
 	if feature != null:
 		anchor = feature.anchor
-	_push_notification("discovery_root", tr("notify.root_found") % produced, anchor, 25.0)
+	var notice := tr("notify.root_found") % produced
+	if feature != null and not bool(feature.metadata.get("food_opportunity", false)):
+		notice = tr("notify.root_no_food")
+	elif feature != null and int(feature.metadata.get("food_reserve_units", 0)) <= 0:
+		notice = tr("notify.root_depleted") % produced
+	_push_notification("discovery_root", notice, anchor, 25.0)
 	_last_feedback = tr("feedback.root_exposed") % produced
 	_feedback_seconds_remaining = 5.0
 
@@ -1205,9 +1439,11 @@ func _on_root_feature_revealed(feature_id: int, feature_type: String, _exposure_
 
 
 func _on_reservoir_breached(feature_id: int, cell: Vector2i, _danger_cells: Array, released_units: int) -> void:
+	_slow_for_danger()
 	_tutorial_flags["breach"] = true
 	if _telemetry != null:
 		_telemetry.record_breach(released_units)
+		_telemetry.record_development("risk", "water_breach", {"units": released_units})
 		_record_telemetry_discovery("water_reservoir", worldgen_result.feature_registry.get_feature(feature_id))
 	if _vfx_view != null:
 		_vfx_view.burst_water((Vector2(cell) + Vector2(0.5, 0.5)) * _logical_cell_size, released_units)
@@ -1239,6 +1475,7 @@ func _on_region_collapsed(cells: Array, absorbed_water_units: int) -> void:
 
 
 func _on_critical_warning(cells: Array) -> void:
+	_slow_for_danger()
 	_tutorial_flags["stability_warning"] = true
 	if _audio_director != null:
 		_audio_director.play_critical()
@@ -1316,6 +1553,8 @@ func _record_telemetry_discovery(feature_type: String, feature) -> void:
 
 
 func _on_telemetry_warning_changed(cell: Vector2i, level: int) -> void:
+	if _telemetry != null and level > 0 and not _telemetry._first_times.has("risk"):
+		_telemetry.record_development("risk", "stability_warning")
 	if _telemetry != null:
 		_telemetry.note_warning(cell, level)
 
@@ -1329,8 +1568,12 @@ func _collect_reservoir_cells() -> Dictionary:
 
 
 func _telemetry_sample_tick() -> void:
+	if _telemetry != null:
+		_telemetry.sample_production(colony_simulation.get_production_system())
 	if _telemetry == null:
 		return
+	_telemetry.context["simulation_seconds"] = _simulated_seconds
+	_telemetry.context["current_speed"] = time_control.speed
 	var mice: Array = colony_simulation.get_mice()
 	var idle := 0
 	var steps := 0
@@ -1427,17 +1670,19 @@ func _on_settings_changed(audio_accessibility: Dictionary) -> void:
 func _toggle_settings() -> void:
 	_settings_open = not _settings_open
 	if _settings_open:
+		_pause_before_settings = _paused
 		_settings_view.open()
 	else:
 		_settings_view.close()
 	# Settings pause the simulation; the Space pause flag stays independent.
-	_paused = _settings_open
+	_paused = true if _settings_open else _pause_before_settings
+	_sync_camera_input()
 
 
 func _mouse_cell() -> Vector2i:
 	if _qa_inspector_cell.x >= 0:
 		return _qa_inspector_cell
-	return world_view.local_position_to_cell(world_view.get_local_mouse_position())
+	return _viewport_position_to_cell(_pointer_position) if _has_pointer_event else world_view.local_position_to_cell(world_view.get_local_mouse_position())
 
 
 func set_qa_inspector_cell(cell: Vector2i) -> bool:
@@ -1960,6 +2205,8 @@ func _dig_state_name(state: int) -> String:
 
 
 func _reason_text(reason_code: String) -> String:
+	if reason_code == "ABILITY_REQUIRED":
+		return "需要更好的鼠群工具，可在工坊加工金屬" if Localization.current().begins_with("zh") else "Better colony tools are needed — refine metal at a workshop"
 	match reason_code:
 		"OUT_OF_BOUNDS":
 			return tr("reason.OUT_OF_BOUNDS")
@@ -2026,6 +2273,8 @@ func _user_argument_value(prefix: String) -> String:
 
 func _current_zone_type() -> int:
 	match _current_tool:
+		Tool.PRODUCTION:
+			return ZoneScript.Type.PRODUCTION
 		Tool.SLEEPING:
 			return ZoneScript.Type.SLEEPING
 		Tool.STORAGE:
@@ -2037,11 +2286,13 @@ func _current_zone_type() -> int:
 
 
 func _is_zone_tool() -> bool:
-	return _current_tool in [Tool.SLEEPING, Tool.STORAGE, Tool.FOOD_FORAGE]
+	return _current_tool in [Tool.SLEEPING, Tool.STORAGE, Tool.FOOD_FORAGE, Tool.PRODUCTION]
 
 
 func _tool_name() -> String:
 	match _current_tool:
+		Tool.PRODUCTION:
+			return "生產區" if Localization.current().begins_with("zh") else "Workshop"
 		Tool.SLEEPING:
 			return tr("tool.sleeping")
 		Tool.STORAGE:
@@ -2054,3 +2305,367 @@ func _tool_name() -> String:
 			return tr("tool.reinforce")
 		_:
 			return tr("tool.dig")
+
+
+func _on_discovery(event: Dictionary) -> void:
+	var definition: Dictionary = DiscoveryScript.definition_for(str(event.definition_id))
+	var name: String = str(definition.get("zh" if Localization.current().begins_with("zh") else "en", event.definition_id))
+	var reward := ""
+	if not str(event.item).is_empty():
+		reward = " +%d %s" % [int(event.amount), Resources.display_name(str(event.item), Localization.current())]
+	_push_notification("find_%s" % event.id, name + reward, event.cell, 0.0, 8.0)
+	if _audio_director != null:
+		_audio_director.play_discovery_stinger()
+	if _vfx_view != null:
+		_vfx_view.burst_dig((Vector2(event.cell) + Vector2(0.5, 0.5)) * _logical_cell_size, 1)
+	if _telemetry != null:
+		_telemetry.record_discovery(str(event.definition_id), 1)
+		if str(definition.get("kind", "")) == "collectible":
+			_telemetry.record_development("collection", str(event.definition_id))
+		elif not str(event.item).is_empty():
+			_telemetry.record_resource_gain(str(event.item), int(event.amount))
+
+
+func _toggle_collection_book() -> void:
+	if _collection_view == null or _settings_open or _help_open or _guide_open:
+		return
+	_book_open = not _book_open
+	if _book_open:
+		_pause_before_book = _paused
+		_paused = true
+		_collection_view.refresh()
+		_present_modal(_collection_view)
+	else:
+		_paused = _pause_before_book
+	_collection_view.visible = _book_open
+	if _modal_backdrop != null:
+		_modal_backdrop.visible = _book_open or _help_open or _guide_open
+	_sync_camera_input()
+
+
+func _chapter_context() -> Dictionary:
+	var zones = colony_simulation.get_zone_system()
+	var stability = colony_simulation.get_stability_system()
+	var discoveries = colony_simulation.get_discovery_system()
+	return {
+		"colony_depth": int(_tutorial_flags.get("_deepest", 0)),
+		"chapter_depths": world_grid.metadata.get("depth_targets", {}),
+		"sleeping_ready": _zone_ready(zones, ZoneScript.Type.SLEEPING),
+		"storage_ready": _zone_ready(zones, ZoneScript.Type.STORAGE),
+		"food_total": colony_simulation.get_item_system().get_total_count("FOOD"),
+		"signals_learned": signal_system != null and signal_system.get_recognition_name("root_cluster") != "UNKNOWN" and signal_system.get_recognition_name("water_reservoir") != "UNKNOWN",
+		"water_learned": signal_system != null and signal_system.get_recognition_name("water_reservoir") != "UNKNOWN",
+		"water_settled": water_system == null or water_system.is_sleeping() or water_system.get_active_cell_count() == 0,
+		"supports_built": stability != null and stability.get_completed_count() > 0,
+		"warm_home_ready": _warm_home_ready(zones),
+		"discoveries_found": 0 if discoveries == null else discoveries.claimed_count(),
+		"production_batches": colony_simulation.get_production_system().completed_batches,
+		"capability_level": colony_simulation.get_capabilities().level,
+		"collection_count": colony_simulation.get_collection_book().unique_count(),
+		"mouse_count": colony_simulation.get_mice().size(),
+		"campaign_complete": chapter_model.campaign_complete,
+	}
+
+
+func _update_v2_tutorial_flags() -> void:
+	var context := _chapter_context()
+	var items = colony_simulation.get_item_system()
+	_tutorial_flags["first_find"] = int(context.discoveries_found) > 0
+	_tutorial_flags["storage_ready"] = bool(context.storage_ready)
+	_tutorial_flags["raw_ready"] = items.get_total_count("STONE") >= 2 or items.get_total_count("ORE") >= 2
+	_tutorial_flags["workshop_ready"] = _zone_ready(colony_simulation.get_zone_system(), ZoneScript.Type.PRODUCTION)
+	_tutorial_flags["production_ready"] = int(context.production_batches) > 0
+	_tutorial_flags["tools_ready"] = int(context.capability_level) >= 1
+	_tutorial_flags["food_supply_ready"] = bool(_tutorial_flags.get("forage_ready", false)) or int(context.food_total) >= 10
+	_tutorial_flags["chapter2"] = chapter_model.current_chapter >= 2
+	_tutorial_flags["supports_ready"] = bool(context.supports_built)
+	_tutorial_flags["deep_tools_ready"] = int(context.capability_level) >= 2
+	_tutorial_flags["campaign_complete"] = chapter_model.campaign_complete
+	for type_id: String in ["old_burrow", "warm_chamber"]:
+		for feature in worldgen_result.feature_registry.get_features(type_id):
+			if not feature.hidden:
+				_tutorial_flags[type_id + "_ready"] = true
+
+
+func _next_v2_goal() -> String:
+	var context := _chapter_context()
+	var zh := Localization.current().begins_with("zh")
+	if chapter_model.campaign_complete:
+		return "暖巢已安頓，繼續探索與收藏吧。" if zh else "Our warm home is ready. Keep exploring and collecting."
+	if chapter_model.current_chapter == 1:
+		if int(context.discoveries_found) == 0:
+			return "選挖掘（1），左鍵拖曳洞壁，朝小芽或纖維挖近。" if zh else "Select Dig (1), then drag the wall towards a sprout or fibres."
+		if not bool(context.sleeping_ready):
+			return "劃出乾燥睡眠區（2）。" if zh else "Make a dry sleeping area (2)."
+		if not bool(context.storage_ready):
+			return "在物資附近建倉儲（3）。" if zh else "Make a store near supplies (3)."
+		if int(context.production_batches) == 0 and not _zone_ready(colony_simulation.get_zone_system(), ZoneScript.Type.PRODUCTION) and colony_simulation.get_item_system().get_total_count("STONE") == 0 and colony_simulation.get_item_system().get_total_count("ORE") == 0:
+			return "追尋灰色石紋與銅色礦光，為工坊準備原料。" if zh else "Follow grey stone or copper glints to find workshop inputs."
+		if int(context.production_batches) == 0:
+			return "建工坊（7），加工第一批物資。" if zh else "Build a workshop (7) and craft a first batch."
+		if int(context.capability_level) == 0:
+			return "加工金屬，為鼠群升級工具。" if zh else "Refine metal and upgrade colony tools."
+		if int(context.food_total) < 10:
+			return "備好 10 份食物，迎接新夥伴。" if zh else "Stock 10 food for new arrivals."
+		return "向根系更深處探索。" if zh else "Explore deeper among the roots."
+	if chapter_model.current_chapter == 2:
+		if not bool(context.water_learned):
+			return "讀懂潮濕線索，準備安全路線。" if zh else "Read damp clues and prepare a safe route."
+		if not bool(context.supports_built):
+			return "為工作路線完成一次加固（6）。" if zh else "Reinforce a working route (6)."
+		if int(context.capability_level) < 2:
+			return "用石材與金屬升級深掘能力。" if zh else "Upgrade deep tools with stone and metal."
+		return "穩住水勢，尋找舊鼠穴。" if zh else "Settle the water and find the old burrow."
+	return "在暖室為每隻鼠鼠備床，在附近存好糧食並保持通路。" if zh else "Give every mouse a warm-chamber bed, stock food nearby and keep access safe."
+
+
+func _update_home_progress() -> void:
+	if home_progress == null:
+		return
+	for id: String in home_progress.evaluate(_chapter_context(), _active_seconds):
+		if _telemetry != null:
+			_telemetry.record_development("home", id)
+		var title: String = str(HomeProgressScript.TITLES[id].get("zh" if Localization.current().begins_with("zh") else "en", id))
+		_push_notification("home_" + id, title, world_grid.metadata.start_cell, 0.0, 7.0)
+	zone_overlay_view.set_collection_count(colony_simulation.get_collection_book().unique_count())
+
+
+func _on_produced(event: Dictionary) -> void:
+	if _telemetry != null:
+		_telemetry.record_resource_gain(str(event.item), int(event.amount))
+		_telemetry.record_development("production", str(event.recipe), {"zone": event.zone, "input": event.input, "input_amount": event.input_amount, "output": event.item, "amount": event.amount})
+	var name := Resources.display_name(str(event.item), Localization.current())
+	_push_notification("produced_" + str(event.recipe), ("工坊完成：" if Localization.current().begins_with("zh") else "Workshop made: ") + "%d %s" % [int(event.amount), name], event.cell, 10.0, 5.0)
+
+
+func _on_capability_upgraded(level: int) -> void:
+	if _telemetry != null:
+		_telemetry.record_development("upgrade", str(level), {"level": level})
+	_push_notification("tools", "鼠群學會了新本領！" if Localization.current().begins_with("zh") else "New tools for the whole colony!", world_grid.metadata.start_cell, 0.0, 7.0)
+
+
+func _warm_food_stock() -> int:
+	var total := 0
+	var anchor := _warm_chamber_anchor()
+	var zones = colony_simulation.get_zone_system()
+	for pile in colony_simulation.get_item_system().get_piles():
+		if pile.item_type != "FOOD":
+			continue
+		var zone = zones.get_zone_at(pile.cell)
+		if zone == null or zone.zone_type != ZoneScript.Type.STORAGE or not zone.valid or zone.setup_state != ZoneScript.SetupState.SET_UP:
+			continue
+		var route: Array[Vector2i] = path_service.find_path(anchor, pile.cell)
+		if not route.is_empty() and route.size() <= 13:
+			total += pile.available_count()
+	return total
+
+
+func _on_food_produced(_feature_id: int, _cell: Vector2i, count: int) -> void:
+	if _telemetry != null:
+		_telemetry.record_resource_gain("FOOD", count)
+
+
+func _toggle_help() -> void:
+	if _settings_open or _book_open or _guide_open or _help_view == null:
+		return
+	_help_open = not _help_open
+	if _help_open:
+		_pause_before_help = _paused
+		_paused = true
+		_help_view.refresh()
+		_present_modal(_help_view)
+	else:
+		_paused = _pause_before_help
+	_help_view.visible = _help_open
+	_modal_backdrop.visible = _book_open or _help_open or _guide_open
+	_sync_camera_input()
+
+
+func _build_player_toolbar() -> void:
+	var bar := HFlowContainer.new()
+	bar.name = "PlayerToolbar"
+	bar.alignment = FlowContainer.ALIGNMENT_CENTER
+	var rows = get_node("UI/Root/GameplayHud/Margin/Rows")
+	rows.add_child(bar)
+	rows.move_child(bar, 1)
+	for entry: Array in [[1, Tool.DIG], [2, Tool.SLEEPING], [3, Tool.STORAGE], [4, Tool.FOOD_FORAGE], [5, Tool.SEAL], [6, Tool.REINFORCE], [7, Tool.PRODUCTION]]:
+		var value: int = entry[1]
+		var button := Button.new()
+		button.set_meta("shortcut", entry[0])
+		button.add_theme_font_size_override("font_size", 13)
+		button.focus_mode = Control.FOCUS_NONE
+		button.toggle_mode = true
+		button.pressed.connect(func() -> void: _set_tool(value))
+		bar.add_child(button)
+		_toolbar_buttons[value] = button
+	var help := Button.new()
+	help.text = "?"
+	help.tooltip_text = "H · Help / 操作說明"
+	help.focus_mode = Control.FOCUS_NONE
+	help.pressed.connect(_toggle_help)
+	bar.add_child(help)
+
+
+func _refresh_toolbar() -> void:
+	var names: Array[String] = [tr("tool.dig"), tr("tool.sleeping"), tr("tool.storage"), tr("tool.food_forage"), tr("tool.seal"), tr("tool.reinforce"), "工坊" if Localization.current().begins_with("zh") else "Workshop"]
+	for value: int in _toolbar_buttons:
+		var button: Button = _toolbar_buttons[value]
+		var short_names: Array = ["挖掘", "睡眠", "倉儲", "覓食", "封堵", "加固", "工坊"] if Localization.current().begins_with("zh") else ["Dig", "Sleep", "Store", "Forage", "Seal", "Support", "Craft"]
+		button.text = "%d %s" % [int(button.get_meta("shortcut")), short_names[value]]
+		button.tooltip_text = names[value]
+		button.set_pressed_no_signal(_current_tool == value)
+
+
+func _choose_speed(value: int) -> void:
+	if time_control.set_speed(value) and _telemetry != null:
+		_telemetry.record_development("time_speed", str(value))
+
+
+func _slow_for_danger() -> void:
+	if time_control.danger_started():
+		_push_notification("speed_safety", "留意危險，已恢復 1× 速度。" if Localization.current().begins_with("zh") else "Watch the danger — returned to 1× speed.", Vector2i(-1, -1), 0.0, 7.0)
+
+
+func _focus_latest() -> void:
+	var cell: Vector2i = _notifications.latest_focus_cell(_now_seconds) if _notifications != null else Vector2i(-1, -1)
+	if cell.x >= 0:
+		world_camera.focus_cell(cell, _logical_cell_size)
+
+
+func _show_start() -> void:
+	_session_started = false
+	_paused = true
+	_start_view = StartViewScript.new()
+	_start_view.latest_slot = SaveServiceScript.latest_slot()
+	get_node("UI/Root").add_child(_start_view)
+	_start_view.new_requested.connect(_start_new_home)
+	_start_view.continue_requested.connect(_request_load)
+	_start_view.help_requested.connect(func() -> void:
+		get_node("UI/Root").move_child(_modal_backdrop, -1)
+		get_node("UI/Root").move_child(_help_view, -1)
+		_toggle_help()
+	)
+	_start_view.language_requested.connect(func() -> void:
+		Localization.cycle()
+		_start_view.refresh()
+		tutorial_label.text = Localization.text(_tutorial.current_text_key())
+	)
+	_start_view.quit_requested.connect(_quit_session)
+	_sync_camera_input()
+
+
+func _start_new_home() -> void:
+	var archived: Dictionary = SaveServiceScript.archive_slots()
+	if not archived.ok:
+		_start_view.message = "無法保存舊家園，請檢查儲存空間。" if Localization.current().begins_with("zh") else "Could not preserve the previous home. Please check save storage."
+		_start_view.refresh()
+		return
+	_start_view.visible = false
+	_session_started = true
+	_paused = false
+	_sync_camera_input()
+	_save_to_slot("autosave")
+
+
+func _quit_session() -> void:
+	if _quitting:
+		return
+	_quitting = true
+	if _session_started and colony_simulation != null and _tutorial != null:
+		if not _save_to_slot("autosave"):
+			_quitting = false
+			return
+	_paused = true
+	if _audio_director != null:
+		_audio_director.stop_all()
+	# Let the audio thread finish its fade and main-thread resource cleanup.
+	await get_tree().create_timer(0.15).timeout
+	get_tree().quit()
+
+
+func _verify_playtest() -> void:
+	if OS.is_debug_build() or AppConfig.debug_tools_enabled() or AppConfig.cheats_enabled() or _telemetry != null:
+		push_error("PLAYTEST_BUILD_CHECK_FAIL release/profile isolation")
+		get_tree().quit(1)
+		return
+	if DirAccess.dir_exists_absolute("res://tests") or DirAccess.dir_exists_absolute("res://art/qa"):
+		push_error("PLAYTEST_BUILD_CHECK_FAIL exported QA data")
+		get_tree().quit(1)
+		return
+	if _build_check_stage == 0:
+		if _start_view == null or not _start_view.visible:
+			push_error("PLAYTEST_BUILD_CHECK_FAIL entry menu missing")
+			get_tree().quit(1)
+			return
+		_start_new_home()
+		_build_check_seed = _current_seed
+		_toolbar_buttons[Tool.SLEEPING].pressed.emit()
+		_toggle_help()
+		var help_ok: bool = _paused and _help_view.visible
+		_toggle_help()
+		if not help_ok or _paused or _current_tool != Tool.SLEEPING or not _save_to_slot("quicksave"):
+			push_error("PLAYTEST_BUILD_CHECK_FAIL actual controls/save")
+			get_tree().quit(1)
+			return
+		_build_check_stage = 1
+		_request_load("quicksave")
+		return
+	if not _loaded_from_save or _current_seed != _build_check_seed or _start_view != null:
+		push_error("PLAYTEST_BUILD_CHECK_FAIL resume/seed")
+		get_tree().quit(1)
+		return
+	print("PLAYTEST_BUILD_CHECK_PASS release=true cheats=false telemetry=false entry=true controls=true save_load=true seed=%d qa_data=false" % _current_seed)
+	_quit_session()
+
+
+func _sync_camera_input() -> void:
+	world_camera.input_blocked = _settings_open or _book_open or _help_open or _guide_open or (_start_view != null and _start_view.visible)
+
+
+func _toggle_resource_guide() -> void:
+	if _resource_guide == null or _settings_open or _help_open or _book_open:
+		return
+	_guide_open = not _guide_open
+	if _guide_open:
+		_pause_before_guide = _paused
+		_paused = true
+		_resource_guide.refresh()
+		_present_modal(_resource_guide)
+		_hover_view.visible = false
+	else:
+		_paused = _pause_before_guide
+	_resource_guide.visible = _guide_open
+	_modal_backdrop.visible = _guide_open
+	_sync_camera_input()
+
+
+func _update_hover_tip(delta: float) -> void:
+	if _hover_view == null or _hover_info == null:
+		return
+	var on_ui := get_viewport().gui_get_hovered_control() != null
+	var allowed: bool = _has_pointer_event and get_viewport().get_visible_rect().has_point(_pointer_position) and not on_ui and not _help_open and not _guide_open and not _settings_open and not _book_open and not (_start_view != null and _start_view.visible)
+	var cell := _mouse_cell()
+	var info: Dictionary = _hover_info.inspect(cell, Localization.current()) if allowed else {}
+	_hover_view.update_hover(info, cell, get_node("UI/Root").get_global_transform_with_canvas().affine_inverse() * _pointer_position, delta, allowed)
+
+
+func _refresh_root_teaching() -> void:
+	if _development_view == null:
+		return
+	_development_view.roots_known = false
+	for feature in worldgen_result.feature_registry.get_features("root_cluster"):
+		if not feature.hidden:
+			_development_view.roots_known = true
+			return
+
+
+func _present_modal(view: Control) -> void:
+	var root = get_node("UI/Root")
+	root.move_child(_modal_backdrop, -1)
+	root.move_child(view, -1)
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion or event is InputEventMouseButton:
+		_pointer_position = event.position
+		_has_pointer_event = true

@@ -19,12 +19,14 @@ const DEFAULT_CONFIG := {
 	"chapter1_food_target": 10,
 }
 
+var rules_version := 1
 var current_chapter := CHAPTER_1_SETTLE
 var campaign_complete := false
 var _config: Dictionary = {}
 
 
 func configure(balance: Dictionary = {}) -> void:
+	rules_version = 2 if bool(balance.get("v2_progression", false)) else 1
 	_config = DEFAULT_CONFIG.duplicate()
 	_config.merge(balance.get("population", {}), true)
 
@@ -68,7 +70,10 @@ func _chapter_1_complete(context: Dictionary) -> bool:
 		return false
 	if int(context.get("food_total", 0)) < int(_config.get("chapter1_food_target", 10)):
 		return false
-	if not bool(context.get("signals_learned", false)):
+	if rules_version >= 2:
+		if int(context.get("discoveries_found", 0)) < 1 or int(context.get("production_batches", 0)) < 1 or int(context.get("capability_level", 0)) < 1:
+			return false
+	elif not bool(context.get("signals_learned", false)):
 		return false
 	var depths: Dictionary = context.get("chapter_depths", {})
 	return int(context.get("colony_depth", -1)) >= int(depths.get("chapter_2", 1 << 28))
@@ -78,6 +83,8 @@ func _chapter_1_complete(context: Dictionary) -> bool:
 ## managed water (nothing still flowing) and unstable terrain (supports used).
 ## PROVISIONAL thresholds — Phase 14 may tighten them.
 func _chapter_2_complete(context: Dictionary) -> bool:
+	if rules_version >= 2 and (int(context.get("capability_level", 0)) < 2 or not bool(context.get("water_learned", false))):
+		return false
 	if not (bool(context.get("water_settled", false)) and bool(context.get("supports_built", false))):
 		return false
 	var depths: Dictionary = context.get("chapter_depths", {})
@@ -87,9 +94,10 @@ func _chapter_2_complete(context: Dictionary) -> bool:
 ## Persistence: additive optional key inside the save's progression section
 ## (docs/tech/15) — old v2 saves restore to Chapter 1 via the default.
 func to_save_data() -> Dictionary:
-	return {"chapter": current_chapter, "campaign_complete": campaign_complete}
+	return {"chapter": current_chapter, "campaign_complete": campaign_complete, "rules_version": rules_version}
 
 
 func apply_save_data(data: Dictionary) -> void:
+	rules_version = clampi(int(data.get("rules_version", rules_version)), 1, 2)
 	current_chapter = clampi(int(data.get("chapter", CHAPTER_1_SETTLE)), CHAPTER_1_SETTLE, CHAPTER_3_OLD_BURROW)
 	campaign_complete = bool(data.get("campaign_complete", false))

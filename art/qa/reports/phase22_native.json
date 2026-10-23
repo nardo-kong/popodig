@@ -1,0 +1,34 @@
+[
+  {
+    "check": "phase22_readability_zh_1280",
+    "functional_pass": true,
+    "native_cleanup_pass": true,
+    "evidence": [
+      "PHASE22_READABILITY_SMOKE_PASS locale=zh size=1280 actual_pointer=true food=true materials=true clues=true roots=true guide_keys=true click_through=true"
+    ]
+  },
+  {
+    "check": "phase22_readability_en_1280",
+    "functional_pass": true,
+    "native_cleanup_pass": true,
+    "evidence": [
+      "PHASE22_READABILITY_SMOKE_PASS locale=en size=1280 actual_pointer=true food=true materials=true clues=true roots=true guide_keys=true click_through=true"
+    ]
+  },
+  {
+    "check": "phase22_readability_zh_1920",
+    "functional_pass": true,
+    "native_cleanup_pass": true,
+    "evidence": [
+      "PHASE22_READABILITY_SMOKE_PASS locale=zh size=1920 actual_pointer=true food=true materials=true clues=true roots=true guide_keys=true click_through=true"
+    ]
+  },
+  {
+    "check": "phase22_readability_en_1920",
+    "functional_pass": true,
+    "native_cleanup_pass": true,
+    "evidence": [
+      "PHASE22_READABILITY_SMOKE_PASS locale=en size=1920 actual_pointer=true food=true materials=true clues=true roots=true guide_keys=true click_through=true"
+    ]
+  }
+]

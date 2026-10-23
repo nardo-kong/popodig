@@ -1,6 +1,7 @@
 class_name WorldValidator
 extends RefCounted
 
+const Discovery = preload("res://src/domain/features/discovery_system.gd")
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const GeneratedFeatureScript = preload("res://src/domain/worldgen/generated_feature.gd")
 
@@ -59,6 +60,8 @@ func validate(context: WorldGenContext) -> Dictionary:
 	_validate_signal_fields(context, failures, metrics)
 	_validate_decision_knots(context, failures, metrics)
 	_validate_required_approaches(context, failures)
+	if bool(context.config.get("discoveries_enabled", false)):
+		_validate_discovery_economy(context, failures, metrics)
 	return _report(failures, metrics)
 
 
@@ -895,3 +898,95 @@ func _heap_pop(heap: Array[int]) -> int:
 		cursor = child
 	heap[cursor] = tail
 	return result
+
+
+func _validate_discovery_economy(context, failures: Array[Dictionary], metrics: Dictionary) -> void:
+	var world = context.world
+	var start: Vector2i = world.metadata.start_cell
+	_ensure_potential_field(world, start)
+	var discoveries: Array = context.feature_registry.get_features("discovery")
+	var counts: Array[int] = [0, 0, 0, 0]
+	var unique: Dictionary = {}
+	var visible_kinds: Dictionary = {}
+	var reward_first_cost := IMPASSABLE
+	var max_neighbour_gap := 0
+	var initial_open: Array[Vector2i] = []
+	for index: int in range(_cached_distances.size()):
+		if _cached_distances[index] == 0:
+			initial_open.append(world.index_to_cell(index))
+	# Capability-aware reachability is separate from the old hardness-weighted planner.
+	var basic: Dictionary = {start: 0}
+	var queue: Array[Vector2i] = [start]
+	var head := 0
+	while head < queue.size():
+		var current: Vector2i = queue[head]
+		head += 1
+		for cell: Vector2i in world.get_cardinal_neighbors(current):
+			if basic.has(cell) or world.is_exterior(cell) or world.is_protected(cell):
+				continue
+			var material: int = world.get_material(cell)
+			if material in [CellDataScript.TerrainMaterial.STONE, CellDataScript.TerrainMaterial.FOUNDATION]:
+				continue
+			if material == CellDataScript.TerrainMaterial.DAMP_CLAY and world.get_stratum_id(cell) >= 2:
+				continue
+			basic[cell] = int(basic[current]) + 1
+			queue.append(cell)
+	var bootstrap: Dictionary = {"stone_seam": IMPASSABLE, "ore_seam": IMPASSABLE}
+	var minimum_rewards := [IMPASSABLE, IMPASSABLE, IMPASSABLE, IMPASSABLE]
+	var maximum_rewards := [0, 0, 0, 0]
+	for feature in discoveries:
+		var cell: Vector2i = feature.anchor
+		var tier: int = clampi(world.get_stratum_id(cell), 0, 3)
+		counts[tier] += 1
+		var id: String = str(feature.metadata.get("definition_id", ""))
+		var definition: Dictionary = Discovery.definition_for(id)
+		if definition.is_empty():
+			_fail(failures, "DISCOVERY_UNKNOWN", "Unknown discovery definition", [cell], feature.id)
+			continue
+		unique[id] = true
+		var amount: int = int(feature.metadata.get("amount", definition.get("amount", 1)))
+		if str(definition.get("kind", "")) != "collectible":
+			if amount != mini(12, int(definition.get("amount", 1)) + tier * 2):
+				_fail(failures, "DEPTH_REWARD_GRADIENT", "Resource reward does not follow the configured depth tier", [cell], feature.id)
+			minimum_rewards[tier] = mini(int(minimum_rewards[tier]), amount)
+			maximum_rewards[tier] = maxi(int(maximum_rewards[tier]), amount)
+		var cost: int = _cached_distances[world.cell_to_index(cell)]
+		reward_first_cost = mini(reward_first_cost, cost)
+		for open_cell: Vector2i in initial_open:
+			var delta := (cell - open_cell).abs()
+			if delta.x + delta.y <= 3:
+				visible_kinds[str(definition.get("kind", ""))] = true
+				break
+		if bootstrap.has(id) and basic.has(cell):
+			bootstrap[id] = mini(int(bootstrap[id]), int(basic[cell]))
+		var nearest := IMPASSABLE
+		for other in discoveries:
+			if other.id != feature.id:
+				var delta: Vector2i = (cell - other.anchor).abs()
+				nearest = mini(nearest, delta.x + delta.y)
+		max_neighbour_gap = maxi(max_neighbour_gap, nearest)
+	var settings: Dictionary = context.config.get("discovery_validation", {})
+	for tier: int in range(4):
+		if counts[tier] < int(settings.get("minimum_per_stratum", 3)):
+			_fail(failures, "DISCOVERY_DENSITY", "Insufficient discoveries in stratum %d" % tier)
+	for id: String in Discovery.COLLECTIBLES:
+		if not unique.has(id):
+			_fail(failures, "COLLECTION_INCOMPLETE", "Collection definition absent: " + id)
+	if visible_kinds.size() < 2:
+		_fail(failures, "FRONTIER_UNIFORM", "Start fringe must offer different promise categories")
+	if reward_first_cost > int(settings.get("first_reward_max_dig_cost", 8)):
+		_fail(failures, "FIRST_REWARD_TOO_FAR", "First reward exceeds excavation-cost proxy budget")
+	for id: String in bootstrap:
+		if int(bootstrap[id]) > int(settings.get("bootstrap_max_path_cells", 24)):
+			_fail(failures, "UPGRADE_BOOTSTRAP_BLOCKED", "Initial raw material is behind its own tool barrier: " + id)
+	if max_neighbour_gap > int(settings.get("maximum_neighbour_gap_cells", 20)):
+		_fail(failures, "DISCOVERY_REWARD_GAP", "Discovery spacing exceeds spatial proxy budget")
+	if int(metrics.get("first_reservoir_cost", -1)) >= 0 and reward_first_cost >= int(metrics.first_reservoir_cost):
+		_fail(failures, "REWARD_AFTER_RISK", "Initial discovery should precede first reservoir cost")
+	metrics["discovery_economy"] = {
+		"count_by_stratum": counts, "unique_collection_definitions": Discovery.COLLECTIBLES.filter(func(id: String) -> bool: return unique.has(id)).size(),
+		"initial_visible_promise_categories": visible_kinds.keys(), "first_reward_dig_cost_proxy": reward_first_cost,
+		"bootstrap_path_cells_proxy": bootstrap, "maximum_neighbour_gap_l1_cells": max_neighbour_gap,
+		"resource_reward_min_by_stratum": minimum_rewards, "resource_reward_max_by_stratum": maximum_rewards,
+		"timing_note": "Spatial proxies only; real first reward, risk and upgrade times are recorded during gameplay.",
+	}

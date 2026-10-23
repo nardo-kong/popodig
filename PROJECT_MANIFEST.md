@@ -1,5 +1,7 @@
 # Project Documentation Manifest
 
+> Current 2.0 specifications: `docs/design/DIG_DOWN_2_0_DESIGN.md` and `docs/production/DIG_DOWN_2_0_EXECUTION.md`. Source provenance and issue dependency links are recorded there.
+
 ## Top-level execution files
 - `README.md` — documentation index and project summary
 - `AGENTS.md` — agent authority and hard constraints

@@ -63,7 +63,7 @@ func _test_v1_migration_adds_progression() -> void:
 	_assert(bool(load_result.ok), "v1 save migrates successfully: %s" % String(load_result.error))
 	if bool(load_result.ok):
 		var header: Dictionary = load_result.data.header
-		_assert(int(header.save_schema_version) == 2, "Migration bumps the schema version to 2")
+		_assert(int(header.save_schema_version) == SaveServiceScript.SAVE_SCHEMA_VERSION, "Migration reaches current schema through the v1-v2-v3 chain")
 		_assert(load_result.data.has("progression"), "v1->v2 migration adds the progression section")
 
 

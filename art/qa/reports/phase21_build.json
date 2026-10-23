@@ -1,0 +1,23 @@
+{
+  "engine": "4.7.stable.official.5b4e0cb0f",
+  "template_sha256": "b9b036261c18dac2c6ade52ffb592e3842cb9b76d8c8d0f55bc7b99ac4dfeae0",
+  "app": "exports/macos/DigDown.app",
+  "architecture": "universal",
+  "release_check": [
+    "PLAYTEST_BUILD_CHECK_PASS release=true cheats=false telemetry=false entry=true controls=true save_load=true seed=2053195459 qa_data=false"
+  ],
+  "native_audio": "blocked by #17; resource retention at exit observed",
+  "human_playtest": "pending",
+  "signing": "local ad-hoc; not notarized or published",
+  "excluded": [
+    "tests",
+    "tools",
+    "docs",
+    "art/qa"
+  ],
+  "archive": {
+    "path": "exports/macos/DigDown-0.2.0-playtest-macOS.zip",
+    "bytes": 64995560,
+    "sha256": "f785e5b9d02acf483c64877ffe5c69b16500a6dad7f1ed9f79510536074c5594"
+  }
+}

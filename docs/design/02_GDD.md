@@ -1,5 +1,7 @@
 # 02 — Game Design Document (GDD)
 
+> **2.0 execution authority:** Read `docs/design/DIG_DOWN_2_0_DESIGN.md` for the current loop: visible promise → discovery → resources/collection → hauling/production → home planning → shared capability → deeper exploration. Production zones, multiple purposeful resource types and colony capability stages supersede corresponding V1 limits below. Initial population is one, with chapter growth.
+
 **Status: Core LOCKED / values PROVISIONAL**
 
 ## 1. Game overview

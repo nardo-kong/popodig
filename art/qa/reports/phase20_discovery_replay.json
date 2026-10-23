@@ -1,0 +1,267 @@
+{
+  "records": [
+    {
+      "metrics": {
+        "bootstrap_path_cells_proxy": {
+          "ore_seam": 9,
+          "stone_seam": 9
+        },
+        "count_by_stratum": [
+          33,
+          29,
+          22,
+          25
+        ],
+        "first_reward_dig_cost_proxy": 1,
+        "initial_visible_promise_categories": [
+          "food",
+          "material",
+          "stone",
+          "ore",
+          "collectible"
+        ],
+        "maximum_neighbour_gap_l1_cells": 9,
+        "resource_reward_max_by_stratum": [
+          6,
+          8,
+          10,
+          12
+        ],
+        "resource_reward_min_by_stratum": [
+          4,
+          6,
+          8,
+          10
+        ],
+        "timing_note": "Spatial proxies only; real first reward, risk and upgrade times are recorded during gameplay.",
+        "unique_collection_definitions": 18
+      },
+      "seed": 314159
+    },
+    {
+      "metrics": {
+        "bootstrap_path_cells_proxy": {
+          "ore_seam": 9,
+          "stone_seam": 9
+        },
+        "count_by_stratum": [
+          30,
+          22,
+          35,
+          21
+        ],
+        "first_reward_dig_cost_proxy": 1,
+        "initial_visible_promise_categories": [
+          "food",
+          "material",
+          "stone",
+          "ore"
+        ],
+        "maximum_neighbour_gap_l1_cells": 9,
+        "resource_reward_max_by_stratum": [
+          6,
+          8,
+          10,
+          12
+        ],
+        "resource_reward_min_by_stratum": [
+          4,
+          6,
+          8,
+          10
+        ],
+        "timing_note": "Spatial proxies only; real first reward, risk and upgrade times are recorded during gameplay.",
+        "unique_collection_definitions": 18
+      },
+      "seed": 90731
+    },
+    {
+      "metrics": {
+        "bootstrap_path_cells_proxy": {
+          "ore_seam": 9,
+          "stone_seam": 9
+        },
+        "count_by_stratum": [
+          24,
+          26,
+          36,
+          24
+        ],
+        "first_reward_dig_cost_proxy": 1,
+        "initial_visible_promise_categories": [
+          "food",
+          "material",
+          "stone",
+          "ore"
+        ],
+        "maximum_neighbour_gap_l1_cells": 11,
+        "resource_reward_max_by_stratum": [
+          6,
+          8,
+          10,
+          12
+        ],
+        "resource_reward_min_by_stratum": [
+          4,
+          6,
+          8,
+          10
+        ],
+        "timing_note": "Spatial proxies only; real first reward, risk and upgrade times are recorded during gameplay.",
+        "unique_collection_definitions": 18
+      },
+      "seed": 1441498069
+    },
+    {
+      "metrics": {
+        "bootstrap_path_cells_proxy": {
+          "ore_seam": 9,
+          "stone_seam": 7
+        },
+        "count_by_stratum": [
+          33,
+          28,
+          27,
+          25
+        ],
+        "first_reward_dig_cost_proxy": 1,
+        "initial_visible_promise_categories": [
+          "food",
+          "material",
+          "stone",
+          "ore"
+        ],
+        "maximum_neighbour_gap_l1_cells": 10,
+        "resource_reward_max_by_stratum": [
+          6,
+          8,
+          10,
+          12
+        ],
+        "resource_reward_min_by_stratum": [
+          4,
+          6,
+          8,
+          10
+        ],
+        "timing_note": "Spatial proxies only; real first reward, risk and upgrade times are recorded during gameplay.",
+        "unique_collection_definitions": 18
+      },
+      "seed": 1296661695
+    },
+    {
+      "metrics": {
+        "bootstrap_path_cells_proxy": {
+          "ore_seam": 9,
+          "stone_seam": 9
+        },
+        "count_by_stratum": [
+          31,
+          28,
+          25,
+          26
+        ],
+        "first_reward_dig_cost_proxy": 1,
+        "initial_visible_promise_categories": [
+          "food",
+          "material",
+          "stone",
+          "ore",
+          "collectible"
+        ],
+        "maximum_neighbour_gap_l1_cells": 8,
+        "resource_reward_max_by_stratum": [
+          6,
+          8,
+          10,
+          12
+        ],
+        "resource_reward_min_by_stratum": [
+          4,
+          6,
+          8,
+          10
+        ],
+        "timing_note": "Spatial proxies only; real first reward, risk and upgrade times are recorded during gameplay.",
+        "unique_collection_definitions": 18
+      },
+      "seed": 408334736
+    },
+    {
+      "metrics": {
+        "bootstrap_path_cells_proxy": {
+          "ore_seam": 9,
+          "stone_seam": 6
+        },
+        "count_by_stratum": [
+          24,
+          25,
+          30,
+          27
+        ],
+        "first_reward_dig_cost_proxy": 1,
+        "initial_visible_promise_categories": [
+          "food",
+          "material",
+          "stone",
+          "ore"
+        ],
+        "maximum_neighbour_gap_l1_cells": 11,
+        "resource_reward_max_by_stratum": [
+          6,
+          8,
+          10,
+          12
+        ],
+        "resource_reward_min_by_stratum": [
+          4,
+          6,
+          8,
+          10
+        ],
+        "timing_note": "Spatial proxies only; real first reward, risk and upgrade times are recorded during gameplay.",
+        "unique_collection_definitions": 18
+      },
+      "seed": 1866620546
+    },
+    {
+      "metrics": {
+        "bootstrap_path_cells_proxy": {
+          "ore_seam": 9,
+          "stone_seam": 9
+        },
+        "count_by_stratum": [
+          27,
+          30,
+          20,
+          21
+        ],
+        "first_reward_dig_cost_proxy": 1,
+        "initial_visible_promise_categories": [
+          "food",
+          "material",
+          "stone",
+          "ore"
+        ],
+        "maximum_neighbour_gap_l1_cells": 12,
+        "resource_reward_max_by_stratum": [
+          6,
+          8,
+          10,
+          12
+        ],
+        "resource_reward_min_by_stratum": [
+          4,
+          6,
+          8,
+          10
+        ],
+        "timing_note": "Spatial proxies only; real first reward, risk and upgrade times are recorded during gameplay.",
+        "unique_collection_definitions": 18
+      },
+      "seed": 1478188120
+    }
+  ],
+  "spatial_proxy_note": "Not measured player time",
+  "worldgen_version": 7
+}

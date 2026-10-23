@@ -87,3 +87,19 @@ If external analytics are later added:
 - avoid personal data unless essential and consented;
 - respect platform/privacy requirements;
 - allow analytics to be disabled where required.
+
+
+## 2.0 metrics contract (2026-10-21)
+
+Current recorder uses metrics_version=2. Active session time excludes pause; wall time
+is separate. Movement events count exact total/loaded cell steps. The old 1Hz cell
+sample remains a proxy. Resource gain covers discovery, root/forage and processed
+output, excludes initial inventory and re-hauling. Production snapshot distinguishes
+work, input/route wait and blocked output. Layout edits are a proxy for replanning;
+no intent is inferred. Context includes game/generator version, seed, full balance,
+profile and input source. Release creates no recorder; all development data is local.
+
+`art/qa/reports/phase20_campaign_telemetry.json` is AUTOMATED normal-command evidence,
+not player timing. Initial reward ~3s, production ~167s, first tools ~186s, completion
+~980 simulated seconds for the default seed. Recipe/cost values remain provisional.
+Human judgement uses `docs/qa/2_0_PLAYER_CHECK.md` and open #3/#4/#15.

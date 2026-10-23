@@ -14,6 +14,31 @@ The world must look like one coherent illustration, not a collage of independent
 - Mice and props use consistent side/3-quarter side character presentation appropriate to the cutaway.
 
 ## 3. Style direction
+### Owner clarification — 2026-10-24 (current resource-art authority)
+
+Match `assets/art/production/entities/mouse_master_idle_01.png`, the early
+`art/candidates/pass_01/` terrain family, and the owner's Soft Pixel reference
+in conversation `6a849506-2294-83e8-9eaf-40ef754e6d14` (field, mouse, conifer,
+matte stones). The conversation's old engineering screenshot is a structural
+reference only. Do not copy its placeholder graphics.
+
+- Use visible regular pixel clusters, soft stepped shading, small material
+  patches, restrained warm colours and broken coloured contours.
+- New resources must belong beside the existing mouse. Avoid smooth illustrated
+  inventory stickers, continuous thick dark outlines, giant polygon facets,
+  glossy white spots, saturated orange minerals and blurry halos.
+- `pixel-inspired` in a prompt is insufficient; compare actual output with the
+  reference. Recolouring or pixelating a rejected illustration is insufficient.
+- Preserve the existing 128px maximum import and mipmap scale contract. Inspect
+  the actual 18-unit resource / 22-unit root and 54px guide rendering together
+  with the existing mouse and terrain, including camera min/max zoom. Do not
+  change the entire world's filtering to compensate for a mismatched source.
+- Use genuine alpha cutouts with margin, no ground patch or fuzzy shadow. A
+  transparent corner alone does not prove the absence of an internal halo.
+- Revision `_01` resource images were rejected by the owner. `_02` is the
+  corrected production selection; engineering checks do not imply owner approval.
+  Record source and full prompts in `art/production/resource_imagegen_02.json`.
+
 Recommended:
 - fresh, soft pixel-art or pixel-inspired clean 2D;
 - restrained warm earth palette;

@@ -161,10 +161,11 @@ func _draw_state_accents(state_name: String, working: bool, resting: bool, fleei
 			draw_line(Vector2(1.2 * _facing, -1.5), Vector2(3.2 * _facing, -1.5), EYE_COLOR, 1.0)
 	if carrying:
 		# Carried item rides on the back, clear of the head silhouette.
-		var carry_color := Color("d76d52") if String(mouse_agent.carried_item_type) == "FOOD" else Color("d1b26f")
-		var bag_origin := Vector2(-3.0, -13.5 + bob) if not resting else Vector2(-3.0, -11.0 + bob)
-		draw_rect(Rect2(bag_origin, Vector2(6.0, 5.0)), carry_color, true)
-		draw_rect(Rect2(bag_origin, Vector2(6.0, 5.0)), OUTLINE, false, 1.0)
+		var id := String(mouse_agent.carried_item_type)
+		var icon := ResourceVisuals.texture(id)
+		if icon != null:
+			var center := Vector2(0.0, -11.5 + bob) if not resting else Vector2(0.0, -9.0 + bob)
+			draw_texture_rect(icon, ResourceVisuals.fitted_rect(id, center, 10.0), false)
 	if fleeing:
 		var warning := PackedVector2Array([Vector2(-3.5, -16.0), Vector2(3.5, -16.0), Vector2(0.0, -22.0)])
 		draw_colored_polygon(warning, Color("ef7c54"))

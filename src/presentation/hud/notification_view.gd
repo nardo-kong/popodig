@@ -24,6 +24,7 @@ func refresh(now: float) -> void:
 	if _model == null:
 		return
 	for child: Node in get_children():
+		remove_child(child)
 		child.queue_free()
 	for entry: Dictionary in _model.active(now):
 		var panel := PanelContainer.new()
@@ -38,6 +39,8 @@ func refresh(now: float) -> void:
 		panel.add_theme_stylebox_override("panel", style)
 		var label := Label.new()
 		label.text = String(entry.text)
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		label.add_theme_color_override("font_color", TEXT_COLOR)
 		panel.add_child(label)

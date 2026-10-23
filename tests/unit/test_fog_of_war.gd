@@ -134,6 +134,8 @@ func _test_hidden_feature_cells_stay_dark() -> void:
 	var level_without_registry := fog._visibility[center_cell.y * grid.width + center_cell.x]
 	_assert_true(level_without_registry == 0, "Without registry knowledge the hidden cavity leaks light (old broken behavior, level %d)" % level_without_registry)
 
+	fog.free()
+
 
 func _test_discovered_feature_becomes_light_source() -> void:
 	var grid := FakeGrid.new()
@@ -155,6 +157,8 @@ func _test_discovered_feature_becomes_light_source() -> void:
 	fog._recompute()
 	var revealed_level := fog._visibility[cavity_cells[1].y * grid.width + cavity_cells[1].x]
 	_assert_true(revealed_level == 0, "Discovering the feature lights its cells (level %d)" % revealed_level)
+
+	fog.free()
 
 
 func _assert_true(condition: bool, description: String) -> void:

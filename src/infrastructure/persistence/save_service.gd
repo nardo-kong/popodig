@@ -9,8 +9,11 @@ extends RefCounted
 # - corruption recovery: failed loads preserve the file with a .corrupt suffix
 #   and report a user-readable error instead of silently regenerating.
 
-const SAVE_SCHEMA_VERSION := 2
+const SAVE_SCHEMA_VERSION := 3
+# Automated entry/build checks use an isolated folder, never the player slots.
+static var verification_directory := ""
 const MIGRATIONS: Array[Dictionary] = [
+	{"from": 2, "to": 3, "note": "v3 adds optional 2.0 colony state; legacy resource IDs remain stable."},
 	{"from": 1, "to": 2, "note": "v2 adds the progression section (tutorial step/flags, language)."},
 ]
 
@@ -66,8 +69,10 @@ static func load_game(path: String) -> Dictionary:
 		return {"ok": false, "error": "cannot open save file", "data": {}}
 	var text := file.get_as_text()
 	file.close()
-	var parsed: Variant = JSON.parse_string(text)
-	if parsed is not Dictionary:
+	var parser := JSON.new()
+	var parse_error := parser.parse(text)
+	var parsed: Variant = parser.data
+	if parse_error != OK or parsed is not Dictionary:
 		_preserve_corrupted_copy(path)
 		return {"ok": false, "error": "save file is corrupted (not valid JSON)", "data": {}}
 	var document: Dictionary = parsed
@@ -111,6 +116,12 @@ static func _find_migration(from_version: int) -> Dictionary:
 
 static func _apply_migration(document: Dictionary, _from_version: int, to_version: int) -> String:
 	match to_version:
+		3:
+			if document.get("colony", null) is Dictionary and not document.colony.has("capabilities"):
+				document.colony["capabilities"] = {"level": 2}
+			if not document.has("progression"):
+				document["progression"] = {}
+			return ""
 		2:
 			# v2 introduced the progression section (tutorial step/flags, language).
 			if not document.has("progression"):
@@ -128,4 +139,39 @@ static func _preserve_corrupted_copy(path: String) -> void:
 
 
 static func get_save_directory() -> String:
-	return OS.get_user_data_dir().path_join("saves")
+	return verification_directory if not verification_directory.is_empty() else OS.get_user_data_dir().path_join("saves")
+
+
+static func latest_slot(directory: String = "") -> String:
+	if directory.is_empty():
+		directory = get_save_directory()
+	var latest := ""
+	var modified := -1
+	for slot: String in ["quicksave", "autosave"]:
+		var path := directory.path_join(slot + ".json")
+		if FileAccess.file_exists(path) and int(FileAccess.get_modified_time(path)) > modified:
+			latest = slot
+			modified = FileAccess.get_modified_time(path)
+	return latest
+
+
+static func archive_slots(directory: String = "") -> Dictionary:
+	if directory.is_empty():
+		directory = get_save_directory()
+	var archive := directory.path_join("archive")
+	if DirAccess.make_dir_recursive_absolute(archive) != OK:
+		return {"ok": false, "error": "cannot create save archive"}
+	var sources: Array[String] = []
+	var suffix := str(int(Time.get_unix_time_from_system())) + "-" + str(Time.get_ticks_usec())
+	for slot: String in ["quicksave", "autosave"]:
+		var path := directory.path_join(slot + ".json")
+		if not FileAccess.file_exists(path):
+			continue
+		if DirAccess.copy_absolute(path, archive.path_join(slot + "-" + suffix + ".json")) != OK:
+			return {"ok": false, "error": "cannot preserve previous save"}
+		sources.append(path)
+	# Remove originals only after all archived copies succeeded.
+	for path: String in sources:
+		if DirAccess.remove_absolute(path) != OK:
+			return {"ok": false, "error": "cannot prepare new save slots"}
+	return {"ok": true, "error": "", "archived": sources.size()}

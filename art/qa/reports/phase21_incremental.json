@@ -1,0 +1,22 @@
+{
+  "created_utc": "2026-10-21T23:51:56.907868+00:00",
+  "mode": "incremental",
+  "checks": [
+    {
+      "check": "import",
+      "passed": true,
+      "exit": 0,
+      "evidence": []
+    },
+    {
+      "check": "units",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "TEST_SUMMARY passed=173 failed=0 total=173"
+      ]
+    }
+  ],
+  "human_playtest": "pending; automated evidence does not establish appeal",
+  "worldgen_matrix": "existing v7 288-seed report; rc verifies seven fresh hashes"
+}

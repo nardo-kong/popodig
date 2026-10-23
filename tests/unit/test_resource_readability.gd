@@ -1,0 +1,85 @@
+extends "res://tests/test_case.gd"
+
+const World = preload("res://src/domain/world/world_grid.gd")
+const Cell = preload("res://src/domain/world/cell_data.gd")
+const Paths = preload("res://src/application/services/grid_path_service.gd")
+const Items = preload("res://src/domain/colony/item_system.gd")
+const Zones = preload("res://src/domain/zones/zone_system.gd")
+const Registry = preload("res://src/domain/worldgen/feature_registry.gd")
+const Feature = preload("res://src/domain/worldgen/generated_feature.gd")
+const Fog = preload("res://src/presentation/world/fog_of_war_view.gd")
+const Discoveries = preload("res://src/presentation/world/discovery_view.gd")
+const Hover = preload("res://src/presentation/hud/world_hover_info.gd")
+
+
+func run() -> Array[Dictionary]:
+	for id: String in ResourceVisuals.SOURCES:
+		var texture := ResourceVisuals.texture(id)
+		assert_true(texture != null, id + " has a real, shared resource image")
+		var image := (texture as AtlasTexture).atlas.get_image()
+		assert_true(image.get_width() <= 128, id + " uses a bounded in-engine image size")
+		assert_true(image.get_pixel(0, 0).a < 0.01, id + " has a genuinely transparent edge")
+		assert_true(not image.get_used_rect().has_point(Vector2i.ZERO), id + " is isolated without a background tile")
+		assert_true(not ResourceVisuals.purpose(id, "en").is_empty() and not ResourceVisuals.purpose(id, "zh").is_empty(), id + " explains its purpose in both languages")
+	var world := World.new(16, 9, 7)
+	for y: int in range(9):
+		for x: int in range(16):
+			world.initialize_cell(Vector2i(x, y), Cell.TerrainMaterial.SOFT_SOIL, false, false, false)
+	world.set_excavated(Vector2i(3, 4), true, true)
+	world.set_excavated(Vector2i(12, 4), true, true)
+	world.metadata.start_cell = Vector2i(3, 4)
+	var registry := Registry.new()
+	var hidden := Feature.new("natural_cavity", Vector2i(12, 4), [Vector2i(12, 4)])
+	registry.add_feature(hidden)
+	world.set_feature_id(hidden.anchor, hidden.id)
+	var clue := Feature.new("discovery", Vector2i(5, 4), [Vector2i(5, 4)])
+	clue.metadata = {"definition_id": "seed_cache", "amount": 7, "claimed": false}
+	registry.add_feature(clue)
+	world.set_feature_id(clue.anchor, clue.id)
+	var roots := Feature.new("root_cluster", Vector2i(4, 5), [Vector2i(4, 5)])
+	roots.metadata = {"food_reserve_units": 30, "food_opportunity": true}
+	registry.add_feature(roots)
+	world.set_feature_id(roots.anchor, roots.id)
+	var paths := Paths.new()
+	paths.configure(world, {})
+	var items := Items.new()
+	items.configure(world, paths)
+	items.add_pile("FOOD", Vector2i(3, 4), 8)
+	items.add_pile("METAL", Vector2i(12, 4), 3)
+	var zones := Zones.new()
+	# Zone lookup is pure here; no existing zones in this fixture.
+	var fog := Fog.new()
+	fog.configure(world, 16, 4, registry)
+	fog._recompute()
+	var view := Discoveries.new()
+	view.configure(world, registry, fog, 16)
+	var hover := Hover.new()
+	hover.configure(world, registry, items, fog, view, zones, null)
+	var before: Dictionary = items.to_save_data().duplicate(true)
+	for locale: String in ["zh", "en"]:
+		var info := hover.inspect(Vector2i(3, 4), locale)
+		assert_equal(info.kind, "resource", "A visible food pile is inspectable in " + locale)
+		assert_true(str(info.title).contains("8"), "Tooltip shows the real pile count")
+		assert_equal(info.icon, "FOOD", "World, guide and tooltip share the food icon")
+		assert_true(not str(info.action).is_empty(), "Supplies explain the next player action")
+		info = hover.inspect(clue.anchor, locale)
+		assert_equal(info.kind, "clue", "A wall clue is distinct from a supply pile")
+		assert_true(not info.has("items") and not str(info.body).contains("7"), "A wall clue does not reveal buried counts")
+		info = hover.inspect(roots.anchor, locale)
+		assert_true(info.kind != "root", "A hidden root does not reveal its identity")
+		info = hover.inspect(hidden.anchor, locale)
+		assert_equal(info.kind, "unknown", "Dark cavities do not leak physical items")
+		assert_true(not JSON.stringify(info).contains("METAL") and not JSON.stringify(info).contains("Metal"), "Fully hidden metal cannot be read through the tooltip")
+	roots.hidden = false
+	var info := hover.inspect(roots.anchor, "zh")
+	assert_equal(info.icon, "ROOT", "Exposed roots use a recognizable branching-root picture")
+	assert_true(str(info.action).contains("4") and str(info.action).contains("乾燥"), "Root tooltip teaches forage placement on nearby dry open ground")
+	roots.metadata.food_reserve_units = 0
+	assert_true(str(hover.inspect(roots.anchor, "zh").body).contains("已採完"), "Depleted roots do not promise more food")
+	roots.metadata.food_opportunity = false
+	assert_true(str(hover.inspect(roots.anchor, "zh").body).contains("沒有可採集"), "Decorative roots do not falsely promise food")
+	assert_equal(items.to_save_data(), before, "Inspecting never collects or consumes supplies")
+	assert_true(hover.inspect(Vector2i(-1, 0)).is_empty(), "Out-of-world hover is safely suppressed")
+	view.free()
+	fog.free()
+	return results

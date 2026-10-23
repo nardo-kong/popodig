@@ -1,5 +1,25 @@
 # AGENTS.md — Dig Down / 地下鼠鼠
 
+## 0. Current 2.0 execution authority (2026-10-22)
+Read `docs/design/DIG_DOWN_2_0_DESIGN.md` and
+`docs/production/DIG_DOWN_2_0_EXECUTION.md` before implementing current work.
+They record the owner's approved design discussion and supersede conflicting
+V1 resource/progression limits below. The original two ChatGPT download files
+were not committed; these are explicitly sourced execution specifications,
+not a claim to have recovered those files.
+
+The owner explicitly authorized continuous implementation of GitHub #1–#15 and the experience/packaging follow-ups #17–#22.
+Claim the next dependency-ready issue and continue after reporting/checking a
+batch; do not stop for repeated milestone approval. Human observations must
+remain marked pending until actually performed.
+
+Testing cadence requested by the owner: run core invariants and affected
+incremental suites per issue, plus import/parse and focused gameplay smoke
+when appropriate. Run broad regression only after a batch of related issues
+or when a new failure/risk warrants it. Do not repeat the full 288-seed matrix
+or every screenshot pipeline after small changes. Record the exact selection,
+result, commit and remaining human gates.
+
 ## 1. Role
 You are implementing the game described by this repository. Treat the Markdown specifications in `docs/` as the product authority. Do not silently redesign mechanics, invent substitute systems, or broaden scope because a familiar genre usually contains them.
 
@@ -85,4 +105,6 @@ Every implementation task must return:
 A task is not complete when code merely compiles; it is complete when its acceptance criteria pass.
 
 ## 8. Stop conditions
-Do not continue automatically to the next production milestone after completing the current one. Return the completion report and wait for PM approval unless the user explicitly requests end-to-end implementation in one run.
+Return completion evidence after each batch. For the current 2.0 run, the
+owner's explicit end-to-end authorization in §0 applies: continue through
+dependency-ready issues, keeping genuine human playtest gates open.

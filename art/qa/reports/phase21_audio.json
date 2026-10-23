@@ -1,0 +1,142 @@
+[
+  {
+    "driver": "CoreAudio",
+    "listening_test": "pending",
+    "mix_advancing": false,
+    "samples": [
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 0,
+        "objects": 1530,
+        "seconds_since_mix": 0.601971
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 1,
+        "objects": 1531,
+        "seconds_since_mix": 0.802236
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 2,
+        "objects": 1532,
+        "seconds_since_mix": 1.002317
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 3,
+        "objects": 1533,
+        "seconds_since_mix": 1.202697
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 4,
+        "objects": 1534,
+        "seconds_since_mix": 1.402983
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 5,
+        "objects": 1535,
+        "seconds_since_mix": 1.602996
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 6,
+        "objects": 1536,
+        "seconds_since_mix": 1.803091
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 7,
+        "objects": 1537,
+        "seconds_since_mix": 2.003414
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 8,
+        "objects": 1538,
+        "seconds_since_mix": 2.203476
+      },
+      {
+        "ambience_position": 0.00580498855561018,
+        "index": 9,
+        "objects": 1539,
+        "seconds_since_mix": 2.403781
+      }
+    ],
+    "exit": 1,
+    "errors": [
+      "ERROR: 3 resources still in use at exit (run with --verbose for details)."
+    ]
+  },
+  {
+    "driver": "Dummy",
+    "listening_test": "pending",
+    "mix_advancing": true,
+    "samples": [
+      {
+        "ambience_position": 0.0986848101019859,
+        "index": 0,
+        "objects": 1529,
+        "seconds_since_mix": 0.048415
+      },
+      {
+        "ambience_position": 0.284444451332092,
+        "index": 1,
+        "objects": 1529,
+        "seconds_since_mix": 0.053738
+      },
+      {
+        "ambience_position": 0.470204085111618,
+        "index": 2,
+        "objects": 1529,
+        "seconds_since_mix": 0.055669
+      },
+      {
+        "ambience_position": 0.655963718891144,
+        "index": 3,
+        "objects": 1529,
+        "seconds_since_mix": 0.051162
+      },
+      {
+        "ambience_position": 0.841723382472992,
+        "index": 4,
+        "objects": 1529,
+        "seconds_since_mix": 0.047934
+      },
+      {
+        "ambience_position": 1.0274829864502,
+        "index": 5,
+        "objects": 1529,
+        "seconds_since_mix": 0.046111
+      },
+      {
+        "ambience_position": 1.21324265003204,
+        "index": 6,
+        "objects": 1529,
+        "seconds_since_mix": 0.046478
+      },
+      {
+        "ambience_position": 1.39900231361389,
+        "index": 7,
+        "objects": 1529,
+        "seconds_since_mix": 0.044293
+      },
+      {
+        "ambience_position": 1.58476185798645,
+        "index": 8,
+        "objects": 1529,
+        "seconds_since_mix": 0.042186
+      },
+      {
+        "ambience_position": 1.7705215215683,
+        "index": 9,
+        "objects": 1529,
+        "seconds_since_mix": 0.040845
+      }
+    ],
+    "exit": 0,
+    "errors": []
+  }
+]

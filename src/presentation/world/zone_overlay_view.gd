@@ -4,6 +4,7 @@ extends Node2D
 const ZoneScript = preload("res://src/domain/zones/zone.gd")
 
 var zone_system
+var _collection_count := 0
 var cell_size := 16
 var editing := false
 var selected_zone_type := ZoneScript.Type.SLEEPING
@@ -59,6 +60,11 @@ func _draw_dressing(zone: Zone) -> void:
 		var center := (Vector2(anchor) + Vector2(0.5, 0.5)) * cell_size
 		var anchor_hash := absi(anchor.x * 15487 + anchor.y * 3313)
 		match zone.zone_type:
+			ZoneScript.Type.PRODUCTION:
+				draw_rect(Rect2(center - Vector2(6, 3), Vector2(12, 5)), Color("876443"))
+				draw_line(center + Vector2(-4, 2), center + Vector2(-4, 6), color, 2.0)
+				draw_line(center + Vector2(4, 2), center + Vector2(4, 6), color, 2.0)
+				draw_circle(center + Vector2(2, -4), 2, Color("b9c5c8"))
 			ZoneScript.Type.SLEEPING:
 				# Grass nest: soft pad, woven rim, hash-splayed grass strands.
 				draw_circle(center, 5.5, Color("2c2521"))
@@ -70,6 +76,8 @@ func _draw_dressing(zone: Zone) -> void:
 					var outer := center + Vector2(cos(angle), sin(angle)) * 5.6
 					draw_line(inner, outer, Color("8f9c62", 0.75), 0.9)
 				draw_line(center + Vector2(-2.6, 1.0), center + Vector2(2.6, -1.0), color, 1.0)
+				for keepsake: int in range(mini(3, _collection_count)):
+					draw_circle(center + Vector2(float(keepsake) * 3.0 - 3.0, -7.0), 1.2, Color("d9c494"))
 			ZoneScript.Type.STORAGE:
 				# Woven basket: body, rim, cross-weave, hash-tilted handle.
 				var basket := Rect2(center - Vector2(5, 3), Vector2(10, 7))
@@ -106,6 +114,8 @@ func _draw_setup_marker(cell: Vector2i, color: Color) -> void:
 
 func _zone_color(zone_type: int) -> Color:
 	match zone_type:
+		ZoneScript.Type.PRODUCTION:
+			return Color("b9a18c")
 		ZoneScript.Type.SLEEPING:
 			return Color("9e88c9")
 		ZoneScript.Type.STORAGE:
@@ -126,3 +136,9 @@ func _on_zone_validity_changed(_zone_id: int, _valid: bool, _reasons: PackedStri
 
 func _on_setup_state_changed(_zone_id: int, _setup_state: int) -> void:
 	queue_redraw()
+
+
+func set_collection_count(count: int) -> void:
+	if _collection_count != count:
+		_collection_count = count
+		queue_redraw()

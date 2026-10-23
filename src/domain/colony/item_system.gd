@@ -5,6 +5,8 @@ signal pile_changed(pile_id: int)
 
 const ItemPileScript = preload("res://src/domain/colony/item_pile.gd")
 
+const Resources = preload("res://src/domain/colony/resource_catalog.gd")
+
 const FOOD := "FOOD"
 const GENERAL_MATERIAL := "GENERAL_MATERIAL"
 
@@ -319,7 +321,7 @@ func get_debug_reservations() -> Array[Dictionary]:
 
 
 func _is_known_type(item_type: String) -> bool:
-	return item_type == FOOD or item_type == GENERAL_MATERIAL
+	return Resources.is_known(item_type)
 
 
 func _result(ok: bool, reason_code: String) -> Dictionary:
@@ -342,24 +344,59 @@ func to_save_data() -> Dictionary:
 
 
 func apply_save_data(data: Dictionary) -> Dictionary:
-	_piles.clear()
+	var restored: Dictionary = {}
+	var next_id := maxi(1, int(data.get("next_pile_id", 1)))
+	for entry: Variant in data.get("piles", []):
+		if entry is not Dictionary or not Resources.is_known(str(entry.get("item_type", ""))) or int(entry.get("count", -1)) < 0:
+			return {"ok": false, "error": "malformed or unknown item pile entry"}
+		var cell_entry: Variant = entry.get("cell", [])
+		if not cell_entry is Array or cell_entry.size() != 2 or int(entry.get("id", -1)) <= 0 or restored.has(int(entry.id)):
+			return {"ok": false, "error": "malformed or duplicated item pile"}
+		var pile := ItemPileScript.new(int(entry.id), String(entry.item_type), Vector2i(int(cell_entry[0]), int(cell_entry[1])), int(entry.count))
+		next_id = maxi(next_id, pile.pile_id + 1)
+		restored[pile.pile_id] = pile
+	# Validate the complete input before replacing live inventory.
+	_piles = restored
+	_next_pile_id = next_id
 	_reservations.clear()
 	_worker_reservations.clear()
 	_dropoff_reservations.clear()
-	_next_pile_id = maxi(1, int(data.get("next_pile_id", 1)))
-	for entry: Variant in data.get("piles", []):
-		if entry is not Dictionary:
-			return {"ok": false, "error": "malformed item pile entry"}
-		var cell_entry: Array = entry.cell
-		if cell_entry.size() != 2:
-			return {"ok": false, "error": "malformed item pile cell"}
-		var pile := ItemPileScript.new(
-			int(entry.id),
-			String(entry.item_type),
-			Vector2i(int(cell_entry[0]), int(cell_entry[1])),
-			int(entry.count)
-		)
-		_next_pile_id = maxi(_next_pile_id, pile.pile_id + 1)
-		_piles[pile.pile_id] = pile
-		pile_changed.emit(pile.pile_id)
+	for pile_id: int in _piles:
+		pile_changed.emit(pile_id)
 	return {"ok": true, "error": ""}
+
+
+func reachable_available_count(item_type: String, origin: Vector2i) -> int:
+	var count := 0
+	for pile in get_piles():
+		if pile.item_type == item_type and _path_service != null and not _path_service.find_path(origin, pile.cell).is_empty():
+			count += pile.available_count()
+	return count
+
+
+func consume_reachable_bundle(costs: Dictionary, origin: Vector2i) -> Dictionary:
+	var plan: Array[Dictionary] = []
+	for item_type: String in costs:
+		var remaining := int(costs[item_type])
+		if remaining < 0 or not Resources.is_known(item_type):
+			return {"ok": false, "reason": "INVALID_COST"}
+		for pile in get_piles():
+			if pile.item_type != item_type or pile.available_count() <= 0:
+				continue
+			if _path_service == null or _path_service.find_path(origin, pile.cell).is_empty():
+				continue
+			var count := mini(remaining, pile.available_count())
+			if count > 0:
+				plan.append({"pile_id": pile.pile_id, "count": count})
+				remaining -= count
+			if remaining == 0:
+				break
+		if remaining > 0:
+			return {"ok": false, "reason": "NEEDS_REACHABLE_MATERIAL", "item": item_type, "missing": remaining}
+	for entry: Dictionary in plan:
+		var pile: ItemPile = _piles[entry.pile_id]
+		pile.count -= int(entry.count)
+		if pile.count == 0:
+			_piles.erase(pile.pile_id)
+		pile_changed.emit(pile.pile_id)
+	return {"ok": true, "reason": "OK"}

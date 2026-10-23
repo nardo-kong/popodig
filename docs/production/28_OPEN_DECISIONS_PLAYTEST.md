@@ -22,7 +22,12 @@ Choose after measuring traversal, zoom, save size, worldgen quality, and chapter
 Need test for readability, path performance, and whether additional mice create useful spatial pressure.
 
 ## O-005 Time controls
-Whether 1×/2×/3× is needed and whether emergencies auto-slow briefly.
+**PROVISIONAL implementation (2026-10-22, #19):** clickable 1×/2×/3× and
+pause, Tab to cycle, danger onset returns to 1× with an explicit notice.
+Simulation still uses fixed 0.05-second steps; wall/active telemetry stays
+real time. Default speed resets to 1× on load. Both speed availability and
+danger slowdown are configurable in `config/balance/core.json`.
+Player preference and emergency readability still need observation.
 
 ## O-006 Seasonal pressure exact form
 Could be:

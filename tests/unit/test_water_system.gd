@@ -69,6 +69,7 @@ func _test_topology_change_redirects_stable_pool() -> void:
 	var water = _configured_water(grid, RegistryScript.new())
 	_tick_steps(water, 4)
 	_assert_true(water.is_sleeping(), "Closed pool reaches stable sleep state")
+	_assert_true(water.get_active_cell_count() > 0, "Sleeping pool retains wet candidates; chapter stability must use sleep state")
 	_open(grid, Vector2i(3, 3))
 	_open(grid, Vector2i(3, 4))
 	_assert_true(not water.is_sleeping(), "Newly excavated lower route wakes nearby stable water")

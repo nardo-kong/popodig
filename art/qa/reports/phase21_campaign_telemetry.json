@@ -1,0 +1,750 @@
+{
+  "colony": {
+    "idle_ratio": 0.451,
+    "mouse_cell_steps": 3777,
+    "mouse_samples": 981,
+    "zone_changes": 7
+  },
+  "context": {
+    "balance": {
+      "capabilities_enabled": true,
+      "digging": {
+        "base_dig_seconds": 1.6,
+        "simulation_step_seconds": 0.05
+      },
+      "fog_radius": 4.0,
+      "initial_mouse_count": 1.0,
+      "initial_zoom": 1.4,
+      "jobs": {
+        "dig_priority": 10.0,
+        "emergency_priority": 100.0,
+        "haul_priority": 20.0,
+        "reinforce_priority": 30.0,
+        "seal_priority": 35.0,
+        "travel_cost_weight": 0.25,
+        "unreachable_retry_seconds": 2.0,
+        "zone_setup_priority": 15.0
+      },
+      "logical_cell_size": 16.0,
+      "mouse": {
+        "dig_work_per_second": 1.0,
+        "food_restore": 0.75,
+        "hunger_critical_threshold": 0.9,
+        "hunger_per_second": 0.008,
+        "hunger_seek_threshold": 0.65,
+        "initial_hunger": 0.12,
+        "initial_rest": 0.85,
+        "move_cells_per_second": 4.0,
+        "need_interrupt_priority_ceiling": 25.0,
+        "rest_critical_threshold": 0.08,
+        "rest_drain_per_second": 0.004,
+        "rest_recover_per_second": 0.3,
+        "rest_resume_threshold": 0.9,
+        "rest_seek_threshold": 0.25
+      },
+      "pathfinding": {
+        "max_walkable_water_units": 1.0
+      },
+      "population": {
+        "chapter1_food_target": 10.0,
+        "chapter_2_growth": 2.0,
+        "chapter_3_growth": 2.0
+      },
+      "schema_version": 1.0,
+      "stability": {
+        "cracking_ratio": 0.85,
+        "critical_grace_seconds": 8.0,
+        "crumbs_ratio": 0.6,
+        "item_damage_fraction": 0.25,
+        "max_collapse_radius": 3.0,
+        "reinforce_material_per_cell": 1.0,
+        "safe_start_radius": 8.0,
+        "span_high": 24.0,
+        "span_moderate": 12.0,
+        "span_short": 6.0
+      },
+      "status": "PROVISIONAL",
+      "time_controls": {
+        "enabled": true,
+        "slow_for_danger": true
+      },
+      "tutorial": {
+        "food_critical_count": 2.0,
+        "objective_depth_offset": 30.0,
+        "open_space_cells": 12.0
+      },
+      "v2_progression": true,
+      "water": {
+        "breach_initial_units": 1.0,
+        "cell_capacity_units": 4.0,
+        "danger_radius": 3.0,
+        "danger_water_units": 2.0,
+        "max_transfers_per_step": 256.0,
+        "simulation_step_seconds": 0.2,
+        "source_release_per_step": 2.0,
+        "stable_quiet_steps": 3.0
+      },
+      "zones": {
+        "dry_water_max_units": 0.0,
+        "setup_material_per_zone": 1.0,
+        "sleeping_capacity_per_cell": 1.0,
+        "storage_capacity_per_cell": 12.0
+      }
+    },
+    "clock": "active session seconds, excluding pause",
+    "current_speed": 1,
+    "game_version": "0.2.0-playtest",
+    "input_source": "automated gameplay smoke; time is simulated, not human observation",
+    "profile": "development",
+    "seed": 137042,
+    "simulation_seconds": 0.05,
+    "worldgen_version": 7
+  },
+  "development": {
+    "events": [
+      {
+        "active_sec": 2.994983,
+        "details": {
+          "amount": 5
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 8.74498299999999,
+        "details": {},
+        "id": "stability_warning",
+        "kind": "risk"
+      },
+      {
+        "active_sec": 32.2449830000003,
+        "details": {
+          "amount": 4
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 32.2449830000003,
+        "details": {
+          "note": "zone edit is a replanning proxy, not player intent"
+        },
+        "id": "zones",
+        "kind": "layout_edit"
+      },
+      {
+        "active_sec": 43.1949829999997,
+        "details": {
+          "note": "zone edit is a replanning proxy, not player intent"
+        },
+        "id": "zones",
+        "kind": "layout_edit"
+      },
+      {
+        "active_sec": 50.5949829999993,
+        "details": {
+          "note": "zone edit is a replanning proxy, not player intent"
+        },
+        "id": "zones",
+        "kind": "layout_edit"
+      },
+      {
+        "active_sec": 51.1449829999992,
+        "details": {
+          "amount": 1
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 59.1449829999988,
+        "details": {
+          "amount": 1
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 60.0949829999987,
+        "details": {},
+        "id": "shelter",
+        "kind": "home"
+      },
+      {
+        "active_sec": 67.1449829999983,
+        "details": {
+          "amount": 1
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 75.1449829999979,
+        "details": {
+          "amount": 1
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 83.1449829999974,
+        "details": {
+          "amount": 1
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 91.144982999997,
+        "details": {
+          "amount": 1
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 99.1449829999965,
+        "details": {
+          "amount": 1
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 107.144982999996,
+        "details": {
+          "amount": 1
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 128.294982999995,
+        "details": {
+          "amount": 6
+        },
+        "id": "STONE",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 134.344982999996,
+        "details": {
+          "amount": 6
+        },
+        "id": "GENERAL_MATERIAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 139.894982999998,
+        "details": {
+          "amount": 6
+        },
+        "id": "GENERAL_MATERIAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 145.844982999999,
+        "details": {
+          "amount": 4
+        },
+        "id": "ORE",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 157.444983000002,
+        "details": {
+          "note": "zone edit is a replanning proxy, not player intent"
+        },
+        "id": "zones",
+        "kind": "layout_edit"
+      },
+      {
+        "active_sec": 167.144983000004,
+        "details": {
+          "amount": 3
+        },
+        "id": "GENERAL_MATERIAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 167.144983000004,
+        "details": {
+          "amount": 3,
+          "input": "STONE",
+          "input_amount": 2,
+          "output": "GENERAL_MATERIAL",
+          "zone": 4
+        },
+        "id": "building",
+        "kind": "production"
+      },
+      {
+        "active_sec": 170.094983000004,
+        "details": {},
+        "id": "workshop",
+        "kind": "home"
+      },
+      {
+        "active_sec": 177.094983000006,
+        "details": {
+          "amount": 1
+        },
+        "id": "METAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 177.094983000006,
+        "details": {
+          "amount": 1,
+          "input": "ORE",
+          "input_amount": 2,
+          "output": "METAL",
+          "zone": 4
+        },
+        "id": "metal",
+        "kind": "production"
+      },
+      {
+        "active_sec": 186.394983000008,
+        "details": {
+          "amount": 1
+        },
+        "id": "METAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 186.394983000008,
+        "details": {
+          "amount": 1,
+          "input": "ORE",
+          "input_amount": 2,
+          "output": "METAL",
+          "zone": 4
+        },
+        "id": "metal",
+        "kind": "production"
+      },
+      {
+        "active_sec": 186.394983000008,
+        "details": {
+          "level": 1
+        },
+        "id": "1",
+        "kind": "upgrade"
+      },
+      {
+        "active_sec": 190.094983000009,
+        "details": {},
+        "id": "tools",
+        "kind": "home"
+      },
+      {
+        "active_sec": 207.444983000013,
+        "details": {
+          "amount": 6
+        },
+        "id": "STONE",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 245.244983000022,
+        "details": {
+          "amount": 6
+        },
+        "id": "ORE",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 300.844983000034,
+        "details": {},
+        "id": "striped_pebble",
+        "kind": "collection"
+      },
+      {
+        "active_sec": 310.094983000036,
+        "details": {},
+        "id": "keepsake",
+        "kind": "home"
+      },
+      {
+        "active_sec": 333.594983000042,
+        "details": {
+          "amount": 6
+        },
+        "id": "ORE",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 365.044983000049,
+        "details": {
+          "units": 1
+        },
+        "id": "water_breach",
+        "kind": "risk"
+      },
+      {
+        "active_sec": 381.494983000053,
+        "details": {
+          "amount": 1
+        },
+        "id": "METAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 381.494983000053,
+        "details": {
+          "amount": 1,
+          "input": "ORE",
+          "input_amount": 2,
+          "output": "METAL",
+          "zone": 4
+        },
+        "id": "metal",
+        "kind": "production"
+      },
+      {
+        "active_sec": 390.794983000055,
+        "details": {
+          "amount": 1
+        },
+        "id": "METAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 390.794983000055,
+        "details": {
+          "amount": 1,
+          "input": "ORE",
+          "input_amount": 2,
+          "output": "METAL",
+          "zone": 4
+        },
+        "id": "metal",
+        "kind": "production"
+      },
+      {
+        "active_sec": 400.094983000057,
+        "details": {
+          "amount": 1
+        },
+        "id": "METAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 400.094983000057,
+        "details": {
+          "amount": 1,
+          "input": "ORE",
+          "input_amount": 2,
+          "output": "METAL",
+          "zone": 4
+        },
+        "id": "metal",
+        "kind": "production"
+      },
+      {
+        "active_sec": 413.24498300006,
+        "details": {
+          "amount": 1
+        },
+        "id": "METAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 413.24498300006,
+        "details": {
+          "amount": 1,
+          "input": "ORE",
+          "input_amount": 2,
+          "output": "METAL",
+          "zone": 4
+        },
+        "id": "metal",
+        "kind": "production"
+      },
+      {
+        "active_sec": 413.24498300006,
+        "details": {
+          "level": 2
+        },
+        "id": "2",
+        "kind": "upgrade"
+      },
+      {
+        "active_sec": 471.194983000073,
+        "details": {
+          "amount": 5
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 514.34498300008,
+        "details": {},
+        "id": "mica_leaf",
+        "kind": "collection"
+      },
+      {
+        "active_sec": 540.094983000057,
+        "details": {},
+        "id": "family",
+        "kind": "home"
+      },
+      {
+        "active_sec": 602.694983,
+        "details": {},
+        "id": "clay_mouse",
+        "kind": "collection"
+      },
+      {
+        "active_sec": 618.394982999985,
+        "details": {
+          "amount": 10
+        },
+        "id": "GENERAL_MATERIAL",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 757.194982999859,
+        "details": {
+          "amount": 9
+        },
+        "id": "FOOD",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 821.244982999801,
+        "details": {
+          "amount": 10
+        },
+        "id": "STONE",
+        "kind": "resource"
+      },
+      {
+        "active_sec": 891.994982999737,
+        "details": {
+          "note": "zone edit is a replanning proxy, not player intent"
+        },
+        "id": "zones",
+        "kind": "layout_edit"
+      },
+      {
+        "active_sec": 908.394982999722,
+        "details": {
+          "note": "zone edit is a replanning proxy, not player intent"
+        },
+        "id": "zones",
+        "kind": "layout_edit"
+      },
+      {
+        "active_sec": 940.294982999693,
+        "details": {
+          "note": "zone edit is a replanning proxy, not player intent"
+        },
+        "id": "zones",
+        "kind": "layout_edit"
+      },
+      {
+        "active_sec": 980.444982999656,
+        "details": {},
+        "id": "deep_home",
+        "kind": "home"
+      }
+    ],
+    "first_times_active_sec": {
+      "collection": 300.844983000034,
+      "home": 60.0949829999987,
+      "layout_edit": 32.2449830000003,
+      "production": 167.144983000004,
+      "resource": 2.994983,
+      "risk": 8.74498299999999,
+      "upgrade": 186.394983000008
+    },
+    "loaded_travel_steps_exact": 1474,
+    "production_lifetime_snapshot": {
+      "active_work_seconds": 53.9999999999992,
+      "completed_batches": 7,
+      "input_or_route_wait_seconds": 0.0,
+      "output_blocked_seconds": 0.0
+    },
+    "resource_gains": {
+      "FOOD": 31,
+      "GENERAL_MATERIAL": 25,
+      "METAL": 6,
+      "ORE": 16,
+      "STONE": 22
+    },
+    "travel_steps_exact": 3998
+  },
+  "discoveries": {
+    "events": [
+      {
+        "elapsed_sec": 3.0,
+        "open_feature_cells": 1,
+        "type": "seed_cache"
+      },
+      {
+        "elapsed_sec": 32.2,
+        "open_feature_cells": 0,
+        "type": "root_cluster"
+      },
+      {
+        "elapsed_sec": 128.3,
+        "open_feature_cells": 1,
+        "type": "stone_seam"
+      },
+      {
+        "elapsed_sec": 134.3,
+        "open_feature_cells": 1,
+        "type": "fiber_cache"
+      },
+      {
+        "elapsed_sec": 139.9,
+        "open_feature_cells": 1,
+        "type": "fiber_cache"
+      },
+      {
+        "elapsed_sec": 145.8,
+        "open_feature_cells": 1,
+        "type": "ore_seam"
+      },
+      {
+        "elapsed_sec": 207.4,
+        "open_feature_cells": 1,
+        "type": "stone_seam"
+      },
+      {
+        "elapsed_sec": 245.2,
+        "open_feature_cells": 1,
+        "type": "ore_seam"
+      },
+      {
+        "elapsed_sec": 300.8,
+        "open_feature_cells": 1,
+        "type": "striped_pebble"
+      },
+      {
+        "elapsed_sec": 333.6,
+        "open_feature_cells": 1,
+        "type": "ore_seam"
+      },
+      {
+        "elapsed_sec": 365.0,
+        "open_feature_cells": 0,
+        "type": "water_reservoir"
+      },
+      {
+        "elapsed_sec": 471.2,
+        "open_feature_cells": 1,
+        "type": "seed_cache"
+      },
+      {
+        "elapsed_sec": 514.3,
+        "open_feature_cells": 1,
+        "type": "mica_leaf"
+      },
+      {
+        "elapsed_sec": 602.7,
+        "open_feature_cells": 0,
+        "type": "root_cluster"
+      },
+      {
+        "elapsed_sec": 602.7,
+        "open_feature_cells": 1,
+        "type": "clay_mouse"
+      },
+      {
+        "elapsed_sec": 618.4,
+        "open_feature_cells": 1,
+        "type": "fiber_cache"
+      },
+      {
+        "elapsed_sec": 634.3,
+        "open_feature_cells": 53,
+        "type": "old_burrow"
+      },
+      {
+        "elapsed_sec": 757.2,
+        "open_feature_cells": 1,
+        "type": "seed_cache"
+      },
+      {
+        "elapsed_sec": 821.2,
+        "open_feature_cells": 1,
+        "type": "stone_seam"
+      },
+      {
+        "elapsed_sec": 872.0,
+        "open_feature_cells": 55,
+        "type": "warm_chamber"
+      }
+    ],
+    "intervals_sec": [
+      3.0,
+      29.2,
+      96.1,
+      6.0,
+      5.59999999999999,
+      5.90000000000001,
+      61.6,
+      37.8,
+      55.6,
+      32.8,
+      31.4,
+      106.2,
+      43.1,
+      88.4,
+      0.0,
+      15.7,
+      15.9,
+      122.9,
+      64.0,
+      50.8
+    ]
+  },
+  "excavation": {
+    "avg_dig_batch": 0.0,
+    "cells_by_material": {
+      "1": 77,
+      "2": 26,
+      "3": 9,
+      "4": 22,
+      "6": 3
+    },
+    "cells_total": 137,
+    "dig_cancels_after_warning": 0,
+    "reinforcement_requests": 0
+  },
+  "metrics_version": 2,
+  "progression": {
+    "campaign_completed_sec": 980.4,
+    "chapter_advances": [
+      {
+        "chapter": 2,
+        "elapsed_sec": 540.1
+      },
+      {
+        "chapter": 3,
+        "elapsed_sec": 640.1
+      }
+    ],
+    "loads": 0,
+    "saves_by_slot": {}
+  },
+  "session_seconds": 980.4,
+  "stability": {
+    "collapse_cells_total": 0,
+    "collapses": 0,
+    "warning_events": 20
+  },
+  "wall_seconds": 980.4,
+  "water": {
+    "breaches": 1,
+    "corridor_units_last_sample": 4,
+    "corridor_units_peak": 4,
+    "flooded_storage_cells_peak": 0,
+    "released_units": 1,
+    "units_last_sample": 4,
+    "units_peak": 4
+  }
+}

@@ -31,7 +31,7 @@ const STREAMS: Dictionary = {
 
 const AMBIENCE_STREAM: AudioStream = preload("res://assets/audio/production/amb_underground.wav")
 const MUSIC_STREAM: AudioStream = preload("res://assets/audio/production/music_settle.wav")
-# Loop points live in the .import params (edit/loop_mode=1 forward), so no
+# Loop points live in the .import params (edit/loop_mode=2 forward), so no
 # runtime stream mutation is needed here.
 const SFX_POOL_SIZE := 6
 # CellData.TerrainMaterial -> dig impact stream key.
@@ -60,7 +60,7 @@ var _muted := false
 
 func _ready() -> void:
 	_ensure_buses()
-	_muted = not audio_enabled
+	_muted = not audio_enabled or DisplayServer.get_name() == "headless"
 	for index: int in range(SFX_POOL_SIZE):
 		var player := AudioStreamPlayer.new()
 		player.bus = AudioServer.get_bus_name(_sfx_bus_index)
@@ -184,3 +184,21 @@ func _process(delta: float) -> void:
 	if _drip_timer <= 0.0:
 		_drip_timer = randf_range(1.6, 4.2)
 		_play("drip_%d" % (randi() % 3 + 1), -6.0)
+
+
+func stop_all() -> void:
+	_muted = true
+	# Release looping playback before the audio server shuts down.
+	for player: AudioStreamPlayer in _sfx_pool:
+		player.stop()
+		player.stream = null
+	if is_instance_valid(_ambience_player):
+		_ambience_player.stop()
+		_ambience_player.stream = null
+	if is_instance_valid(_music_player):
+		_music_player.stop()
+		_music_player.stream = null
+
+
+func _exit_tree() -> void:
+	stop_all()

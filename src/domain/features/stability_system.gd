@@ -66,6 +66,7 @@ var _critical_cells: Dictionary = {}
 var _absorbed_water_units := 0
 var _collapsed_cells_total := 0
 var _mutating := false
+var _safe_start_radius := 0
 
 
 func configure(
@@ -83,6 +84,7 @@ func configure(
 	_water_system = water_system
 	_config = DEFAULT_CONFIG.duplicate()
 	_config.merge(balance.get("stability", {}), true)
+	_safe_start_radius = maxi(0, int(_config.get("safe_start_radius", 0)))
 	_span_by_material = {
 		CellDataScript.TerrainMaterial.LOOSE_SOIL: maxi(1, int(_config.get("span_short", 3))),
 		CellDataScript.TerrainMaterial.DAMP_CLAY: maxi(1, int(_config.get("span_short", 3))),
@@ -407,7 +409,7 @@ func _allowed_span(members: Array[int], row_y: int) -> int:
 
 
 func _apply_warning(open_cell: Vector2i, level: int) -> void:
-	if not _is_open(open_cell):
+	if not _is_open(open_cell) or _is_safe_start(open_cell):
 		level = LEVEL_STABLE
 	var value := 0
 	match level:
@@ -492,13 +494,13 @@ func _group_adjacent(cells: Array[Vector2i]) -> Array[Array]:
 func _perform_collapse(expired_seeds: Array[Vector2i]) -> void:
 	var cluster: Dictionary = {}
 	for seed_cell: Vector2i in expired_seeds:
-		if _is_open(seed_cell):
+		if _is_open(seed_cell) and not _is_safe_start(seed_cell):
 			cluster[seed_cell] = true
 	var frontier: Array[Vector2i] = expired_seeds.duplicate()
 	while not frontier.is_empty():
 		var current: Vector2i = frontier.pop_front()
 		for neighbor: Vector2i in _world.get_cardinal_neighbors(current):
-			if cluster.has(neighbor) or not _is_open(neighbor):
+			if cluster.has(neighbor) or not _is_open(neighbor) or _is_safe_start(neighbor):
 				continue
 			# Collapse stops where supported ground begins: stone, seals,
 			# reinforcement, roots and protected cells arrest the debris field.
@@ -704,3 +706,10 @@ func apply_save_data(data: Dictionary) -> Dictionary:
 	_collapsed_cells_total = int(data.get("collapsed_cells_total", 0))
 	_absorbed_water_units = int(data.get("absorbed_water_units", 0))
 	return {"ok": true, "error": ""}
+
+
+func _is_safe_start(cell: Vector2i) -> bool:
+	if _safe_start_radius <= 0 or _world == null:
+		return false
+	var start: Vector2i = _world.metadata.get("start_cell", Vector2i(-1000, -1000))
+	return absi(cell.x - start.x) + absi(cell.y - start.y) <= _safe_start_radius

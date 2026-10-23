@@ -50,6 +50,7 @@ var _item_system
 var _zone_system
 var _seal_system
 var _stability_system
+var _production_system
 var _needs_enabled := false
 var _home_cell := Vector2i(-1, -1)
 var _sleep_zone_id := -1
@@ -144,7 +145,7 @@ func fixed_tick(delta_seconds: float) -> Dictionary:
 	if state == State.DIGGING:
 		return _advance_digging(delta_seconds)
 	if state == State.HAULING:
-		return _advance_hauling()
+		return _advance_hauling(delta_seconds)
 	if state == State.EATING:
 		return _consume_reserved_food()
 	if state == State.RESTING:
@@ -412,7 +413,7 @@ func _advance_digging(delta_seconds: float) -> Dictionary:
 	return result
 
 
-func _advance_hauling() -> Dictionary:
+func _advance_hauling(delta_seconds: float = 0.05) -> Dictionary:
 	if _current_general_job == null:
 		_reset_action()
 		return _tick_result(false, "STALE_JOB")
@@ -430,6 +431,22 @@ func _advance_hauling() -> Dictionary:
 			_cancel_carried_job()
 			return _tick_result(false, "DROPOFF_UNREACHABLE")
 		return _tick_result(true, "ITEM_PICKED_UP")
+	if _current_general_job.job_type == ColonyJobScript.Type.PRODUCE:
+		if _production_system == null:
+			_cancel_carried_job()
+			return _tick_result(false, "PRODUCTION_UNAVAILABLE")
+		var work: Dictionary = _production_system.work(_current_general_job, mouse_id, delta_seconds, carried_item_type, carried_item_count)
+		if not bool(work.ok):
+			_cancel_carried_job()
+			_reset_action()
+			return _tick_result(false, str(work.reason))
+		if bool(work.get("completed", false)):
+			carried_item_type = ""
+			carried_item_count = 0
+			_job_system.complete(mouse_id, _current_general_job.job_id)
+			_reset_action()
+			return _tick_result(true, "PRODUCTION_COMPLETED")
+		return _tick_result(true, str(work.get("reason", "PRODUCING")))
 	if _current_general_job.job_type == ColonyJobScript.Type.ZONE_SETUP:
 		var setup_result: Dictionary = (
 			{"ok": false, "reason_code": "ZONE_SYSTEM_UNAVAILABLE"}
@@ -811,3 +828,7 @@ func _tick_result(ok: bool, reason: String) -> Dictionary:
 		"current_job_id": current_job_id,
 		"completed": false,
 	}
+
+
+func configure_production(system) -> void:
+	_production_system = system

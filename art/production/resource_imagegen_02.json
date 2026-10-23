@@ -1,0 +1,140 @@
+{
+  "date": "2026-10-24",
+  "method": "built-in imagegen",
+  "use_case": "style-transfer",
+  "transparent_background": true,
+  "authority": "Owner rejected revision 01; match original mouse and early Soft pixel assets.",
+  "references": [
+    {
+      "path": "assets/art/production/entities/mouse_master_idle_01.png",
+      "role": "authoritative existing character style",
+      "sha256": "49a76e4b965355700d54acf1e6ece46f45a2a359e5f5a62e340d4a2389bb0535"
+    },
+    {
+      "path": "art/candidates/pass_01/terrain_soil_soft_candidate_01.png",
+      "role": "existing soft pixel terrain material reference",
+      "sha256": "be08ebc81701f49d1b7e61997da2917f348789c49385d883636ade44434d033f"
+    },
+    {
+      "conversation": "6a849506-2294-83e8-9eaf-40ef754e6d14",
+      "attachment": "1000144187(1).png",
+      "role": "owner provided early Soft Pixel field / mouse / stone style; no scene content copied",
+      "sha256": "7740e4c7d250c7ecadcf0520c1275504bdf78cd50dfbc631bdd0d085307ae820"
+    }
+  ],
+  "files": {
+    "food_berries_02.png": "exec-e15f280b-2514-4a25-9ec4-815f3df4a2f1.png",
+    "building_bundle_02.png": "exec-39259107-dfc8-409e-a312-7683c77ce23a.png",
+    "stone_pile_02.png": "exec-df338b5d-3358-4f34-be49-3c41651dec93.png",
+    "copper_ore_02.png": "exec-188c1151-05df-46b3-be0b-844714cfff31.png",
+    "metal_ingots_02.png": "exec-10921b1e-0981-4809-aeb9-68e5ffa070c7.png",
+    "root_cluster_02.png": "exec-0f146b7c-9712-49a2-bfcd-107e4e80580e.png"
+  },
+  "prompts": [
+    {
+      "name": "food_berries",
+      "prompt": "Use case: style-transfer.\nEdit target: image 1 is an existing food sprite that MUST be fully redesigned; its big glossy red fruit and dark outline are rejected.\nAuthoritative style: image 2 is the actual original 128px mouse; image 3 is the approved early Soft Pixel game reference. Match the latter's stone, foliage and mouse rendering: subdued low-saturation colours, dusty warm values, soft fine square pixel clusters and broken coloured contours. Do not copy subjects or background of those style references.\nReplace the entire food composition with a humble little gatherable mouse-food stash: THREE pale oat seeds and TWO SMALL dusty rose-red berries with tiny brown dots as the calyx, ONE small sage leaf. Seeds are dominant; berries smaller than the seeds. No giant donut-shaped caps. Low, loose, horizontal pile, side/slight three-quarter view. It belongs on the floor beside the original mouse.\nMake it look hand painted AT A NATIVE 128x128 PIXEL ART SCALE, shown enlarged by nearest-neighbor. Clearly regular small square clusters make the contour and shading, like the supplied early reference. Gentle stepped shading, little mottled pixel patches, matte dry skin, not polished inventory icon. Keep restrained beige, oatmeal, muted red and sage colours with very low saturation, no white highlight spots, no bright orange, no shining fruit, no continuous black or chocolate outline, no coarse polygon shading, no smooth vector curves, no 3D bevel, no cast shadow.\nTransparent background with real alpha. Entire object occupies 70% width, modest height, generous empty margin, no ground patch, scene, mouse, frame, labels or text. Readable as FOOD at 18 screen pixels, detailed but quiet at 54px. The original image's rendering is the problem: REDESIGN rather than pixelating the rejected illustration."
+    },
+    {
+      "name": "stone_pile",
+      "prompt": "Use case: style-transfer.\nEdit target: image 1 is an existing resource sprite. Its glossy big faceted inventory-illustration rendering is REJECTED. Repaint the subject completely; preserve only its gameplay identity.\nAuthoritative style: image 2 is the ACTUAL ORIGINAL 128px mouse; image 3 is the approved early Soft Pixel game reference. Match that reference's stones, tree and mouse: subdued dusty natural colours, warm soft contrast, fine square pixel clusters, broken coloured contours and gentle stepped shading. Image 4 is the newly corrected FOOD sprite for sibling style consistency, not an object to copy.\nRendering: drawn at a native 128x128 pixel-art grid, enlarged with nearest-neighbor for this output. Regular square pixel clusters form the contour AND internal soft dappled material texture. Fine irregular patches and adjacent colour shades, never enormous polygon facets. Matte, understated world prop belonging beside the original mouse. Soft ambient upper-left lighting; coloured contour at most one logical pixel, NO thick dark/chocolate outline, NO smooth vector curves, airbrush gradients, white shine spots, glossy plastic, neon, saturated orange, 3D bevel look or sticker rim.\nComposition: ONE isolated small game prop, side/slight three-quarter cutaway view, centered with generous transparent padding, approximately 70% canvas width. Genuine alpha-transparent background, no ground patch, no floating shadow, no soil tile, no mouse, scene, labels, frame or text. Needs to read at 18-24px in world and 54px in guide. It must integrate with the original art, not just be a pixelated version of the rejected rendering.\nSubject: Three small gathered grey/taupe stones, one slightly larger behind two small ones. Match EXACTLY the rounded subdued stone material in the early field reference: warm grey, dusty khaki highlights, irregular pixel clusters for soft roughness, matte. No giant flat polygon facets or black outline; no minerals. It means raw stone."
+    },
+    {
+      "name": "copper_ore",
+      "prompt": "Use case: style-transfer.\nEdit target: image 1 is an existing resource sprite. Its glossy big faceted inventory-illustration rendering is REJECTED. Repaint the subject completely; preserve only its gameplay identity.\nAuthoritative style: image 2 is the ACTUAL ORIGINAL 128px mouse; image 3 is the approved early Soft Pixel game reference. Match that reference's stones, tree and mouse: subdued dusty natural colours, warm soft contrast, fine square pixel clusters, broken coloured contours and gentle stepped shading. Image 4 is the newly corrected FOOD sprite for sibling style consistency, not an object to copy.\nRendering: drawn at a native 128x128 pixel-art grid, enlarged with nearest-neighbor for this output. Regular square pixel clusters form the contour AND internal soft dappled material texture. Fine irregular patches and adjacent colour shades, never enormous polygon facets. Matte, understated world prop belonging beside the original mouse. Soft ambient upper-left lighting; coloured contour at most one logical pixel, NO thick dark/chocolate outline, NO smooth vector curves, airbrush gradients, white shine spots, glossy plastic, neon, saturated orange, 3D bevel look or sticker rim.\nComposition: ONE isolated small game prop, side/slight three-quarter cutaway view, centered with generous transparent padding, approximately 70% canvas width. Genuine alpha-transparent background, no ground patch, no floating shadow, no soil tile, no mouse, scene, labels, frame or text. Needs to read at 18-24px in world and 54px in guide. It must integrate with the original art, not just be a pixelated version of the rejected rendering.\nSubject: One humble irregular grey-brown ore lump with two small broken rusty copper seams within it, matte mineral flecks in dusty terracotta, a few muted verdigris pixels. Most of the rock remains stony warm-grey, seams distinguish ore at tiny scale without looking molten. No glowing bright orange rivers, no white reflections. It means raw copper ore."
+    },
+    {
+      "name": "metal_ingots",
+      "prompt": "Use case: style-transfer.\nEdit target: image 1 is an existing resource sprite. Its glossy big faceted inventory-illustration rendering is REJECTED. Repaint the subject completely; preserve only its gameplay identity.\nAuthoritative style: image 2 is the ACTUAL ORIGINAL 128px mouse; image 3 is the approved early Soft Pixel game reference. Match that reference's stones, tree and mouse: subdued dusty natural colours, warm soft contrast, fine square pixel clusters, broken coloured contours and gentle stepped shading. Image 4 is the newly corrected FOOD sprite for sibling style consistency, not an object to copy.\nRendering: drawn at a native 128x128 pixel-art grid, enlarged with nearest-neighbor for this output. Regular square pixel clusters form the contour AND internal soft dappled material texture. Fine irregular patches and adjacent colour shades, never enormous polygon facets. Matte, understated world prop belonging beside the original mouse. Soft ambient upper-left lighting; coloured contour at most one logical pixel, NO thick dark/chocolate outline, NO smooth vector curves, airbrush gradients, white shine spots, glossy plastic, neon, saturated orange, 3D bevel look or sticker rim.\nComposition: ONE isolated small game prop, side/slight three-quarter cutaway view, centered with generous transparent padding, approximately 70% canvas width. Genuine alpha-transparent background, no ground patch, no floating shadow, no soil tile, no mouse, scene, labels, frame or text. Needs to read at 18-24px in world and 54px in guide. It must integrate with the original art, not just be a pixelated version of the rejected rendering.\nSubject: Two short small refined copper/bronze bars stacked offset horizontally. Low simple trapezoids, slightly irregular handmade cast edges. Dusty muted copper tan top, rust-brown front, tiny warm light pixel patches, no polished shine or giant bevels. Manufactured shape remains distinct from rock and twigs, warm low contrast rendering. It means processed metal."
+    },
+    {
+      "name": "root_cluster",
+      "prompt": "Use case: style-transfer.\nEdit target: image 1 is an existing resource sprite. Its glossy big faceted inventory-illustration rendering is REJECTED. Repaint the subject completely; preserve only its gameplay identity.\nAuthoritative style: image 2 is the ACTUAL ORIGINAL 128px mouse; image 3 is the approved early Soft Pixel game reference. Match that reference's stones, tree and mouse: subdued dusty natural colours, warm soft contrast, fine square pixel clusters, broken coloured contours and gentle stepped shading. Image 4 is the newly corrected FOOD sprite for sibling style consistency, not an object to copy.\nRendering: drawn at a native 128x128 pixel-art grid, enlarged with nearest-neighbor for this output. Regular square pixel clusters form the contour AND internal soft dappled material texture. Fine irregular patches and adjacent colour shades, never enormous polygon facets. Matte, understated world prop belonging beside the original mouse. Soft ambient upper-left lighting; coloured contour at most one logical pixel, NO thick dark/chocolate outline, NO smooth vector curves, airbrush gradients, white shine spots, glossy plastic, neon, saturated orange, 3D bevel look or sticker rim.\nComposition: ONE isolated small game prop, side/slight three-quarter cutaway view, centered with generous transparent padding, approximately 70% canvas width. Genuine alpha-transparent background, no ground patch, no floating shadow, no soil tile, no mouse, scene, labels, frame or text. Needs to read at 18-24px in world and 54px in guide. It must integrate with the original art, not just be a pixelated version of the rejected rendering.\nSubject: A small naturally branching exposed living root fragment: narrow irregular tan-brown root enters from above, splits into three tapering curved roots and a few fine pixel rootlets, one or two subtle pale nodules. Branching asymmetry, mostly thin, not a massive tree trunk or symmetrical crest. Soft bark pixel mottling. No leaves or stump or cut ends, no golden gloss, no neon. It means tree roots still growing in the soil."
+    },
+    {
+      "name": "building_bundle",
+      "prompt": "Use case: style-transfer. Image 1: rejected original building-material sprite to REDESIGN. Image 2: original mouse STYLE reference. Image 3: early Soft Pixel game scene STYLE reference.\nReplace image 1 entirely with a MUCH SIMPLER small resource sprite: THREE slender short dry brown twigs laid horizontally, with ONE thin muted plant-fibre band in their middle and just TWO tiny dry-grass ends. NO big hay bundle, no massive logs. Use the same fine regular square pixel clusters, natural texture, soft matte colours and broken coloured edges as the original mouse and stones in the supplied early reference. Native 128px soft pixel art shown enlarged, small restrained dappled patches, soft warm taupe bark and oatmeal cut ends. No thick dark outlines, glossy shine, vector curves or large smooth facets.\nHard requirement: the finished object is a CUTOUT on genuine TRANSPARENCY. Outside the exact stepped pixel contours of the wood, fibre and grass, alpha is ZERO. Absolutely no brown haze, no shadow, no glow, no colored fog behind or around the object. Background is fully transparent even between individual twigs; alpha cutout like the mouse input. No floor or scene, no letters, no frame. Center the whole small bundle with 20% transparent margin on ALL sides. This is a practical world resource beside the existing mouse, not an inventory badge."
+    }
+  ],
+  "rejected_trials": [
+    {
+      "file": "exec-dd12d1d6-66ff-47e9-826e-f6447e5e7527.png",
+      "reason": "Only pixelated the glossy food; composition and bright highlights still inappropriate",
+      "prompt": "Use case: style-transfer.\nAsset type: in-world resource sprite, soft pixel game art for Dig Down.\nInput images: Image 1 (berries) is the EDIT TARGET, preserve its identity as three edible berries with a leaf and a couple of seeds, but repaint it completely. Image 2 (existing mouse) and image 3 (early grassy field with mouse and stones) are the AUTHORITATIVE STYLE REFERENCES. Image 4 (old soil tile) is a supporting material/pixel-density reference. Do not draw any mouse, terrain square, grass field or scenery in the output.\nRequest: redraw only the berry food group in the exact understated soft-pixel/painterly-pixel language of the existing mouse and field references. This is a small practical prop belonging beside that mouse, not an inventory illustration.\nRaster method: visibly authored square pixel clusters on a regular 128x128 logical pixel grid, then enlarged with nearest-neighbor for this output. Jagged stepped pixel contours, broken colored edges, small irregular pixel patches for soft volume, subtle 2-3 adjacent shades per color ramp. Pixel detail density comparable to the existing 128px mouse. No smooth vector curves, airbrushing or large polygon facets. No thick continuous chocolate outline. Matte cranberry/clay red berries with restrained muted warm highlights and a small sage olive leaf; pale oat seeds. Match the mouse reference's gentle warm contrast, light from upper left. Avoid saturated orange, white shiny spots, plastic gloss, heavy outlines, giant fruit calyxes, harsh low-poly facets, drop shadow, border, lettering.\nComposition: one compact natural food pile, slight side/three-quarter game view, fills roughly 75% of square, ample transparent margins. Genuine alpha-transparent background, no floor or background color. Keep recognizable round fruit, leaf and seeds readable at 18 world pixels and 54 UI pixels. Return ONLY the new sprite."
+    },
+    {
+      "file": "exec-7d86fad1-8a2c-474c-9e01-e2d6c28e665a.png",
+      "reason": "Brown haze outside object"
+    },
+    {
+      "file": "exec-ff39f9a3-5e26-4bab-bf53-68537849592b.png",
+      "reason": "Cleanup did not remove haze",
+      "prompt": "Use case: background-extraction.\nEdit target: supplied pixel art bundle of twigs and straw.\nRemove the ENTIRE hazy brown glow surrounding the bundle and in all holes between stems. Preserve the actual pixel-art twigs, tie and straw, their shapes, muted colours, regular square pixel texture, position and relative scale. All pixels outside the physical material silhouettes MUST have alpha=0, including all blurred brown haze and shadows, with no semitransparent colored glow remaining. Clean discrete stepped pixel-art edges. No replacement background, shadow, aura, floor, border or text. Output one bundle on a genuinely transparent background. This is an alpha cutout cleanup, not a scene or lighting change."
+    }
+  ],
+  "integration": {
+    "resource_sources": "src/presentation/world/resource_visuals.gd",
+    "import_max_pixels": 128,
+    "padding": "AtlasTexture.get_used_rect",
+    "world_extent": 18,
+    "root_extent": 22,
+    "guide_extent": 54
+  },
+  "status": "selected engineering revision; owner style/recognition approval pending",
+  "source_properties": {
+    "food_berries_02.png": {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "bit_depth": 8,
+      "png_color_type": 6,
+      "sha256": "b5fd13f53e6beb4c1c9ebe30eb42dbc88d5e19584fe4666039edfe9ec7767d06"
+    },
+    "building_bundle_02.png": {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "bit_depth": 8,
+      "png_color_type": 6,
+      "sha256": "ee654f309b4c8dc83badc70167c0a03ddab855301896cc0b5fff1209d20993e5"
+    },
+    "stone_pile_02.png": {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "bit_depth": 8,
+      "png_color_type": 6,
+      "sha256": "97eb6573e1607ef2bf995b47e0e5996a489a45ed51e183b1372763d0a8d46216"
+    },
+    "copper_ore_02.png": {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "bit_depth": 8,
+      "png_color_type": 6,
+      "sha256": "634561ac44391a67e6813126c79dbd53cb329fbc1e4c8ad84495212d375c582a"
+    },
+    "metal_ingots_02.png": {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "bit_depth": 8,
+      "png_color_type": 6,
+      "sha256": "a2790005ab9d0078aac78020f4e226191d2b4d0e909a659e6fa4e2dd39d68b4e"
+    },
+    "root_cluster_02.png": {
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "bit_depth": 8,
+      "png_color_type": 6,
+      "sha256": "0f296b79619d402508292be5c752161b19a7f9d7d9c5a6ba00d8526954e4abfb"
+    }
+  }
+}

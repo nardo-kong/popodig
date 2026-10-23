@@ -1,6 +1,7 @@
 class_name StructuredWorldGenerator
 extends RefCounted
 
+const DiscoveryScript = preload("res://src/domain/features/discovery_system.gd")
 const CellDataScript = preload("res://src/domain/world/cell_data.gd")
 const GeneratedFeatureScript = preload("res://src/domain/worldgen/generated_feature.gd")
 const SignalSystemScript = preload("res://src/domain/features/signal_system.gd")
@@ -410,6 +411,8 @@ func _ensure_required_reservoir_shoulders(context: WorldGenContext) -> void:
 
 
 func _stage_signal_fields(context: WorldGenContext) -> void:
+	if bool(context.config.get("discoveries_enabled", true)):
+		DiscoveryScript.populate(context)
 	for feature: GeneratedFeature in context.feature_registry.get_features_by_role("feature"):
 		var channel := ""
 		match feature.type_id:
