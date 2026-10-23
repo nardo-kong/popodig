@@ -1,5 +1,9 @@
 extends Node
 
+const WorldHoverInfoScript = preload("res://src/presentation/hud/world_hover_info.gd")
+const WorldHoverViewScript = preload("res://src/presentation/hud/world_hover_view.gd")
+const ResourceGuideViewScript = preload("res://src/presentation/hud/resource_guide_view.gd")
+const RootLandmarkViewScript = preload("res://src/presentation/world/root_landmark_view.gd")
 const HomeProgressScript = preload("res://src/domain/progression/home_progress.gd")
 const WorldGenContextScript = preload("res://src/domain/worldgen/world_gen_context.gd")
 const CollectionViewScript = preload("res://src/presentation/hud/collection_view.gd")
@@ -120,6 +124,14 @@ var _hover_feedback := "feedback.choose_frontier"
 var _feedback_seconds_remaining := 0.0
 var _qa_inspector_cell := Vector2i(-1, -1)
 var _collection_view
+var _hover_info
+var _pointer_position := Vector2.ZERO
+var _has_pointer_event := false
+var _hover_view
+var _resource_guide
+var _guide_open := false
+var _pause_before_guide := false
+var _development_view
 var _discovery_view
 var _modal_backdrop: ColorRect
 var _help_view
@@ -227,6 +239,12 @@ func _ready() -> void:
 	_discovery_view.z_index = 28
 	world_view.add_child(_discovery_view)
 	_discovery_view.configure(world_grid, worldgen_result.feature_registry, fog, _logical_cell_size)
+	var root_landmarks := RootLandmarkViewScript.new()
+	root_landmarks.z_index = 28
+	world_view.add_child(root_landmarks)
+	root_landmarks.configure(worldgen_result.feature_registry, fog, _logical_cell_size)
+	_hover_info = WorldHoverInfoScript.new()
+	_hover_info.configure(world_grid, worldgen_result.feature_registry, colony_simulation.get_item_system(), fog, _discovery_view, colony_simulation.get_zone_system(), signal_system)
 	if colony_simulation.get_discovery_system() != null:
 		colony_simulation.get_discovery_system().discovered.connect(_on_discovery)
 	world_grid.chunk_dirtied.connect(func(_coord: Vector2i, _flags: int) -> void:
@@ -295,9 +313,11 @@ func _ready() -> void:
 	mouse_agent = mice[0] if not mice.is_empty() else null
 	colony_view.configure(colony_simulation, _logical_cell_size)
 	var development_view := DevelopmentViewScript.new()
+	_development_view = development_view
 	get_node("UI/Root").add_child(development_view)
 	development_view.configure(colony_simulation, home_progress)
 	development_view.collection_requested.connect(_toggle_collection_book)
+	development_view.guide_requested.connect(_toggle_resource_guide)
 	development_view.focus_requested.connect(func(cell: Vector2i) -> void: world_camera.focus_cell(cell, _logical_cell_size))
 	_collection_view = CollectionViewScript.new()
 	get_node("UI/Root").add_child(_collection_view)
@@ -306,6 +326,15 @@ func _ready() -> void:
 	_help_view = ControlsViewScript.new()
 	get_node("UI/Root").add_child(_help_view)
 	_help_view.close_requested.connect(_toggle_help)
+	_help_view.guide_requested.connect(func() -> void:
+		_toggle_help()
+		_toggle_resource_guide()
+	)
+	_resource_guide = ResourceGuideViewScript.new()
+	get_node("UI/Root").add_child(_resource_guide)
+	_resource_guide.close_requested.connect(_toggle_resource_guide)
+	_hover_view = WorldHoverViewScript.new()
+	get_node("UI/Root").add_child(_hover_view)
 	_build_player_toolbar()
 	_time_controls = TimeControlsViewScript.new()
 	get_node("UI/Root").add_child(_time_controls)
@@ -322,6 +351,7 @@ func _ready() -> void:
 	get_node("UI/Root").add_child(_modal_backdrop)
 	get_node("UI/Root").move_child(_collection_view, -1)
 	get_node("UI/Root").move_child(_help_view, -1)
+	get_node("UI/Root").move_child(_resource_guide, -1)
 	zone_overlay_view.configure(colony_simulation.get_zone_system(), _logical_cell_size)
 	var zone_system = colony_simulation.get_zone_system()
 	zone_system.setup_state_changed.connect(_on_zone_setup_state_changed)
@@ -417,6 +447,7 @@ func _process(delta: float) -> void:
 		ticks += 1
 	_feedback_seconds_remaining = maxf(0.0, _feedback_seconds_remaining - delta)
 	_refresh_hovered_cell()
+	_update_hover_tip(delta)
 	_update_cursor()
 	_update_hud()
 	_update_inspector()
@@ -595,6 +626,7 @@ func _slow_poll() -> void:
 		tutorial_label.text = Localization.text(_tutorial.current_text_key())
 	_update_objective()
 	_update_home_progress()
+	_refresh_root_teaching()
 	get_node("UI/Root/TutorialPanel").visible = not chapter_model.campaign_complete and _tutorial.current_id() != "promise"
 	_poll_notifications()
 	notifications_view.refresh(_now_seconds)
@@ -819,6 +851,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var code: int = (event as InputEventKey).keycode
+		if code == KEY_I or (code == KEY_ESCAPE and _guide_open):
+			_toggle_resource_guide()
+			viewport.set_input_as_handled()
+			return
 		if code == KEY_H or (code == KEY_ESCAPE and _help_open):
 			_toggle_help()
 			viewport.set_input_as_handled()
@@ -827,7 +863,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_toggle_collection_book()
 			viewport.set_input_as_handled()
 			return
-	if _book_open or _help_open:
+	if _book_open or _help_open or _guide_open:
 		viewport.set_input_as_handled()
 		return
 	if _start_view != null and _start_view.visible:
@@ -976,7 +1012,10 @@ func _set_tool(tool: int) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_quit_session()
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_MOUSE_EXIT:
+		_has_pointer_event = false
+		if _hover_view != null:
+			_hover_view.visible = false
 		_end_paint()
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST and _telemetry != null:
 		# Flush the session snapshot on close so a playtest that never
@@ -1145,6 +1184,11 @@ func _update_cursor() -> void:
 	if not world_grid.is_in_bounds(cell_coord):
 		dig_cursor_view.set_cursor(cell_coord, false, false, false)
 		return
+	if _current_tool == Tool.DIG and _paint_action == PaintAction.NONE and _hover_info != null:
+		var info: Dictionary = _hover_info.inspect(cell_coord, Localization.current())
+		if str(info.get("kind", "")) in ["resource", "root"]:
+			dig_cursor_view.set_cursor(cell_coord, false, false, false)
+			return
 	var cancel_mode := _paint_action == PaintAction.CANCEL
 	if _current_tool == Tool.SEAL:
 		var valid: bool = seal_system.has_request(cell_coord) if cancel_mode else seal_system.inspect_request(cell_coord) == "OK"
@@ -1229,6 +1273,9 @@ func _update_hud() -> void:
 
 
 func _player_inspector_text(cell) -> String:
+	var info: Dictionary = _hover_info.inspect(_selected_cell, Localization.current()) if _hover_info != null else {}
+	if not info.is_empty() and str(info.kind) in ["resource", "root", "clue", "root_clue", "unknown"]:
+		return str(info.title) + "\n" + str(info.body) + "\n" + str(info.action)
 	var lines: Array[String] = []
 	if cell.is_exterior():
 		return tr("hud.surface")
@@ -1377,7 +1424,12 @@ func _on_root_feature_reacted(_feature_id: int, reaction: Dictionary) -> void:
 	var feature = worldgen_result.feature_registry.get_feature(_feature_id)
 	if feature != null:
 		anchor = feature.anchor
-	_push_notification("discovery_root", tr("notify.root_found") % produced, anchor, 25.0)
+	var notice := tr("notify.root_found") % produced
+	if feature != null and not bool(feature.metadata.get("food_opportunity", false)):
+		notice = tr("notify.root_no_food")
+	elif feature != null and int(feature.metadata.get("food_reserve_units", 0)) <= 0:
+		notice = tr("notify.root_depleted") % produced
+	_push_notification("discovery_root", notice, anchor, 25.0)
 	_last_feedback = tr("feedback.root_exposed") % produced
 	_feedback_seconds_remaining = 5.0
 
@@ -1630,7 +1682,7 @@ func _toggle_settings() -> void:
 func _mouse_cell() -> Vector2i:
 	if _qa_inspector_cell.x >= 0:
 		return _qa_inspector_cell
-	return world_view.local_position_to_cell(world_view.get_local_mouse_position())
+	return _viewport_position_to_cell(_pointer_position) if _has_pointer_event else world_view.local_position_to_cell(world_view.get_local_mouse_position())
 
 
 func set_qa_inspector_cell(cell: Vector2i) -> bool:
@@ -2275,18 +2327,19 @@ func _on_discovery(event: Dictionary) -> void:
 
 
 func _toggle_collection_book() -> void:
-	if _collection_view == null or _settings_open or _help_open:
+	if _collection_view == null or _settings_open or _help_open or _guide_open:
 		return
 	_book_open = not _book_open
 	if _book_open:
 		_pause_before_book = _paused
 		_paused = true
 		_collection_view.refresh()
+		_present_modal(_collection_view)
 	else:
 		_paused = _pause_before_book
 	_collection_view.visible = _book_open
 	if _modal_backdrop != null:
-		_modal_backdrop.visible = _book_open or _help_open
+		_modal_backdrop.visible = _book_open or _help_open or _guide_open
 	_sync_camera_input()
 
 
@@ -2341,7 +2394,7 @@ func _next_v2_goal() -> String:
 		return "暖巢已安頓，繼續探索與收藏吧。" if zh else "Our warm home is ready. Keep exploring and collecting."
 	if chapter_model.current_chapter == 1:
 		if int(context.discoveries_found) == 0:
-			return "追尋土壁的小芽、纖維與閃光。" if zh else "Follow sprouts, fibres or glimmers in the wall."
+			return "選挖掘（1），左鍵拖曳洞壁，朝小芽或纖維挖近。" if zh else "Select Dig (1), then drag the wall towards a sprout or fibres."
 		if not bool(context.sleeping_ready):
 			return "劃出乾燥睡眠區（2）。" if zh else "Make a dry sleeping area (2)."
 		if not bool(context.storage_ready):
@@ -2413,17 +2466,18 @@ func _on_food_produced(_feature_id: int, _cell: Vector2i, count: int) -> void:
 
 
 func _toggle_help() -> void:
-	if _settings_open or _book_open or _help_view == null:
+	if _settings_open or _book_open or _guide_open or _help_view == null:
 		return
 	_help_open = not _help_open
 	if _help_open:
 		_pause_before_help = _paused
 		_paused = true
 		_help_view.refresh()
+		_present_modal(_help_view)
 	else:
 		_paused = _pause_before_help
 	_help_view.visible = _help_open
-	_modal_backdrop.visible = _book_open or _help_open
+	_modal_backdrop.visible = _book_open or _help_open or _guide_open
 	_sync_camera_input()
 
 
@@ -2565,4 +2619,53 @@ func _verify_playtest() -> void:
 
 
 func _sync_camera_input() -> void:
-	world_camera.input_blocked = _settings_open or _book_open or _help_open or (_start_view != null and _start_view.visible)
+	world_camera.input_blocked = _settings_open or _book_open or _help_open or _guide_open or (_start_view != null and _start_view.visible)
+
+
+func _toggle_resource_guide() -> void:
+	if _resource_guide == null or _settings_open or _help_open or _book_open:
+		return
+	_guide_open = not _guide_open
+	if _guide_open:
+		_pause_before_guide = _paused
+		_paused = true
+		_resource_guide.refresh()
+		_present_modal(_resource_guide)
+		_hover_view.visible = false
+	else:
+		_paused = _pause_before_guide
+	_resource_guide.visible = _guide_open
+	_modal_backdrop.visible = _guide_open
+	_sync_camera_input()
+
+
+func _update_hover_tip(delta: float) -> void:
+	if _hover_view == null or _hover_info == null:
+		return
+	var on_ui := get_viewport().gui_get_hovered_control() != null
+	var allowed: bool = _has_pointer_event and get_viewport().get_visible_rect().has_point(_pointer_position) and not on_ui and not _help_open and not _guide_open and not _settings_open and not _book_open and not (_start_view != null and _start_view.visible)
+	var cell := _mouse_cell()
+	var info: Dictionary = _hover_info.inspect(cell, Localization.current()) if allowed else {}
+	_hover_view.update_hover(info, cell, get_node("UI/Root").get_global_transform_with_canvas().affine_inverse() * _pointer_position, delta, allowed)
+
+
+func _refresh_root_teaching() -> void:
+	if _development_view == null:
+		return
+	_development_view.roots_known = false
+	for feature in worldgen_result.feature_registry.get_features("root_cluster"):
+		if not feature.hidden:
+			_development_view.roots_known = true
+			return
+
+
+func _present_modal(view: Control) -> void:
+	var root = get_node("UI/Root")
+	root.move_child(_modal_backdrop, -1)
+	root.move_child(view, -1)
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion or event is InputEventMouseButton:
+		_pointer_position = event.position
+		_has_pointer_event = true

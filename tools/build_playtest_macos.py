@@ -36,6 +36,7 @@ def main():
     parser.add_argument("--template", required=True, type=Path, help="macos.zip from official 4.7-stable export templates")
     parser.add_argument("--output", type=Path, default=ROOT / "exports/macos/DigDown.app")
     parser.add_argument("--preview-with-known-audio-issue", action="store_true", help="Produce a local preview even if the isolated #17 native audio exit error recurs; all other failures still block")
+    parser.add_argument("--report", type=Path, default=ROOT / "art/qa/reports/phase21_build.json")
     args = parser.parse_args()
     if not args.godot or not args.template.is_file():
         parser.error("Provide a Godot 4.7 executable and matching macos.zip")
@@ -70,7 +71,8 @@ def main():
         "signing": "local ad-hoc; not notarized or published",
         "excluded": ["tests", "tools", "docs", "art/qa"],
     }
-    (ROOT / "art/qa/reports/phase21_build.json").write_text(json.dumps(report, indent=2) + "\n")
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    args.report.write_text(json.dumps(report, indent=2) + "\n")
     print(("PLAYTEST_PREVIEW_WITH_OPEN_AUDIO_ISSUE " if "resources still in use at exit" in verification else "PLAYTEST_BUILD_PASS ") + str(output))
     for line in evidence:
         print(line)

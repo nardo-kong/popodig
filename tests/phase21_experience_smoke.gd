@@ -27,7 +27,7 @@ func _run() -> void:
 			development = child
 	development._process(0.5)
 	await create_timer(0.15).timeout
-	if development._show_workshops or is_instance_valid(development._upgrade) or development.size.y > 200:
+	if development._show_workshops or is_instance_valid(development._upgrade) or development.size.y > 310:
 		_fail("Fresh game overwhelms the player with advanced crafting")
 		return
 	if scene._toolbar_buttons.size() != 7:

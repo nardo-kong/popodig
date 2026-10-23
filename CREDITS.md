@@ -3,7 +3,7 @@
 Roadmap Phase 16/17 "credits/legal/license audit for all assets".
 
 ## Art
-- All production art (`assets/art/production/`) is **procedurally generated or
+- Terrain and character art (`assets/art/production/terrain/`, `entities/`) is **procedurally generated or
   code-drawn** by this repository:
   - terrain atlas normalized by `tools/art/build_terrain_atlas.py` from the
     pass-01 candidate set in `art/candidates/pass_01/`;
@@ -11,7 +11,12 @@ Roadmap Phase 16/17 "credits/legal/license audit for all assets".
   - terrain edges, root networks, water, stability props, zone dressing,
     mouse state animation, and landmark relics are code-drawn presentation
     (Phase 11/15 procedural-production decision).
-- No third-party, scraped, or licensed image assets exist in the repository.
+- Resource pictures (`assets/art/production/resources/`, six transparent PNGs)
+  were generated with the built-in imagegen tool on 2026-10-23 for this project.
+  Full prompts and generated source filenames: `art/production/resource_imagegen_01.json`.
+  Original PNGs are preserved; Godot imports at max 128px with mipmaps and shared
+  texture regions for world piles, carrying and tutorial pictures.
+- No scraped or externally licensed stock image assets are used.
 
 - The local desktop icon (`assets/app_icon.svg`) is an original code-drawn vector in this repository.
 

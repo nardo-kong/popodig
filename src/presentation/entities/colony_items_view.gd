@@ -37,25 +37,11 @@ func _draw() -> void:
 
 func _draw_pile(pile) -> void:
 	var center := (Vector2(pile.cell) + Vector2(0.5, 0.5)) * cell_size
-	var is_food := String(pile.item_type) == "FOOD"
-	var primary := Color("d76d52") if is_food else Color("d1b26f")
-	if pile.item_type == "STONE":
-		primary = Color("aaa49d")
-	elif pile.item_type == "ORE":
-		primary = Color("c18b66")
-	elif pile.item_type == "METAL":
-		primary = Color("c4d0d2")
-	var outline := Color("4a352b")
-	var visible_count: int = mini(3, int(pile.count))
-	for index: int in range(visible_count):
-		var offset := Vector2((index - 1) * 4.0, -1.0 - (index % 2) * 3.0)
-		if is_food:
-			draw_circle(center + offset, 2.8, outline)
-			draw_circle(center + offset, 2.0, primary)
-		else:
-			var rect := Rect2(center + offset - Vector2(2.5, 2.0), Vector2(5.0, 4.0))
-			draw_rect(rect, primary, true)
-			draw_rect(rect, outline, false, 1.0)
+	var id := String(pile.item_type)
+	var icon := ResourceVisuals.texture(id)
+	if icon != null:
+		draw_texture_rect(icon, ResourceVisuals.fitted_rect(id, center, 18.0), false)
+
 
 
 func _refresh_signature() -> void:

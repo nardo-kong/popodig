@@ -2,13 +2,13 @@
 
 > **2.0 active (2026-10-21):** Start with [2.0 design](docs/design/DIG_DOWN_2_0_DESIGN.md) and [issue execution plan](docs/production/DIG_DOWN_2_0_EXECUTION.md). GitHub [#1](https://github.com/nardo-kong/popodig/issues/1) tracks P0/P1/P2 implementation. Earlier status below describes the 1.0 baseline; human gameplay gates remain separate.
 
-## 2.0 current engineering status (2026-10-22)
+## 2.0 current engineering status (2026-10-23)
 
 Discovery rewards and frontier cues, five physical resources, autonomous workshops,
 shared tools, depth progression, 18 collectibles, v7 generation, three chapters,
 and persistent home milestones are implemented on `codex/dig-down-2` / [PR #16](https://github.com/nardo-kong/popodig/pull/16).
 
-Current RC: **1418/1418 assertions**, four gameplay flows, v6 migration and rollback,
+Previous broad RC (2026-10-22): **1418/1418 assertions**, four gameplay flows, v6 migration and rollback,
 seven fresh replay hashes. This batch's authoritative v7 matrix is **288/288**.
 The automated full campaign reaches a supplied five-mouse home and survives reload.
 Actual player appeal/clarity gates remain open in #3/#4/#15; automatic completion
@@ -21,6 +21,13 @@ progressive crafting information, workshop progress/deficits, help, pause and
 The local macOS preview has an open native audio issue (#17); it is not a
 release approval. See [experience report](docs/production/reports/2_0_BATCH_05_EXPERIENCE.md)
 and [preview/build guide](docs/qa/2_0_MACOS_PREVIEW.md).
+
+The 0.2.1 playtest addresses actual owner feedback: six recognizable resource
+pictures, pointer-local name/use/action cards, a shared picture guide (I),
+and visible initial food/material teaching. Wall clues remain distinct from
+usable supplies; dark terrain cannot leak hidden resources through hover.
+Current affected/core selection: **227/227**, four rendered language/size flows.
+See [readability report](docs/production/reports/2_0_BATCH_06_READABILITY.md).
 
 For small changes: `python3 tools/validate_2_0.py --suite=discovery_flow,save_roundtrip`.
 For a completed batch: `python3 tools/validate_2_0.py --rc`.

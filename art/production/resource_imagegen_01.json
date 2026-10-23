@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-23",
+  "method": "built-in imagegen",
+  "transparent_background": true,
+  "files": {
+    "food_berries_01.png": "exec-efbf86c9-3924-4113-b432-06951c5307d5.png",
+    "building_bundle_01.png": "exec-481caf7f-51bb-4b88-9c88-f828429e978b.png",
+    "stone_pile_01.png": "exec-55e00ca8-3af8-4c0f-ae78-4675e2517053.png",
+    "copper_ore_01.png": "exec-925f08ad-de9e-41ac-90a6-a03cbc989838.png",
+    "metal_ingots_01.png": "exec-39e0f7ed-c564-40ca-87de-9a4e39b98d79.png",
+    "root_cluster_01.png": "exec-23ea5576-a576-49eb-ad2b-8ff8f18ca966.png"
+  },
+  "prompts": [
+    {
+      "name": "food",
+      "prompt": "Use case: illustration. Asset type: a single production sprite for a cozy 2D underground mouse colony game, used at 18-24 screen pixels and at 64px in teaching cards. Make ONE isolated item group on a genuinely transparent background. Style: clean pixel-inspired hand-painted game art, broad stepped shapes, sparse large highlight patches, restrained warm palette, dark warm contour, extremely clear silhouette, no tiny texture/noise, no realism. Side / slight three-quarter cutaway view, soft upper-left lighting, flat object with slight depth. Center the object, fill about 78% of the square canvas, comfortable transparent padding on every side. No ground, no tile, no scene, no frame, no text, no UI, no numbers, no symbols, no glow or cast shadow outside the object. It must read at tiny size; use 3-5 broad color values and purposeful shape breaks. Subject: A small pile of three ripe red-orange berries with a single distinct sage-green leaf and two pale wheat seeds. This icon means edible FOOD. Red round berries form the dominant silhouette; avoid flowers or loose confetti."
+    },
+    {
+      "name": "building",
+      "prompt": "Use case: illustration. Asset type: a single production sprite for a cozy 2D underground mouse colony game, used at 18-24 screen pixels and at 64px in teaching cards. Make ONE isolated item group on a genuinely transparent background. Style: clean pixel-inspired hand-painted game art, broad stepped shapes, sparse large highlight patches, restrained warm palette, dark warm contour, extremely clear silhouette, no tiny texture/noise, no realism. Side / slight three-quarter cutaway view, soft upper-left lighting, flat object with slight depth. Center the object, fill about 78% of the square canvas, comfortable transparent padding on every side. No ground, no tile, no scene, no frame, no text, no UI, no numbers, no symbols, no glow or cast shadow outside the object. It must read at tiny size; use 3-5 broad color values and purposeful shape breaks. Subject: A compact horizontal bundle of three short tan twigs and soft golden dry grass fibres, bound together with a single darker plant-fibre tie. This icon means usable NEST BUILDING MATERIAL. Clear elongated twig ends and a few curved straw tips, no green leaves, no berries, no rock."
+    },
+    {
+      "name": "stone",
+      "prompt": "Use case: illustration. Asset type: a single production sprite for a cozy 2D underground mouse colony game, used at 18-24 screen pixels and at 64px in teaching cards. Make ONE isolated item group on a genuinely transparent background. Style: clean pixel-inspired hand-painted game art, broad stepped shapes, sparse large highlight patches, restrained warm palette, dark warm contour, extremely clear silhouette, no tiny texture/noise, no realism. Side / slight three-quarter cutaway view, soft upper-left lighting, flat object with slight depth. Center the object, fill about 78% of the square canvas, comfortable transparent padding on every side. No ground, no tile, no scene, no frame, no text, no UI, no numbers, no symbols, no glow or cast shadow outside the object. It must read at tiny size; use 3-5 broad color values and purposeful shape breaks. Subject: A compact group of three chunky smooth cool slate-grey stones, one large stone behind two small stones. This icon means raw STONE. Recognizable irregular rock outlines, broad pale grey facets, no metal, no crystals, no copper or orange spots."
+    },
+    {
+      "name": "ore",
+      "prompt": "Use case: illustration. Asset type: a single production sprite for a cozy 2D underground mouse colony game, used at 18-24 screen pixels and at 64px in teaching cards. Make ONE isolated item group on a genuinely transparent background. Style: clean pixel-inspired hand-painted game art, broad stepped shapes, sparse large highlight patches, restrained warm palette, dark warm contour, extremely clear silhouette, no tiny texture/noise, no realism. Side / slight three-quarter cutaway view, soft upper-left lighting, flat object with slight depth. Center the object, fill about 78% of the square canvas, comfortable transparent padding on every side. No ground, no tile, no scene, no frame, no text, no UI, no numbers, no symbols, no glow or cast shadow outside the object. It must read at tiny size; use 3-5 broad color values and purposeful shape breaks. Subject: A single chunky charcoal-grey rock with two large unmistakable warm orange-copper veins crossing its face. This icon means unprocessed COPPER ORE. Clear rough rock silhouette, dark grey base and bold copper streaks, no tiny sparkling specks, no metal ingots."
+    },
+    {
+      "name": "metal",
+      "prompt": "Use case: illustration. Asset type: a single production sprite for a cozy 2D underground mouse colony game, used at 18-24 screen pixels and at 64px in teaching cards. Make ONE isolated item group on a genuinely transparent background. Style: clean pixel-inspired hand-painted game art, broad stepped shapes, sparse large highlight patches, restrained warm palette, dark warm contour, extremely clear silhouette, no tiny texture/noise, no realism. Side / slight three-quarter cutaway view, soft upper-left lighting, flat object with slight depth. Center the object, fill about 78% of the square canvas, comfortable transparent padding on every side. No ground, no tile, no scene, no frame, no text, no UI, no numbers, no symbols, no glow or cast shadow outside the object. It must read at tiny size; use 3-5 broad color values and purposeful shape breaks. Subject: Two short neat refined copper-bronze ingots stacked with slight offset, each with a broad pale copper top face, darker front edge and bevelled ends. This icon means processed METAL. Low horizontal trapezoidal blocks, no rocks, no wood grain."
+    },
+    {
+      "name": "root",
+      "prompt": "Use case: illustration. Asset type: a single production sprite for a cozy 2D underground mouse colony game, used at 18-24 screen pixels and at 64px in teaching cards. Make ONE isolated item group on a genuinely transparent background. Style: clean pixel-inspired hand-painted game art, broad stepped shapes, sparse large highlight patches, restrained warm palette, dark warm contour, extremely clear silhouette, no tiny texture/noise, no realism. Side / slight three-quarter cutaway view, soft upper-left lighting, flat object with slight depth. Center the object, fill about 78% of the square canvas, comfortable transparent padding on every side. No ground, no tile, no scene, no frame, no text, no UI, no numbers, no symbols, no glow or cast shadow outside the object. It must read at tiny size; use 3-5 broad color values and purposeful shape breaks. Subject: A living tree root cluster: one thick warm honey-brown root entering from above and splitting into three gracefully tapering curved roots with a few fine side rootlets. This icon means TREE ROOTS, not harvestable twig bundles. Dominant branching Y silhouette, a couple of pale tan root nodules, organic irregular growth. No leaves, no green sprout, no soil block, no wood-cut ends."
+    }
+  ]
+}

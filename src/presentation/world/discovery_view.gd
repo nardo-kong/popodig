@@ -35,29 +35,8 @@ func _draw() -> void:
 			continue
 		var definition: Dictionary = Discovery.definition_for(str(feature.metadata.get("definition_id", "")))
 		var kind: String = str(definition.get("kind", "material"))
-		var tint := Color("e8c98a")
-		if kind == "food":
-			tint = Color("b7d29b")
-		elif kind in ["stone", "ore"]:
-			tint = Color("c4b3a5") if kind == "stone" else Color("d59a6b")
 		var center := (Vector2(cell) + Vector2(0.5, 0.5)) * _cell_size
-		# Local category silhouettes remain visible without revealing object geometry.
-		tint.a = 0.25 + band * 0.2
-		if kind == "collectible":
-			draw_line(center + Vector2(0, -4), center + Vector2(0, 4), tint, 1.5)
-			draw_line(center + Vector2(-4, 0), center + Vector2(4, 0), tint, 1.5)
-			draw_circle(center, 1.5, tint)
-		elif kind == "food":
-			draw_line(center + Vector2(0, 3), center + Vector2(0, -1), tint, 1.5)
-			draw_circle(center + Vector2(-2, -2), 2.0, tint)
-			draw_circle(center + Vector2(2, -3), 2.0, tint)
-		elif kind == "material":
-			for x: int in [-3, 0, 3]:
-				draw_line(center + Vector2(x, 3), center + Vector2(x + 1, -3), tint, 1.2)
-		elif kind == "ore":
-			draw_polyline(PackedVector2Array([center + Vector2(0, -4), center + Vector2(4, 0), center + Vector2(0, 4), center + Vector2(-4, 0), center + Vector2(0, -4)]), tint, 1.5)
-		else:
-			draw_arc(center, 3.5, 0.0, TAU, 6, tint, 1.5)
+		DiscoveryGlyphs.draw_mark(self, kind, center, 1.0, 0.25 + band * 0.2)
 
 
 func signal_band(cell: Vector2i) -> int:

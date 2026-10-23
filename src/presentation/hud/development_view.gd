@@ -2,6 +2,7 @@ class_name DevelopmentView
 extends PanelContainer
 
 signal collection_requested()
+signal guide_requested()
 signal focus_requested(cell: Vector2i)
 
 const ZoneScript = preload("res://src/domain/zones/zone.gd")
@@ -21,6 +22,7 @@ var _scroll: ScrollContainer
 var _upgrade: Button
 var _upgrade_hint: Label
 var _show_workshops := false
+var roots_known := false
 
 
 func configure(simulation, progress = null) -> void:
@@ -99,7 +101,12 @@ func _rebuild() -> void:
 			)
 			_upgrade_hint = _label("")
 	else:
-		_label(_text("先追尋土壁上的小芽與纖維，把發現帶回家。", "Follow sprouts and fibres in the wall. Bring a little discovery home."))
+		_primer_row("FOOD", _text("食物｜鼠鼠會自己取食", "Food · mice take it when hungry"))
+		_primer_row("GENERAL_MATERIAL", _text("建材｜用於佈置與建造", "Building material · sets up our home"))
+		_label(_text("土壁的小芽、細纖維只是線索；選 1，左鍵拖曳挖近看看。", "Sprouts and fibres in a wall are clues. Select 1 and drag soil to dig closer."))
+	if roots_known:
+		_primer_row("ROOT", _text("樹根｜停留檢查可否採食物（4）", "Roots · hover to check for food (4)"))
+	_button(_text("I 看懂物資與線索", "I Learn the icons and clues"), func() -> void: guide_requested.emit())
 	if home != null and not home.unlocked.is_empty():
 		_label(_text("家園回憶 ", "Home memories ") + "%d / 6" % home.unlocked.size())
 	if colony.get_collection_book().unique_count() > 0 or capability.level > 0:
@@ -181,7 +188,7 @@ func _crafting_visible() -> bool:
 
 
 func _content_signature() -> String:
-	var value := str(colony.get_capabilities().level) + TranslationServer.get_locale() + str(_crafting_visible()) + str(colony.get_collection_book().unique_count() > 0)
+	var value := str(roots_known) + str(colony.get_capabilities().level) + TranslationServer.get_locale() + str(_crafting_visible()) + str(colony.get_collection_book().unique_count() > 0)
 	if home != null:
 		value += str(home.unlocked.size())
 	for zone in colony.get_zone_system().get_zones_by_type(ZoneScript.Type.PRODUCTION):
@@ -210,3 +217,21 @@ func _refresh_upgrade() -> void:
 		var requirements: Dictionary = colony.get_capabilities().requirements()
 		_upgrade.disabled = not bool(requirements.ready)
 		_upgrade_hint.text = _text("材料已備好，鼠群可以學新本領！", "Ready for the whole colony to learn new tools!") if requirements.ready else _text("還需要：", "Still need: ") + _cost_text(requirements.missing)
+
+
+func _primer_row(id: String, text: String) -> void:
+	var row := HBoxContainer.new()
+	_rows.add_child(row)
+	var image := TextureRect.new()
+	image.texture = ResourceVisuals.texture(id)
+	image.custom_minimum_size = Vector2(32, 32)
+	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(image)
+	var label := Label.new()
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.add_theme_font_size_override("font_size", 14)
+	row.add_child(label)

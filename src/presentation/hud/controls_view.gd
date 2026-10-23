@@ -1,6 +1,7 @@
 extends PanelContainer
 
 signal close_requested()
+signal guide_requested()
 
 
 func _ready() -> void:
@@ -41,6 +42,10 @@ func refresh() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	rows.add_child(scroll)
 	scroll.add_child(body)
+	var guide := Button.new()
+	guide.text = "I 圖文對照：食物、材料、樹根與土壁線索" if zh else "I Picture guide: food, materials, roots and clues"
+	guide.pressed.connect(func() -> void: guide_requested.emit())
+	rows.add_child(guide)
 	var button := Button.new()
 	button.text = "繼續探索（H / Esc）" if zh else "Keep exploring (H / Esc)"
 	button.pressed.connect(func() -> void: close_requested.emit())
