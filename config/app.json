@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "game_version": "0.2.1-playtest",
+  "game_version": "0.2.2-playtest",
   "save_schema_version": 3,
   "worldgen_version": 7,
   "simulation_tick_hz": 5,

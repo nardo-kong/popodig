@@ -11,9 +11,12 @@ Roadmap Phase 16/17 "credits/legal/license audit for all assets".
   - terrain edges, root networks, water, stability props, zone dressing,
     mouse state animation, and landmark relics are code-drawn presentation
     (Phase 11/15 procedural-production decision).
-- Resource pictures (`assets/art/production/resources/`, six transparent PNGs)
-  were generated with the built-in imagegen tool on 2026-10-23 for this project.
-  Full prompts and generated source filenames: `art/production/resource_imagegen_01.json`.
+- Resource pictures (`assets/art/production/resources/`, six selected `_02` transparent PNGs)
+  were generated with the built-in imagegen tool on 2026-10-24 for this project,
+  using the original mouse and owner-provided early Soft Pixel reference for style.
+  Full prompts and generated source filenames: `art/production/resource_imagegen_02.json`.
+  The rejected 2026-10-23 `_01` revision and its prompt record remain for history;
+  it is no longer selected in `ResourceVisuals`.
   Original PNGs are preserved; Godot imports at max 128px with mipmaps and shared
   texture regions for world piles, carrying and tutorial pictures.
 - No scraped or externally licensed stock image assets are used.

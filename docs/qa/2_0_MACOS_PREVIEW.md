@@ -1,11 +1,14 @@
 # 2.0 macOS 本地試玩
 
-版本 0.2.1-playtest，Godot 4.7 stable universal（Apple Silicon／Intel）。
+版本 0.2.2-playtest，Godot 4.7 stable universal（Apple Silicon／Intel）。
 這是本地 preview，尚有 #17 原生音訊輸出停滯／關閉資源保留，未做公證或公開發行。
+
+0.2.2 將六種資源重繪為接近原始鼠鼠及早期 Soft Pixel 的像素質感；
+圖像教學和滑鼠提示使用同一份素材。
 
 ## 開始
 
-正常關閉舊版後，打開 `exports/macos/DigDown-0.2.1.app`。沿用既有進度，不必重開新家園。
+正常關閉舊版後，打開 `exports/macos/DigDown-0.2.2.app`。沿用既有進度，不必重開新家園。
 選擇語言，開始新家園或繼續最新保存。
 新家園會先把快速／自動保存複製到 saves/archive，再建立新進度；不是覆寫舊世界。
 正常關閉會自動保存；保存失敗會留在遊戲並提示。強制結束程序仍可能丟失最近操作。
@@ -31,13 +34,13 @@
 使用官方 Godot 4.7 stable 和同版本 export templates 內的 macos.zip：
 
 ```sh
-python3 tools/build_playtest_macos.py --godot /path/to/Godot --template /path/to/macos.zip --output exports/macos/DigDown-0.2.1.app --report art/qa/reports/phase22_build.json
+python3 tools/build_playtest_macos.py --godot /path/to/Godot --template /path/to/macos.zip --output exports/macos/DigDown-0.2.2.app --report art/qa/reports/phase23_build.json
 ```
 
 預設嚴格拒絕任何 ERROR。只有交付已知限制的本地 preview 時，才明確加上
 `--preview-with-known-audio-issue`；這只允許已隔離的 #17「resources still in use at exit」
 訊息，其他腳本、解析、匯出及操作失敗仍會阻擋。報告必須標記音訊未通過。
-沒有關閉聲音作為修復。`phase22_build.json` 保存模板雜湊、版本及 release 驗證結果。
+沒有關閉聲音作為修復。`phase23_build.json` 保存模板雜湊、版本及 release 驗證結果。
 官方完整模板包 SHA256：`9714459dc071907c0f3d5f17d608faf69e7cda21331fc5d39c4503ffa4e99eec`；
 其中 macos.zip SHA256：`b9b036261c18dac2c6ade52ffb592e3842cb9b76d8c8d0f55bc7b99ac4dfeae0`。
 
@@ -46,5 +49,8 @@ python3 tools/build_playtest_macos.py --godot /path/to/Godot --template /path/to
 可加 `--audio-driver Dummy` 做對照，Dummy 結果不代表聽到聲音。
 音訊問題需要目標機實際聆聽及播放／關閉驗證才可關閉。
 
-0.2.1 本輪四組原生介面與實際匯出程式均沒有退出錯誤，但沒有修改 #17 的已知根因，
+0.2.1 的四組原生介面與實際匯出程式均沒有退出錯誤，但沒有修改 #17 的已知根因，
 也沒有代替實際聆聽驗收。#17 仍追蹤；不能把一次未重現當作已修復。
+
+本輪素材雙尺寸檢查：`python3 tools/qa/check_phase22_native.py --godot /path/to/Godot --phase 23 --locale zh`。
+實際結果見 `art/qa/reports/phase23_native.json` 及 `phase23_build.json`。

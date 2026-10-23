@@ -2,12 +2,12 @@ class_name ResourceVisuals
 extends RefCounted
 
 const SOURCES := {
-	"FOOD": "res://assets/art/production/resources/food_berries_01.png",
-	"GENERAL_MATERIAL": "res://assets/art/production/resources/building_bundle_01.png",
-	"STONE": "res://assets/art/production/resources/stone_pile_01.png",
-	"ORE": "res://assets/art/production/resources/copper_ore_01.png",
-	"METAL": "res://assets/art/production/resources/metal_ingots_01.png",
-	"ROOT": "res://assets/art/production/resources/root_cluster_01.png",
+	"FOOD": "res://assets/art/production/resources/food_berries_02.png",
+	"GENERAL_MATERIAL": "res://assets/art/production/resources/building_bundle_02.png",
+	"STONE": "res://assets/art/production/resources/stone_pile_02.png",
+	"ORE": "res://assets/art/production/resources/copper_ore_02.png",
+	"METAL": "res://assets/art/production/resources/metal_ingots_02.png",
+	"ROOT": "res://assets/art/production/resources/root_cluster_02.png",
 }
 const PURPOSES := {
 	"FOOD": ["鼠鼠餓了會自己取食，維持日常生活。", "Mice take food themselves when hungry."],

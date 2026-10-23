@@ -1,0 +1,27 @@
+{
+  "created_utc": "2026-10-23T17:26:01.960506+00:00",
+  "mode": "incremental",
+  "checks": [
+    {
+      "check": "import",
+      "passed": true,
+      "exit": 0,
+      "evidence": []
+    },
+    {
+      "check": "units",
+      "passed": true,
+      "exit": 0,
+      "evidence": [
+        "TEST_SUMMARY passed=114 failed=0 total=114"
+      ]
+    }
+  ],
+  "human_playtest": "pending; automated evidence does not establish appeal",
+  "worldgen_matrix": "not rerun; no fresh replay in this art-only incremental batch",
+  "selected_suites": [
+    "resource_readability",
+    "frontier_cues",
+    "save_roundtrip"
+  ]
+}
